@@ -1,0 +1,7 @@
+version: "3.3"
+services:
+  pubsub:
+    image: gcr.io/google.com/cloudsdktool/cloud-sdk:427.0.0-emulators
+    ports:
+      - "8085:8085"
+    command: gcloud beta emulators pubsub start --project=any --host-port=0.0.0.0:8085

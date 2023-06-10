@@ -1,0 +1,135 @@
+version: 2.1
+
+.sbt_cache_key: &sbt_cache_key
+                  deps-v1-{{ checksum "project/build.properties" }}-{{ checksum "build.sbt" }}-{{ checksum "project/plugins.sbt" }}
+
+executors:
+
+  docker:
+    docker:
+      - image: cimg/openjdk:17.0
+    environment:
+      GIT_REVISION: <<pipeline.git.revision>>
+
+  docker-test:
+    docker:
+      - image: cimg/openjdk:17.0
+      - image: gcr.io/google.com/cloudsdktool/cloud-sdk:427.0.0-emulators
+        command: gcloud beta emulators pubsub start --project=any --host-port=0.0.0.0:8085
+    environment:
+      GIT_REVISION: <<pipeline.git.revision>>
+      PUBSUB_EMULATOR_HOST: localhost:8085
+      PUBSUB_EMULATOR_GCP_PROJECT: any
+
+commands:
+
+  store_dependencies:
+    steps:
+      - save_cache:
+          name: Storing dependency cache
+          key: *sbt_cache_key
+          paths:
+            - ~/.ivy2
+            - ~/.sbt
+            - ~/.cache/coursier
+
+  store_build:
+    steps:
+      - save_cache:
+          name: Storing build
+          key: build-{{ .Revision }}
+          paths:
+            - target
+            - zio-pubsub/target
+            - zio-pubsub-grpc/target
+            - zio-pubsub-serde-circe/target
+            - zio-pubsub-serde-vulcan/target
+            - zio-pubsub-testkit/target
+            - zio-pubsub-test/target
+            - project/target
+            - project/project
+
+  restore_build:
+    steps:
+      - restore_cache:
+          name: Restoring build
+          keys:
+            - build-{{ .Revision }}
+
+  restore_dependencies:
+    steps:
+      - restore_cache:
+          name: Restoring dependency cache
+          key: *sbt_cache_key
+
+jobs:
+  add_tag:
+    executor: docker
+    steps:
+      - checkout
+      - add_ssh_keys:
+          fingerprints:
+            - "f3:b1:d0:00:b8:5d:26:30:6a:ec:b9:58:35:4c:34:aa"
+      - run:
+          name: Configure git user
+          command: |
+            git config --add --global user.name "tech"
+            git config --add --global user.email tech@anymindgroup.com
+      - run: scripts/tag.sh
+
+  test:
+    executor: docker-test
+    steps:
+      - checkout
+      - restore_dependencies
+      - restore_build
+      - run:
+          name: Compile and test 
+          command: |
+            [ -f target/test_completed_${GIT_REVISION} ] && echo "test completed" || (sbt +coverage +test +coverageReport +coverageAggregate && touch target/test_completed_${GIT_REVISION})            
+      - store_dependencies
+      - store_build
+      - store_artifacts:
+          path: target/scala-2.13/scoverage-report
+
+      - store_artifacts:
+          path: target/scala-3.3.0/scoverage-report
+
+  publish:
+    executor: docker
+    steps:
+      - checkout
+      - restore_dependencies
+      - restore_build
+      - run:
+          command: sbt +publish
+
+workflows:
+
+  pull_request:
+    jobs:
+      - test:
+          filters:
+            branches:
+              ignore:
+                - master
+
+  integration:
+    jobs:
+      - test:
+          filters:
+            branches:
+              only:
+                - master
+      - add_tag:
+          requires:
+            - test
+
+  release:
+    jobs:
+      - publish:
+          filters:
+            tags:
+              only: /v\d+\.\d+\.\d+/
+            branches:
+              ignore: /.*/
