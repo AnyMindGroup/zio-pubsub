@@ -1,7 +1,8 @@
 package examples.google
 
 import com.anymindgroup.pubsub.google
-import com.anymindgroup.pubsub.google.{PubsubAdmin, PubsubConnectionConfig, Subscriber}
+import com.anymindgroup.pubsub.google.Subscriber.makeStreamingPullSubscription
+import com.anymindgroup.pubsub.google.{PubsubAdmin, PubsubConnectionConfig}
 import com.anymindgroup.pubsub.model.{Encoding, SchemaSettings, Topic}
 import com.anymindgroup.pubsub.pub.PublishMessage
 import com.anymindgroup.pubsub.serde.Serde
@@ -9,14 +10,16 @@ import com.anymindgroup.pubsub.sub.Subscription
 
 import zio.Console.printLine
 import zio.stream.ZStream
-import zio.{RIO, Random, Schedule, Scope, ZIO, ZIOAppArgs, ZIOAppDefault, ZLayer, durationInt}
+import zio.{Random, Schedule, Scope, ZIO, ZIOAppArgs, ZIOAppDefault, ZLayer, durationInt}
 
 object MyPubSubApp extends ZIOAppDefault {
 
+  // run subscriber with publisher stream in the background
   override def run: ZIO[Scope & ZIOAppArgs, Any, Any] = (for {
-    consumeAmount      <- ZIOAppArgs.getArgs.map(_.headOption.flatMap(_.toIntOption).getOrElse(10))
-    subscriptionStream <- makeSubscriptionStream(consumeAmount)
-    _                  <- subscriptionStream.drainFork(samplesPublishStream).runDrain // run publisher in the background
+    consumeAmount <- ZIOAppArgs.getArgs.map(_.headOption.flatMap(_.toIntOption).getOrElse(10))
+    subStream     <- makeSubStream(consumeAmount)
+    _             <- subStream.drainFork(samplesPubStream).runDrain
+    _             <- printLine(s"done consuming $consumeAmount")
   } yield ()).provideSome(pubsubConnection, examplesSetup)
 
   private val exampleTopic = Topic(
@@ -28,7 +31,7 @@ object MyPubSubApp extends ZIOAppDefault {
     serde = Serde.int,
   )
 
-  private val exampleSubscription = Subscription(
+  private val exampleSub = Subscription(
     topicName = exampleTopic.name,
     name = "basic_example",
     filter = None,
@@ -37,24 +40,27 @@ object MyPubSubApp extends ZIOAppDefault {
   )
 
   // creates sample topic and subscription if they don't exist yet
-  private val examplesSetup = ZLayer.fromZIO(PubsubAdmin.setup(List(exampleTopic), List(exampleSubscription)))
+  private val examplesSetup = ZLayer.fromZIO(
+    PubsubAdmin.setup(List(exampleTopic), List(exampleSub))
+  )
 
-  private def makeSubscriptionStream(amount: Int): RIO[PubsubConnectionConfig & Scope, ZStream[Any, Throwable, Unit]] =
+  private def makeSubStream(amount: Int) =
     for {
       connection <- ZIO.service[PubsubConnectionConfig]
-      stream     <- Subscriber.makeStreamingPullSubscription(connection, exampleSubscription.name, Serde.int)
+      stream     <- makeStreamingPullSubscription(connection, exampleSub.name, Serde.int)
     } yield stream.zipWithIndex.mapZIO { case ((message, ackReply), idx) =>
       for {
-        _ <-
-          printLine(
-            s"Received message ${idx + 1} / ${amount} with id ${message.meta.messageId.value} and data ${message.data}"
-          )
+        _ <- printLine(
+               s"Received message ${idx + 1} / ${amount}"
+                 + s" with id ${message.meta.messageId.value}"
+                 + s" and data ${message.data}"
+             )
         _ <- ackReply.ack()
       } yield ()
     }.take(amount.toLong)
 
   // publish random integer in an interval
-  private val samplesPublishStream: ZStream[Scope & PubsubConnectionConfig, Throwable, Unit] = for {
+  private val samplesPubStream = for {
     connection <- ZStream.service[PubsubConnectionConfig]
     publisher <- ZStream.fromZIO(
                    google.Publisher.make(
