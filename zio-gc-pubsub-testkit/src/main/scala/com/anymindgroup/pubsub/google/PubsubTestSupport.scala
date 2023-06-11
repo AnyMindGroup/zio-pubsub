@@ -7,7 +7,7 @@ import com.anymindgroup.pubsub.sub.*
 import com.google.api.gax.rpc.NotFoundException
 import com.google.cloud.pubsub.v1.{Publisher as GPublisher, SubscriptionAdminClient, TopicAdminClient}
 import com.google.protobuf.ByteString
-import com.google.pubsub.v1.{PubsubMessage, ReceivedMessage, Subscription as GSubscription, SubscriptionName, TopicName}
+import com.google.pubsub.v1.{PubsubMessage, Subscription as GSubscription, SubscriptionName, TopicName}
 import vulcan.Codec
 import vulcan.generic.*
 
@@ -138,12 +138,12 @@ object PubsubTestSupport {
   def createSomeSubscriptionRawStream(
     topicName: String,
     enableOrdering: Boolean = false,
-  ): RIO[Scope & PubsubConnectionConfig.Emulator, ZStream[Any, Throwable, ReceivedMessage]] =
+  ): RIO[Scope & PubsubConnectionConfig.Emulator, ZStream[Any, Throwable, ReceivedMessage.Raw]] =
     for {
       connection    <- ZIO.service[PubsubConnectionConfig.Emulator]
       randomSubName <- Gen.alphaNumericChar.runCollectN(10).map(_.mkString)
       stream <- Subscriber
-                  .makeTempUniqueRawSubscriptionStream(
+                  .makeTempRawStreamingPullSubscription(
                     connection = connection,
                     topicName = topicName,
                     subscriptionName = s"test_${randomSubName}",
@@ -151,8 +151,7 @@ object PubsubTestSupport {
                     maxTtl = Duration.Infinity,
                     enableOrdering = enableOrdering,
                   )
-                  .map(_._2)
-    } yield stream.via(Pipeline.autoAckRawPipeline)
+    } yield stream.via(Pipeline.autoAckPipeline)
 
   def findSubscription(
     subscriptionName: String

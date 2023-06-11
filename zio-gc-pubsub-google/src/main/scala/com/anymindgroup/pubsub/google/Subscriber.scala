@@ -1,10 +1,14 @@
 package com.anymindgroup.pubsub.google
 
+import java.time.Instant
+
+import scala.jdk.CollectionConverters.*
+
 import com.anymindgroup.pubsub.model.*
 import com.anymindgroup.pubsub.serde.Deserializer
 import com.anymindgroup.pubsub.sub.*
+import com.google.pubsub.v1.ReceivedMessage as GReceivedMessage
 
-import zio.stream.ZStream
 import zio.{Duration, RIO, Schedule, Scope, ZIO, durationInt}
 
 object Subscriber {
@@ -17,40 +21,37 @@ object Subscriber {
 
   val defaultStreamAckDeadlineSeconds: StreamAckDeadlineSeconds = 60
 
-  def makeSubscriptionStream[R, E](
-    connection: PubsubConnectionConfig,
-    subscriptionName: String,
-    topic: Topic[R, E],
-    streamAckDeadlineSeconds: StreamAckDeadlineSeconds = defaultStreamAckDeadlineSeconds,
-    retrySchedule: Schedule[Any, Throwable, ?] = defaultRetrySchedule,
-  ): RIO[Scope, ZStream[R, Throwable, (ReceivedMessage[E], AckReply)]] =
-    makeSubscriptionStreamWithDeserializer(
-      connection,
-      subscriptionName,
-      topic.serde,
-      streamAckDeadlineSeconds,
-      retrySchedule,
-    )
-
-  def makeSubscriptionStreamWithDeserializer[R, E](
+  def makeStreamingPullSubscription[R, E](
     connection: PubsubConnectionConfig,
     subscriptionName: String,
     des: Deserializer[R, E],
     streamAckDeadlineSeconds: StreamAckDeadlineSeconds = defaultStreamAckDeadlineSeconds,
     retrySchedule: Schedule[Any, Throwable, ?] = defaultRetrySchedule,
-  ): RIO[Scope, ZStream[R, Throwable, (ReceivedMessage[E], AckReply)]] =
-    makeRawStream(connection, subscriptionName, streamAckDeadlineSeconds, retrySchedule).map(
+  ): RIO[Scope, DecodedRStream[R, E]] =
+    makeRawStreamingPullSubscription(connection, subscriptionName, streamAckDeadlineSeconds, retrySchedule).map(
       _.via(Pipeline.deserializerPipeline(des))
     )
 
-  private[pubsub] def makeTempUniqueRawSubscriptionStream(
+  def makeRawStreamingPullSubscription(
+    connection: PubsubConnectionConfig,
+    subscriptionName: String,
+    streamAckDeadlineSeconds: StreamAckDeadlineSeconds = defaultStreamAckDeadlineSeconds,
+    retrySchedule: Schedule[Any, Throwable, ?] = defaultRetrySchedule,
+  ): RIO[Scope, RawStream] =
+    makeGoogleStreamingPullSubscription(connection, subscriptionName, streamAckDeadlineSeconds, retrySchedule).map {
+      _.map { case (gMessage, ackReply) =>
+        (toRawReceivedMessage(gMessage), ackReply)
+      }
+    }
+
+  def makeTempRawStreamingPullSubscription(
     connection: PubsubConnectionConfig,
     topicName: String,
     subscriptionName: String,
     subscriptionFilter: Option[SubscriberFilter],
     maxTtl: Duration,
     enableOrdering: Boolean,
-  ): RIO[Scope, (Subscription, ZStream[Any, Throwable, RawRecord])] = for {
+  ): RIO[Scope, RawStream] = for {
     subscription <- SubscriptionAdmin.createTempSubscription(
                       connection = connection,
                       topicName = topicName,
@@ -59,14 +60,38 @@ object Subscriber {
                       maxTtl = maxTtl,
                       enableOrdering = enableOrdering,
                     )
-    rawStream <- makeRawStream(connection, subscription.name, defaultStreamAckDeadlineSeconds, defaultRetrySchedule)
-  } yield (subscription, rawStream)
+    stream <- makeRawStreamingPullSubscription(
+                connection,
+                subscription.name,
+                defaultStreamAckDeadlineSeconds,
+                defaultRetrySchedule,
+              )
+  } yield stream
 
-  private[pubsub] def makeRawStream(
+  private[pubsub] def toRawReceivedMessage(rm: GReceivedMessage): ReceivedMessage.Raw = {
+    val msg = rm.getMessage
+    val ts  = msg.getPublishTime()
+
+    ReceivedMessage(
+      data = msg.getData.toByteArray(),
+      meta = ReceivedMessage.Metadata(
+        messageId = MessageId(msg.getMessageId()),
+        ackId = AckId(rm.getAckId()),
+        orderingKey = OrderingKey.fromString(msg.getOrderingKey()),
+        publishTime = Instant
+          .ofEpochSecond(ts.getSeconds())
+          .plusNanos(ts.getNanos().toLong),
+        attributes = msg.getAttributesMap.asScala.toMap,
+        deliveryAttempt = rm.getDeliveryAttempt(),
+      ),
+    )
+  }
+
+  private[pubsub] def makeGoogleStreamingPullSubscription(
     connection: PubsubConnectionConfig,
     subscriptionName: String,
     streamAckDeadlineSeconds: StreamAckDeadlineSeconds,
     retrySchedule: Schedule[Any, Throwable, ?],
-  ): RIO[Scope, RawStream] =
+  ): RIO[Scope, GoogleStream] =
     StreamingPullSubscriber.makeRawStream(connection, subscriptionName, streamAckDeadlineSeconds, retrySchedule)
 }

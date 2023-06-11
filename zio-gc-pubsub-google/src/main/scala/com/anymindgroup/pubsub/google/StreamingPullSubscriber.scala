@@ -8,7 +8,12 @@ import scala.jdk.CollectionConverters.*
 import com.anymindgroup.pubsub.sub.*
 import com.google.api.gax.rpc.{BidiStream as GBidiStream, ClientStream}
 import com.google.cloud.pubsub.v1.stub.{GrpcSubscriberStub, SubscriberStubSettings}
-import com.google.pubsub.v1.{ReceivedMessage, StreamingPullRequest, StreamingPullResponse, SubscriptionName}
+import com.google.pubsub.v1.{
+  ReceivedMessage as GReceivedMessage,
+  StreamingPullRequest,
+  StreamingPullResponse,
+  SubscriptionName,
+}
 
 import zio.stream.{ZStream, ZStreamAspect}
 import zio.{Cause, Chunk, Exit, Promise, Queue, RIO, Schedule, Scope, UIO, ZIO}
@@ -34,7 +39,7 @@ private[pubsub] object StreamingPullSubscriber {
 
   private[pubsub] def makeServerStream(
     stream: ServerStream[StreamingPullResponse]
-  ): ZStream[Any, Throwable, ReceivedMessage] =
+  ): ZStream[Any, Throwable, GReceivedMessage] =
     ZStream
       .unfoldChunkZIO(stream.iterator())(it =>
         ZIO
@@ -70,7 +75,7 @@ private[pubsub] object StreamingPullSubscriber {
     initBidiStream: ZStream[Any, Throwable, BidiStream[StreamingPullRequest, StreamingPullResponse]],
     ackQueue: Queue[String],
     retrySchedule: Schedule[Any, Throwable, ?],
-  ): ZStream[Any, Throwable, (ReceivedMessage, AckReply)] = (for {
+  ): ZStream[Any, Throwable, (GReceivedMessage, AckReply)] = (for {
     bidiStream <- initBidiStream
     stream = makeServerStream(bidiStream).map { message =>
                val ackReply = new AckReply {
@@ -142,7 +147,7 @@ private[pubsub] object StreamingPullSubscriber {
     subscriptionName: String,
     streamAckDeadlineSeconds: Int,
     retrySchedule: Schedule[Any, Throwable, ?],
-  ): RIO[Scope, RawStream] = for {
+  ): RIO[Scope, GoogleStream] = for {
     builder       <- settingsFromConfig(connection)
     settings      <- ZIO.attempt(builder.build())
     subscriptionId = SubscriptionName.of(connection.project.name, subscriptionName)

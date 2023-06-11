@@ -1,14 +1,12 @@
 package com.anymindgroup.pubsub.google
 
-import scala.jdk.CollectionConverters.*
-
 import com.anymindgroup.pubsub.google.PubsubTestSupport.*
 import com.anymindgroup.pubsub.model.*
 import com.anymindgroup.pubsub.pub.*
 import com.anymindgroup.pubsub.serde.VulcanSerde
 import com.anymindgroup.pubsub.sub.*
 import com.google.cloud.pubsub.v1.SubscriptionAdminClient
-import com.google.pubsub.v1.{ReceivedMessage, SubscriptionName, TopicName}
+import com.google.pubsub.v1.{SubscriptionName, TopicName}
 
 import zio.test.Assertion.{equalTo, hasSameElements}
 import zio.test.{Spec, ZIOSpecDefault, *}
@@ -77,8 +75,8 @@ object AvroPublisherSpec extends ZIOSpecDefault {
                testConf.publisherConf,
                VulcanSerde.fromAvroCodec(TestEvent.avroCodec, Encoding.Binary),
              )
-        consumedRef <- Ref.make(Vector.empty[ReceivedMessage])
-        rawStream <- Subscriber.makeRawStream(
+        consumedRef <- Ref.make(Vector.empty[ReceivedMessage.Raw])
+        rawStream <- Subscriber.makeRawStreamingPullSubscription(
                        testConf.connection,
                        testConf.subscription.name,
                        Subscriber.defaultStreamAckDeadlineSeconds,
@@ -92,10 +90,10 @@ object AvroPublisherSpec extends ZIOSpecDefault {
           consumed
             .map(
               // filter out attributes added by google
-              _.getMessage.getAttributesMap().asScala.toMap.filterNot(_._1.startsWith("googclient_"))
+              _.meta.attributes.filterNot(_._1.startsWith("googclient_"))
             )
         publishedOrderingKeys = testMessages.map(_.orderingKey)
-        consumedOrderingKeys  = consumed.map(m => OrderingKey.fromString(m.getMessage.getOrderingKey()))
+        consumedOrderingKeys  = consumed.map(_.meta.orderingKey)
       } yield assert(consumedAttr)(hasSameElements(publishedAttrs))
       && assert(publishedOrderingKeys)(hasSameElements(consumedOrderingKeys))
     }) ::
@@ -114,7 +112,7 @@ object AvroPublisherSpec extends ZIOSpecDefault {
                  )
             consumedRef <- Ref.make(Vector.empty[TestEvent])
             stream <- Subscriber
-                        .makeSubscriptionStreamWithDeserializer(
+                        .makeStreamingPullSubscription(
                           testConf.connection,
                           testConf.subscription.name,
                           VulcanSerde.fromAvroCodec(TestEvent.avroCodec, encoding),
