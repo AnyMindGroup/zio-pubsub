@@ -92,6 +92,7 @@ lazy val root =
       zioPubsubSerdeCirce,
       zioPubsubSerdeVulcan,
       zioPubsubTest,
+      examplesGoogle,
     )
     .settings(commonSettings)
     .settings(noPublishSettings)
@@ -176,3 +177,9 @@ lazy val zioPubsubTest =
       (Test / fork)              := true,
       testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
     )
+
+lazy val examplesGoogle = (project in file("examples/google"))
+  .dependsOn(zioPubsubGoogle)
+  .settings(commonSettings)
+  .settings(noPublishSettings)
+  .settings(coverageEnabled := false)

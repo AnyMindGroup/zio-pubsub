@@ -1,26 +1,3 @@
-# ZIO Google Cloud Pub/Sub
-
-[Google Cloud Pub/Sub](https://cloud.google.com/pubsub) client providing stream-based, purely functional API with [ZIO](https://zio.dev) and [ZIO Streams](https://zio.dev/reference/stream).
-
-# Modules
- - `zio-gc-pubsub` Provides shared components/interfaces/models
- - `zio-gc-pubsub-google` Provides subscriber, publisher and admin clients implementations using the [Google Java](https://cloud.google.com/java/docs/reference/google-cloud-pubsub/latest/overview) library
- - `zio-gc-pubsub-serde-circe` Provides Json Serializer/Deserializer using the [circe](https://circe.github.io/circe) codec
- - `zio-gc-pubsub-serde-vulcan` Provides Avro schema Serializer/Deserializer using the [vulcan](https://fd4s.github.io/vulcan) codec
-
-Alternative implementations and codecs may be added later.
-
-## Getting Started
-
-To get started with sbt, add the following line to your build.sbt file to use the implementation with the Google Java library:
-```scala
-libraryDependencies += "com.anymindgroup" %% "zio-gc-pubsub-google" % zioGcPubsubVersion
-```
-
-## Example
-
-Example code that setups a sample topic + subscription and creates a subscription stream with a publisher producing random values in the background (see [examples/google/src/main/scala/MyPubSubApp.scala](examples/google/src/main/scala/MyPubSubApp.scala))
-```scala
 package examples.google
 
 import com.anymindgroup.pubsub.google
@@ -106,19 +83,3 @@ object MyPubSubApp extends ZIOAppDefault {
     PubsubConnectionConfig.Emulator(PubsubConnectionConfig.GcpProject("any"), "localhost:8085")
   )
 }
-```
-
-### Running example code 
-Start Google Pub/Sub emulator with docker:
-```shell
- docker run -p 8085:8085 --rm gcr.io/google.com/cloudsdktool/cloud-sdk:427.0.0-emulators -- gcloud beta emulators pubsub start --project=any --host-port=0.0.0.0:8085
-```
-or with docker-compose unsing provided docker-compose.yaml
-```shell
-docker-compose up
-```
-
-Run example with sbt:
-```shell
-sbt 'examplesGoogle/run 5' # will terminate after the subscriber received 5 messages
-```
