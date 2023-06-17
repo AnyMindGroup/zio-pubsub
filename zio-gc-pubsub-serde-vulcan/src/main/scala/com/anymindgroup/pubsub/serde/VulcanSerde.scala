@@ -1,7 +1,6 @@
 package com.anymindgroup.pubsub.serde
 
 import com.anymindgroup.pubsub.model.Encoding
-import com.anymindgroup.pubsub.serde.Serde
 import com.anymindgroup.pubsub.sub.ReceivedMessage
 import vulcan.Codec
 

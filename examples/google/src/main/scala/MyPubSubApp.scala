@@ -12,12 +12,13 @@ import zio.stream.ZStream
 import zio.{Random, Schedule, Scope, ZIO, ZIOAppArgs, ZIOAppDefault, ZLayer, durationInt}
 
 object MyPubSubApp extends ZIOAppDefault {
+  type Env = Scope & ZIOAppArgs
 
-  override def run: ZIO[Scope & ZIOAppArgs, Any, Any] = (for {
+  override def run: ZIO[Env, Any, Any] = (for {
     consumeAmount <- ZIOAppArgs.getArgs.map(_.headOption.flatMap(_.toLongOption).getOrElse(10L))
     _             <- subStream(consumeAmount).drainFork(pubStream).runDrain
     _             <- printLine(s"done consuming $consumeAmount")
-  } yield ()).provideSome(examplesSetup, publisherLayer, subscriberLayer)
+  } yield ()).provideSome[Env](examplesSetup, publisherLayer, subscriberLayer)
 
   def subStream(consumeAmount: Long): ZStream[Subscriber, Throwable, Unit] =
     Subscriber
@@ -51,10 +52,10 @@ object MyPubSubApp extends ZIOAppDefault {
     }
     .drain
 
-  private val pubsubConnection =
+  val pubsubConnection: PubsubConnectionConfig =
     PubsubConnectionConfig.Emulator(PubsubConnectionConfig.GcpProject("any"), "localhost:8085")
 
-  private val exampleTopic = Topic(
+  val exampleTopic: Topic[Any, Int] = Topic(
     name = "basic_example",
     schemaSetting = SchemaSettings(
       encoding = Encoding.Binary,
@@ -63,7 +64,7 @@ object MyPubSubApp extends ZIOAppDefault {
     serde = Serde.int,
   )
 
-  private val exampleSub = Subscription(
+  val exampleSub: Subscription = Subscription(
     topicName = exampleTopic.name,
     name = "basic_example",
     filter = None,
@@ -71,11 +72,11 @@ object MyPubSubApp extends ZIOAppDefault {
     expiration = None,
   )
 
-  private val examplesSetup = ZLayer.fromZIO(
+  val examplesSetup: ZLayer[Any, Throwable, Unit] = ZLayer.fromZIO(
     PubsubAdmin.setup(pubsubConnection, List(exampleTopic), List(exampleSub))
   )
 
-  private val publisherLayer = ZLayer.fromZIO(
+  val publisherLayer: ZLayer[Scope, Throwable, Publisher[Any, Int]] = ZLayer.fromZIO(
     google.Publisher.make(
       connection = pubsubConnection,
       topic = exampleTopic,
@@ -83,7 +84,7 @@ object MyPubSubApp extends ZIOAppDefault {
     )
   )
 
-  private val subscriberLayer = ZLayer.fromZIO(
+  val subscriberLayer: ZLayer[Scope, Throwable, Subscriber] = ZLayer.fromZIO(
     google.Subscriber.makeStreamingPullSubscriber(pubsubConnection)
   )
 }
