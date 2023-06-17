@@ -1,5 +1,6 @@
 package com.anymindgroup.pubsub.google
 
+import com.anymindgroup.pubsub.google
 import com.anymindgroup.pubsub.google.PubsubTestSupport.*
 import com.anymindgroup.pubsub.model.*
 import com.anymindgroup.pubsub.pub.*
@@ -71,19 +72,19 @@ object AvroPublisherSpec extends ZIOSpecDefault {
         testConf     <- randomTestConfig(Encoding.Binary)
         _            <- PubsubAdmin.setup(List(testConf.topic), List(testConf.subscription))
         testMessages <- testPublishMessageGen.runCollectN(50).map(_.toVector)
-        p <- Publisher.make[Any, TestEvent](
+        p <- google.Publisher.make[Any, TestEvent](
                testConf.publisherConf,
                VulcanSerde.fromAvroCodec(TestEvent.avroCodec, Encoding.Binary),
              )
         consumedRef <- Ref.make(Vector.empty[ReceivedMessage.Raw])
-        rawStream <- Subscriber.makeRawStreamingPullSubscription(
+        rawStream <- google.Subscriber.makeRawStreamingPullSubscription(
                        testConf.connection,
                        testConf.subscription.name,
-                       Subscriber.defaultStreamAckDeadlineSeconds,
-                       Subscriber.defaultRetrySchedule,
+                       google.Subscriber.defaultStreamAckDeadlineSeconds,
+                       google.Subscriber.defaultRetrySchedule,
                      )
         _             <- rawStream.map(_._1).mapZIO(e => consumedRef.getAndUpdate(_ :+ e)).runDrain.forkScoped
-        _             <- ZIO.foreachDiscard(testMessages)(p.publishEvent) *> ZIO.sleep(200.millis)
+        _             <- ZIO.foreachDiscard(testMessages)(p.publish) *> ZIO.sleep(200.millis)
         consumed      <- consumedRef.get
         publishedAttrs = testMessages.map(_.attributes)
         consumedAttr =
@@ -106,20 +107,22 @@ object AvroPublisherSpec extends ZIOSpecDefault {
             testConf       <- randomTestConfig(encoding)
             _              <- PubsubAdmin.setup(List(testConf.topic), List(testConf.subscription))
             testEventsData <- testEventGen.runCollectN(10)
-            p <- Publisher.make[Any, TestEvent](
+            p <- google.Publisher.make[Any, TestEvent](
                    testConf.publisherConf,
                    VulcanSerde.fromAvroCodec(TestEvent.avroCodec, encoding),
                  )
             consumedRef <- Ref.make(Vector.empty[TestEvent])
-            stream <- Subscriber
-                        .makeStreamingPullSubscription(
-                          testConf.connection,
-                          testConf.subscription.name,
-                          VulcanSerde.fromAvroCodec(TestEvent.avroCodec, encoding),
-                        )
+            stream <-
+              google.Subscriber
+                .makeStreamingPullSubscriber(
+                  testConf.connection
+                )
+                .map(
+                  _.subscribe(testConf.subscription.name, VulcanSerde.fromAvroCodec(TestEvent.avroCodec, encoding))
+                )
             _         <- stream.via(Pipeline.processPipeline(e => consumedRef.getAndUpdate(_ :+ e.data))).runDrain.forkScoped
             testEvents = testEventsData.map(d => PublishMessage[TestEvent](d, None, Map.empty[String, String]))
-            _         <- ZIO.foreachDiscard(testEvents)(e => p.publishEvent(e)) *> ZIO.sleep(200.millis)
+            _         <- ZIO.foreachDiscard(testEvents)(e => p.publish(e)) *> ZIO.sleep(200.millis)
             consumed  <- consumedRef.get
           } yield assert(consumed)(equalTo(testEventsData.toVector))
         }

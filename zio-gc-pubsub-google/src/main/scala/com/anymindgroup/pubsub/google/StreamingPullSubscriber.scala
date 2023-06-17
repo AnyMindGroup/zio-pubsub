@@ -21,21 +21,23 @@ import zio.{Cause, Chunk, Exit, Promise, Queue, RIO, Schedule, Scope, UIO, ZIO}
 private[pubsub] object StreamingPullSubscriber {
   private def settingsFromConfig(
     connection: PubsubConnectionConfig
-  ): RIO[Scope, SubscriberStubSettings.Builder] =
-    connection match {
-      case _: PubsubConnectionConfig.Cloud =>
-        ZIO.attempt(
-          SubscriberStubSettings.newBuilder.setTransportChannelProvider(
-            SubscriberStubSettings.defaultGrpcTransportProviderBuilder.build
-          )
-        )
-      case c: PubsubConnectionConfig.Emulator =>
-        PubsubConnectionConfig.createEmulatorSettings(c).map { case (channelProvider, credentialsProvider) =>
-          SubscriberStubSettings.newBuilder
-            .setTransportChannelProvider(channelProvider)
-            .setCredentialsProvider(credentialsProvider)
-        }
-    }
+  ): RIO[Scope, SubscriberStubSettings] = for {
+    builder <- connection match {
+                 case _: PubsubConnectionConfig.Cloud =>
+                   ZIO.attempt(
+                     SubscriberStubSettings.newBuilder
+                       .setTransportChannelProvider(
+                         SubscriberStubSettings.defaultGrpcTransportProviderBuilder.build
+                       )
+                   )
+                 case c: PubsubConnectionConfig.Emulator =>
+                   PubsubConnectionConfig.createEmulatorSettings(c).map { case (channelProvider, credentialsProvider) =>
+                     SubscriberStubSettings.newBuilder
+                       .setTransportChannelProvider(channelProvider)
+                       .setCredentialsProvider(credentialsProvider)
+                   }
+               }
+  } yield builder.build()
 
   private[pubsub] def makeServerStream(
     stream: ServerStream[StreamingPullResponse]
@@ -142,14 +144,13 @@ private[pubsub] object StreamingPullSubscriber {
     _ <- ZIO.logDebug(s"Subscriber terminated: $awaitResult")
   } yield ()).orDie
 
-  def makeRawStream[R, E](
+  def makeRawStream(
     connection: PubsubConnectionConfig,
     subscriptionName: String,
     streamAckDeadlineSeconds: Int,
     retrySchedule: Schedule[Any, Throwable, ?],
   ): RIO[Scope, GoogleStream] = for {
-    builder       <- settingsFromConfig(connection)
-    settings      <- ZIO.attempt(builder.build())
+    settings      <- settingsFromConfig(connection)
     subscriptionId = SubscriptionName.of(connection.project.name, subscriptionName)
     subscriber <-
       ZIO.acquireRelease(ZIO.attempt(GrpcSubscriberStub.create(settings)))(shutdownSubscriber)

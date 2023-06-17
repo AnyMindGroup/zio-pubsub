@@ -1,5 +1,6 @@
 package com.anymindgroup.pubsub.google
 
+import com.anymindgroup.pubsub.google
 import com.anymindgroup.pubsub.google.PubsubConnectionConfig.GcpProject
 import com.anymindgroup.pubsub.model.*
 import com.anymindgroup.pubsub.serde.{CirceSerde, VulcanSerde}
@@ -142,7 +143,7 @@ object PubsubTestSupport {
     for {
       connection    <- ZIO.service[PubsubConnectionConfig.Emulator]
       randomSubName <- Gen.alphaNumericChar.runCollectN(10).map(_.mkString)
-      stream <- Subscriber
+      stream <- google.Subscriber
                   .makeTempRawStreamingPullSubscription(
                     connection = connection,
                     topicName = topicName,

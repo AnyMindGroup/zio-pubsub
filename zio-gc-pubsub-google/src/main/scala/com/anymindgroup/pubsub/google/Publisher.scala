@@ -66,7 +66,7 @@ object Publisher {
 }
 
 class GooglePublisher[R, E](publisher: GPublisher, serde: Serializer[R, E]) extends Publisher[R, E] {
-  override def publishEvent(event: PublishMessage[E]): ZIO[R, Throwable, MessageId] =
+  override def publish(event: PublishMessage[E]): ZIO[R, Throwable, MessageId] =
     for {
       msg       <- toPubsubMessage(event)
       messageId <- ZIO.fromFutureJava(publisher.publish(msg))

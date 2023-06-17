@@ -7,5 +7,5 @@ import zio.stream.ZStream
 
 package object google {
   private[pubsub] type GoogleReceipt = (GReceivedMessage, AckReply)
-  private[pubsub] type GoogleStream  = ZStream[Any, Throwable, (GReceivedMessage, AckReply)]
+  private[pubsub] type GoogleStream  = ZStream[Any, Throwable, GoogleReceipt]
 }
