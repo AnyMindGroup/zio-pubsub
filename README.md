@@ -1,6 +1,7 @@
 # ZIO Google Cloud Pub/Sub
 
-[Google Cloud Pub/Sub](https://cloud.google.com/pubsub) client providing stream-based, purely functional API with [ZIO](https://zio.dev) and [ZIO Streams](https://zio.dev/reference/stream).
+[Google Cloud Pub/Sub](https://cloud.google.com/pubsub) client providing stream-based, declarative, high-level API to help to concentrate on the business logic 
+leveraging [ZIO](https://zio.dev) with [ZIO Streams](https://zio.dev/reference/stream) and [Resource Management](https://zio.dev/reference/resource).
 
 # Modules
  - `zio-gc-pubsub` Provides shared components/interfaces/models
