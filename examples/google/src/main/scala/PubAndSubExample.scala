@@ -1,28 +1,28 @@
-package examples.google
-
-import com.anymindgroup.pubsub.google
-import com.anymindgroup.pubsub.google.{PubsubAdmin, PubsubConnectionConfig}
-import com.anymindgroup.pubsub.model.{Encoding, SchemaSettings, Topic}
+import com.anymindgroup.pubsub.google.{
+  Publisher => GooglePublisher,
+  PubsubConnectionConfig,
+  Subscriber => GoogleSubscriber,
+}
 import com.anymindgroup.pubsub.pub.{PublishMessage, Publisher}
 import com.anymindgroup.pubsub.serde.Serde
-import com.anymindgroup.pubsub.sub.{Subscriber, Subscription}
+import com.anymindgroup.pubsub.sub.Subscriber
 
 import zio.Console.printLine
 import zio.stream.ZStream
 import zio.{Random, Schedule, Scope, ZIO, ZIOAppArgs, ZIOAppDefault, ZLayer, durationInt}
 
-object MyPubSubApp extends ZIOAppDefault {
-  type Env = Scope & ZIOAppArgs
-
-  override def run: ZIO[Env, Any, Any] = (for {
+object PubAndSubExample extends ZIOAppDefault {
+  // consume up to given amount of messages and terminate
+  override def run: ZIO[ZIOAppArgs & Scope, Any, Any] = (for {
     consumeAmount <- ZIOAppArgs.getArgs.map(_.headOption.flatMap(_.toLongOption).getOrElse(10L))
+    _             <- ExamplesAdminSetup.run.provide(Scope.default)
     _             <- subStream(consumeAmount).drainFork(pubStream).runDrain
     _             <- printLine(s"done consuming $consumeAmount")
-  } yield ()).provideSome[Env](examplesSetup, publisherLayer, subscriberLayer)
+  } yield ()).provideSome(publisherLayer, subscriberLayer)
 
   def subStream(consumeAmount: Long): ZStream[Subscriber, Throwable, Unit] =
     Subscriber
-      .subscribe(exampleSub.name, Serde.int)
+      .subscribe(ExamplesAdminSetup.exampleSub.name, Serde.int)
       .zipWithIndex
       .mapZIO { case ((message, ackReply), idx) =>
         for {
@@ -55,36 +55,15 @@ object MyPubSubApp extends ZIOAppDefault {
   val pubsubConnection: PubsubConnectionConfig =
     PubsubConnectionConfig.Emulator(PubsubConnectionConfig.GcpProject("any"), "localhost:8085")
 
-  val exampleTopic: Topic[Any, Int] = Topic(
-    name = "basic_example",
-    schemaSetting = SchemaSettings(
-      encoding = Encoding.Binary,
-      schema = None,
-    ),
-    serde = Serde.int,
-  )
-
-  val exampleSub: Subscription = Subscription(
-    topicName = exampleTopic.name,
-    name = "basic_example",
-    filter = None,
-    enableOrdering = false,
-    expiration = None,
-  )
-
-  val examplesSetup: ZLayer[Any, Throwable, Unit] = ZLayer.fromZIO(
-    PubsubAdmin.setup(pubsubConnection, List(exampleTopic), List(exampleSub))
-  )
-
   val publisherLayer: ZLayer[Scope, Throwable, Publisher[Any, Int]] = ZLayer.fromZIO(
-    google.Publisher.make(
+    GooglePublisher.make(
       connection = pubsubConnection,
-      topic = exampleTopic,
+      topic = ExamplesAdminSetup.exampleTopic,
       enableOrdering = false,
     )
   )
 
   val subscriberLayer: ZLayer[Scope, Throwable, Subscriber] = ZLayer.fromZIO(
-    google.Subscriber.makeStreamingPullSubscriber(pubsubConnection)
+    GoogleSubscriber.makeStreamingPullSubscriber(pubsubConnection)
   )
 }
