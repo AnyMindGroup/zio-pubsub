@@ -48,7 +48,7 @@ lazy val commonSettings = List(
   Compile / scalacOptions --= sys.env.get("CI").fold(Seq("-Xfatal-warnings"))(_ => Nil),
   Test / scalafixConfig := Some(new File(".scalafix_test.conf")),
   Test / scalacOptions --= Seq("-Xfatal-warnings"),
-  version ~= (_.replace('+', '-')),
+  version ~= { v => if (v.contains('+')) s"${v.replace('+', '-')}-SNAPSHOT" else v },
   dynver ~= (_.replace('+', '-')),
   credentials += {
     for {
@@ -63,9 +63,13 @@ addCommandAlias("fix", "; all scalafixAll; all scalafmtSbt scalafmtAll")
 addCommandAlias("check", "; scalafmtSbtCheck; scalafmtCheckAll; scalafixAll --check")
 
 val releaseSettings = List(
-  publishTo := Some(
-    "Artifact Registry" at "https://asia-maven.pkg.dev/anychat-staging/maven-release"
-  )
+  publishTo := {
+    val pkgDev = "https://asia-maven.pkg.dev/anychat-staging"
+    if (isSnapshot.value)
+      Some("https://asia-maven.pkg.dev" at pkgDev + "/maven-snapshot")
+    else
+      Some("https://asia-maven.pkg.dev" at pkgDev + "/maven-release")
+  }
 )
 
 val noPublishSettings = List(
