@@ -63,20 +63,6 @@ commands:
           key: *sbt_cache_key
 
 jobs:
-  add_tag:
-    executor: docker
-    steps:
-      - checkout
-      - add_ssh_keys:
-          fingerprints:
-            - "f3:b1:d0:00:b8:5d:26:30:6a:ec:b9:58:35:4c:34:aa"
-      - run:
-          name: Configure git user
-          command: |
-            git config --add --global user.name "tech"
-            git config --add --global user.email tech@anymindgroup.com
-      - run: scripts/tag.sh
-
   test:
     executor: docker-test
     steps:
@@ -121,9 +107,6 @@ workflows:
             branches:
               only:
                 - master
-      - add_tag:
-          requires:
-            - test
 
   release:
     jobs:

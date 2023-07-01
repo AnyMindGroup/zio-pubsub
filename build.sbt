@@ -64,7 +64,7 @@ addCommandAlias("check", "; scalafmtSbtCheck; scalafmtCheckAll; scalafixAll --ch
 
 val releaseSettings = List(
   publishTo := Some(
-    "Artifact Registry" at "https://asia-maven.pkg.dev/anychat-staging/maven"
+    "Artifact Registry" at "https://asia-maven.pkg.dev/anychat-staging/maven-release"
   )
 )
 
