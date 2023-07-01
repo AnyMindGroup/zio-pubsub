@@ -20,7 +20,7 @@ object BasicSubscription extends ZIOAppDefault {
         } yield ()
       }
       .runDrain
-      .provideSome(subscriber)
+      .provideSome[Scope](subscriber)
 
   private val subscriber = ZLayer.fromZIO(
     GoogleSubscriber.makeStreamingPullSubscriber(

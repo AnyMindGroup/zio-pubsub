@@ -1,4 +1,4 @@
-import com.anymindgroup.pubsub.google.{Publisher => GooglePublisher, PublisherConfig, PubsubConnectionConfig}
+import com.anymindgroup.pubsub.google.{Publisher as GooglePublisher, PublisherConfig, PubsubConnectionConfig}
 import com.anymindgroup.pubsub.model.Encoding
 import com.anymindgroup.pubsub.pub.{PublishMessage, Publisher}
 import com.anymindgroup.pubsub.serde.Serde
@@ -26,7 +26,7 @@ object SamplesPublisher extends ZIOAppDefault {
 
     }
     .runDrain
-    .provideSome(publisher)
+    .provideSome[Scope](publisher)
 
   private val publisher = ZLayer.fromZIO(
     GooglePublisher.make(

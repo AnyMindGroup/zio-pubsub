@@ -1,7 +1,7 @@
 import com.anymindgroup.pubsub.google.{
-  Publisher => GooglePublisher,
+  Publisher as GooglePublisher,
   PubsubConnectionConfig,
-  Subscriber => GoogleSubscriber,
+  Subscriber as GoogleSubscriber,
 }
 import com.anymindgroup.pubsub.pub.{PublishMessage, Publisher}
 import com.anymindgroup.pubsub.serde.Serde
@@ -18,7 +18,7 @@ object PubAndSubExample extends ZIOAppDefault {
     _             <- ExamplesAdminSetup.run.provide(Scope.default)
     _             <- subStream(consumeAmount).drainFork(pubStream).runDrain
     _             <- printLine(s"done consuming $consumeAmount")
-  } yield ()).provideSome(publisherLayer, subscriberLayer)
+  } yield ()).provideSome[ZIOAppArgs & Scope](publisherLayer, subscriberLayer)
 
   def subStream(consumeAmount: Long): ZStream[Subscriber, Throwable, Unit] =
     Subscriber

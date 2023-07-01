@@ -43,7 +43,7 @@ object BasicSubscription extends ZIOAppDefault {
         } yield ()
       }
       .runDrain
-      .provideSome(subscriber)
+      .provideSome[Scope](subscriber)
 
   private val subscriber = ZLayer.fromZIO(
     GoogleSubscriber.makeStreamingPullSubscriber(
@@ -55,7 +55,7 @@ object BasicSubscription extends ZIOAppDefault {
 
 Publish random integer every 2 seconds (see [examples/google/src/main/scala/SamplesPublisher.scala](examples/google/src/main/scala/SamplesPublisher.scala))
 ```scala
-import com.anymindgroup.pubsub.google.{Publisher => GooglePublisher, PublisherConfig, PubsubConnectionConfig}
+import com.anymindgroup.pubsub.google.{Publisher as GooglePublisher, PublisherConfig, PubsubConnectionConfig}
 import com.anymindgroup.pubsub.model.Encoding
 import com.anymindgroup.pubsub.pub.{PublishMessage, Publisher}
 import com.anymindgroup.pubsub.serde.Serde
@@ -83,7 +83,7 @@ object SamplesPublisher extends ZIOAppDefault {
 
     }
     .runDrain
-    .provideSome(publisher)
+    .provideSome[Scope](publisher)
 
   private val publisher = ZLayer.fromZIO(
     GooglePublisher.make(
