@@ -14,7 +14,7 @@ executors:
   docker-test:
     docker:
       - image: cimg/openjdk:17.0
-      - image: gcr.io/google.com/cloudsdktool/cloud-sdk:427.0.0-emulators
+      - image: gcr.io/google.com/cloudsdktool/cloud-sdk:458.0.1-emulators
         command: gcloud beta emulators pubsub start --project=any --host-port=0.0.0.0:8085
     environment:
       GIT_REVISION: <<pipeline.git.revision>>

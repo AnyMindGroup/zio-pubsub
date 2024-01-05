@@ -1,8 +1,9 @@
-val scala213 = "2.13.11"
-val scala3   = "3.3.0"
+val scala213 = "2.13.12"
+val scala3   = "3.3.1"
 val allScala = Seq(scala213, scala3)
 
 ThisBuild / organization       := "com.anymindgroup"
+ThisBuild / licenses           := Seq(License.Apache2)
 ThisBuild / homepage           := Some(url("https://anymindgroup.com"))
 ThisBuild / scalaVersion       := scala213
 ThisBuild / crossScalaVersions := allScala
@@ -27,29 +28,19 @@ lazy val commonSettings = List(
         compilerPlugin("com.olegpy" %% "better-monadic-for" % "0.3.1"),
       )
   },
-  javacOptions ++= Seq("-source", "17", "-target", "17"),
+  javacOptions ++= Seq("-source", "17"),
   Compile / scalacOptions ++= {
-    Seq("-release:17") ++ {
-      if (scalaVersion.value == scala3)
-        Seq(
-          "-source:future",
-          "-Wunused:imports",
-          "-Wunused:privates",
-          "-Wunused:locals",
-          "-Wunused:explicits",
-          "-Wunused:implicits",
-          "-Wunused:params",
-          "-Wunused:all",
-        )
-      else
-        Seq("-Ymacro-annotations", "-Xsource:3")
-    }
+    if (scalaVersion.value == scala3)
+      Seq(
+        "-source:future"
+      )
+    else
+      Seq("-Ymacro-annotations", "-Xsource:3")
   },
   Compile / scalacOptions --= sys.env.get("CI").fold(Seq("-Xfatal-warnings"))(_ => Nil),
   Test / scalafixConfig := Some(new File(".scalafix_test.conf")),
   Test / scalacOptions --= Seq("-Xfatal-warnings"),
   version ~= { v => if (v.contains('+')) s"${v.replace('+', '-')}-SNAPSHOT" else v },
-  dynver ~= (_.replace('+', '-')),
   credentials += {
     for {
       username <- sys.env.get("ARTIFACT_REGISTRY_USERNAME")
@@ -63,13 +54,7 @@ addCommandAlias("fix", "; all scalafixAll; all scalafmtSbt scalafmtAll")
 addCommandAlias("check", "; scalafmtSbtCheck; scalafmtCheckAll; scalafixAll --check")
 
 val releaseSettings = List(
-  publishTo := {
-    val pkgDev = "https://asia-maven.pkg.dev/anychat-staging"
-    if (isSnapshot.value)
-      Some("https://asia-maven.pkg.dev" at pkgDev + "/maven-snapshot")
-    else
-      Some("https://asia-maven.pkg.dev" at pkgDev + "/maven-release")
-  }
+  publishTo := Some("AnyChat Maven" at "https://asia-maven.pkg.dev/anychat-staging/maven")
 )
 
 val noPublishSettings = List(
@@ -101,7 +86,7 @@ lazy val root =
     .settings(commonSettings)
     .settings(noPublishSettings)
 
-val zioVersion = "2.0.15"
+val zioVersion = "2.0.21"
 lazy val zioPubsub = (project in file("zio-gc-pubsub"))
   .settings(moduleName := "zio-gc-pubsub")
   .settings(commonSettings)
@@ -126,7 +111,7 @@ lazy val zioPubsubSerdeVulcan = (project in file("zio-gc-pubsub-serde-vulcan"))
     )
   )
 
-val circeVersion = "0.14.5"
+val circeVersion = "0.14.6"
 lazy val zioPubsubSerdeCirce = (project in file("zio-gc-pubsub-serde-circe"))
   .settings(moduleName := "zio-gc-pubsub-serde-circe")
   .dependsOn(zioPubsub)
@@ -140,7 +125,7 @@ lazy val zioPubsubSerdeCirce = (project in file("zio-gc-pubsub-serde-circe"))
     )
   )
 
-val googleCloudPubsubVersion = "1.123.17"
+val googleCloudPubsubVersion = "1.125.13"
 lazy val zioPubsubGoogle = (project in file("zio-gc-pubsub-google"))
   .settings(moduleName := "zio-gc-pubsub-google")
   .dependsOn(zioPubsub)
