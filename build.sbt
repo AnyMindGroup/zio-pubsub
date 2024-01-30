@@ -98,7 +98,7 @@ lazy val zioPubsub = (project in file("zio-gc-pubsub"))
     )
   )
 
-val vulcanVersion = "1.9.0"
+val vulcanVersion = "1.10.1"
 lazy val zioPubsubSerdeVulcan = (project in file("zio-gc-pubsub-serde-vulcan"))
   .settings(moduleName := "zio-gc-pubsub-serde-vulcan")
   .dependsOn(zioPubsub)
@@ -125,7 +125,7 @@ lazy val zioPubsubSerdeCirce = (project in file("zio-gc-pubsub-serde-circe"))
     )
   )
 
-val googleCloudPubsubVersion = "1.125.13"
+val googleCloudPubsubVersion = "1.126.2"
 lazy val zioPubsubGoogle = (project in file("zio-gc-pubsub-google"))
   .settings(moduleName := "zio-gc-pubsub-google")
   .dependsOn(zioPubsub)
