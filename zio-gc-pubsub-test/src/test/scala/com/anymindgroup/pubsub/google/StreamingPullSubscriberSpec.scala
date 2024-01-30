@@ -140,9 +140,7 @@ object StreamingPullSubscriberSpec extends ZIOSpecDefault {
                    .runDrain
                    .exit
             processedAckIds  <- processedRef.get
-            ackedIds          = ackedRef.get
-            nackedIds         = nackedRef.get
-            ackedAndNackedIds = ackedIds ++ nackedIds
+            ackedAndNackedIds = ackedRef.get ++ nackedRef.get
             queueEmpty       <- ackQueue.isEmpty
             _                <- assertTrue(queueEmpty)
             _                <- assertTrue(processedAckIds.size >= interruptAfterCount)
