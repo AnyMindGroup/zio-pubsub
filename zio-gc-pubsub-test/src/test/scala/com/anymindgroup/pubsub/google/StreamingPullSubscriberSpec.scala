@@ -21,7 +21,7 @@ import zio.test.{
   assertTrue,
   check,
 }
-import zio.{Promise, Queue, Ref, Schedule, Scope, ZIO, durationInt}
+import zio.{Promise, Queue, Random, Ref, Schedule, Scope, ZIO, durationInt}
 object StreamingPullSubscriberSpec extends ZIOSpecDefault {
 
   trait TestBidiStream[A, B] extends BidiStream[A, B] {
@@ -47,7 +47,7 @@ object StreamingPullSubscriberSpec extends ZIOSpecDefault {
         initCountRef <- Ref.make(0)
         processedRef <- Ref.make(0)
         ackedRef      = new AtomicReference(Vector.empty[String])
-        ackQueue     <- Queue.unbounded[String]
+        ackQueue     <- Queue.unbounded[(String, Boolean)]
         _ <- StreamingPullSubscriber
                .makeStream(
                  initStream(initCountRef, ackedRef),
@@ -77,7 +77,7 @@ object StreamingPullSubscriberSpec extends ZIOSpecDefault {
         initCountRef <- Ref.make(0)
         processedRef <- Ref.make(0)
         ackedRef      = new AtomicReference(Vector.empty[String])
-        ackQueue     <- Queue.unbounded[String]
+        ackQueue     <- Queue.unbounded[(String, Boolean)]
         _ <- StreamingPullSubscriber
                .makeStream(initStream(initCountRef, ackedRef), ackQueue, Schedule.recurs(5))
                .mapZIO(e => processedRef.getAndUpdate(_ + 1) *> e._2.ack())
@@ -104,30 +104,31 @@ object StreamingPullSubscriberSpec extends ZIOSpecDefault {
 
       for {
         retryCounter <- Ref.make(-1)
-        queue        <- Queue.unbounded[String]
+        queue        <- Queue.unbounded[(String, Boolean)]
         exit         <- StreamingPullSubscriber.makeStream(initStream(retryCounter), queue, schedule).runDrain.exit
         retries      <- retryCounter.get
         _            <- assert(retries)(equalTo(maxRetries))
       } yield assert(exit)(fails(anything))
     },
-    test("all processed messages are acked on interruption") {
+    test("all processed messages are acked or nacked on interruption") {
       check(Gen.int(1, 10000), Gen.boolean, Gen.int(1, 50)) {
         (interruptAfterCount, interruptWithFailure, parralelism) =>
           for {
             processedRef     <- Ref.make(Vector.empty[String])
             ackedRef          = new AtomicReference(Vector.empty[String])
-            ackQueue         <- Queue.unbounded[String]
+            nackedRef         = new AtomicReference(Vector.empty[String])
+            ackQueue         <- Queue.unbounded[(String, Boolean)]
             interruptPromise <- Promise.make[Throwable, Unit]
             _ <- StreamingPullSubscriber
                    .makeStream(
-                     ZStream.succeed(testBidiStream(ackedRef = Some(ackedRef))),
+                     ZStream.succeed(testBidiStream(ackedRef = Some(ackedRef), nackedRef = Some(nackedRef))),
                      ackQueue,
                      Schedule.recurs(5),
                    )
                    .mapZIOPar(parralelism) { e =>
                      for {
                        c <- processedRef.updateAndGet(_ :+ e._1.getAckId())
-                       _ <- e._2.ack()
+                       _ <- Live.live(Random.nextBoolean).flatMap(a => if (a) e._2.ack() else e._2.nack())
                        _ <- (c.size >= interruptAfterCount, interruptWithFailure) match {
                               case (true, false) => interruptPromise.succeed(())
                               case (true, true)  => interruptPromise.fail(new Throwable("interrupt with error"))
@@ -138,13 +139,15 @@ object StreamingPullSubscriberSpec extends ZIOSpecDefault {
                    .interruptWhen(interruptPromise)
                    .runDrain
                    .exit
-            processedAckIds <- processedRef.get
-            ackedIds         = ackedRef.get
-            queueEmpty      <- ackQueue.isEmpty
-            _               <- assertTrue(queueEmpty)
-            _               <- assertTrue(processedAckIds.size >= interruptAfterCount)
-            _               <- assertTrue(ackedIds.size >= interruptAfterCount)
-            _               <- assert(processedAckIds)(hasSameElements(ackedIds))
+            processedAckIds  <- processedRef.get
+            ackedIds          = ackedRef.get
+            nackedIds         = nackedRef.get
+            ackedAndNackedIds = ackedIds ++ nackedIds
+            queueEmpty       <- ackQueue.isEmpty
+            _                <- assertTrue(queueEmpty)
+            _                <- assertTrue(processedAckIds.size >= interruptAfterCount)
+            _                <- assertTrue(ackedAndNackedIds.size >= interruptAfterCount)
+            _                <- assert(processedAckIds)(hasSameElements(ackedAndNackedIds))
           } yield assertCompletes
       }
     } @@ TestAspect.samples(20),
@@ -192,7 +195,7 @@ object StreamingPullSubscriberSpec extends ZIOSpecDefault {
       }
 
       for {
-        queue <- Queue.unbounded[String]
+        queue <- Queue.unbounded[(String, Boolean)]
         _ <- Live.live(
                StreamingPullSubscriber
                  .makeStream(ZStream.succeed(testBidiStream), queue, Schedule.forever)
@@ -207,6 +210,7 @@ object StreamingPullSubscriberSpec extends ZIOSpecDefault {
     failSend: Boolean = false,
     failPull: Boolean = false,
     ackedRef: Option[AtomicReference[Vector[String]]] = None,
+    nackedRef: Option[AtomicReference[Vector[String]]] = None,
   ): BidiStream[StreamingPullRequest, StreamingPullResponse] =
     new TestBidiStream[StreamingPullRequest, StreamingPullResponse] {
       override def send(r: StreamingPullRequest): Unit =
@@ -214,6 +218,19 @@ object StreamingPullSubscriberSpec extends ZIOSpecDefault {
         else {
           ackedRef.fold(()) { a =>
             val _ = a.getAndUpdate(_ ++ r.getAckIdsList.asScala.toVector)
+          }
+
+          nackedRef.fold(()) { n =>
+            val nackIds = r.getModifyDeadlineAckIdsList.asScala.toVector
+            // deadline needs to be set to 0 to nack a message
+            val deadlines = r.getModifyDeadlineSecondsList.asScala.toVector.filter(_ == 0)
+
+            // both have to have the same size, otherwise it's not a valid request
+            if (nackIds.length != deadlines.length) {
+              throw new Throwable("getModifyDeadlineAckIdsList / getModifyDeadlineSecondsList don't match in size")
+            }
+
+            val _ = n.getAndUpdate(_ ++ nackIds)
           }
         }
 
