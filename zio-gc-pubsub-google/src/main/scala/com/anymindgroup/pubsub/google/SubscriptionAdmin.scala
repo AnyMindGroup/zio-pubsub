@@ -63,7 +63,7 @@ object SubscriptionAdmin {
         ZIO.foreach(subscription.deadLettersSettings)(s =>
           ZIO
             .attempt(topicAdminClient.getTopic(TopicName.format(connection.project.toString, s.deadLetterTopicName)))
-            .catchAll { case _: NotFoundException =>
+            .catchSome { case _: NotFoundException =>
               ZIO.fail(
                 new Throwable(
                   s"Dead Letter Topic for subscription ${subscription.name} not found. Please ensure that topic ${s.deadLetterTopicName} exists"
