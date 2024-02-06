@@ -1,14 +1,13 @@
 package com.anymindgroup.pubsub.google
 
-import java.util.concurrent.TimeUnit
-
 import com.anymindgroup.pubsub.sub.{SubscriberFilter, Subscription}
-import com.google.api.gax.rpc.AlreadyExistsException
-import com.google.cloud.pubsub.v1.{SubscriptionAdminClient, SubscriptionAdminSettings}
+import com.google.api.gax.rpc.{AlreadyExistsException, NotFoundException}
+import com.google.cloud.pubsub.v1.{SubscriptionAdminClient, SubscriptionAdminSettings, TopicAdminClient}
 import com.google.protobuf.Duration as ProtoDuration
-import com.google.pubsub.v1.{ExpirationPolicy, Subscription as GSubscription, SubscriptionName, TopicName}
-
+import com.google.pubsub.v1.{DeadLetterPolicy, ExpirationPolicy, SubscriptionName, TopicName, Subscription as GSubscription}
 import zio.{Duration, RIO, RLayer, Scope, ZIO, ZLayer}
+
+import java.util.concurrent.TimeUnit
 
 object SubscriptionAdmin {
   def makeClient(connection: PubsubConnectionConfig): RIO[Scope, SubscriptionAdminClient] =
@@ -43,18 +42,35 @@ object SubscriptionAdmin {
     } yield client
   }
 
-  def createSubscriptionIfNotExists(connection: PubsubConnectionConfig, subscription: Subscription): RIO[Scope, Unit] =
+  def createSubscriptionIfNotExists(
+    connection: PubsubConnectionConfig,
+    subscription: Subscription,
+  ): RIO[Scope, Unit] =
     for {
       subscriptionAdmin <- SubscriptionAdmin.makeClient(connection)
-      _                 <- createSubscriptionIfNotExists(connection, subscriptionAdmin, subscription)
+      topicAdminClient  <- TopicAdmin.makeClient(connection)
+      _                 <- createSubscriptionIfNotExists(connection, subscriptionAdmin, subscription, topicAdminClient)
     } yield ()
 
   def createSubscriptionIfNotExists(
     connection: PubsubConnectionConfig,
     subscriptionAdmin: SubscriptionAdminClient,
     subscription: Subscription,
+    topicAdminClient: TopicAdminClient,
   ): RIO[Scope, Unit] =
     for {
+      _ <-
+        ZIO.foreach(subscription.deadLettersSettings)(s =>
+          ZIO
+            .attempt(topicAdminClient.getTopic(TopicName.format(connection.project.toString, s.deadLetterTopicName)))
+            .catchAll { case _: NotFoundException =>
+              ZIO.fail(
+                new Throwable(
+                  s"Dead Letter Topic for subscription ${subscription.name} not found. Please ensure that topic ${s.deadLetterTopicName} exists"
+                )
+              )
+            }
+        )
       gSubscription <- ZIO.attempt {
                          val topicId        = TopicName.of(connection.project.name, subscription.topicName)
                          val subscriptionId = SubscriptionName.of(connection.project.name, subscription.name)
@@ -64,7 +80,14 @@ object SubscriptionAdmin {
                              .setTtl(ProtoDuration.newBuilder().setSeconds(t.getSeconds()))
                              .build()
                          }
-
+                         val deadLetterPolicy: Option[DeadLetterPolicy] =
+                           subscription.deadLettersSettings.map(s =>
+                             DeadLetterPolicy
+                               .newBuilder()
+                               .setDeadLetterTopic(s.deadLetterTopicName)
+                               .setMaxDeliveryAttempts(s.maxRetryNum)
+                               .build()
+                           )
                          val subscriptionBuilder = GSubscription
                            .newBuilder()
                            .setTopic(topicId.toString)
@@ -72,6 +95,7 @@ object SubscriptionAdmin {
                            .setEnableMessageOrdering(subscription.enableOrdering)
 
                          expirationPolicy.foreach(subscriptionBuilder.setExpirationPolicy)
+                         deadLetterPolicy.foreach(subscriptionBuilder.setDeadLetterPolicy)
                          subscription.filter.foreach(s => subscriptionBuilder.setFilter(s.value))
 
                          subscriptionBuilder.build()
@@ -112,5 +136,6 @@ object SubscriptionAdmin {
     filter = subscriptionFilter,
     enableOrdering = enableOrdering,
     expiration = Some(maxTtl),
+    deadLettersSettings = None,
   )
 }

@@ -8,4 +8,10 @@ final case class Subscription(
   filter: Option[SubscriberFilter],
   enableOrdering: Boolean,
   expiration: Option[Duration],
+  deadLettersSettings: Option[DeadLettersSettings], // Should be left None for subscription to dead letter topic
+)
+
+final case class DeadLettersSettings(
+  deadLetterTopicName: String,
+  maxRetryNum: Int,
 )
