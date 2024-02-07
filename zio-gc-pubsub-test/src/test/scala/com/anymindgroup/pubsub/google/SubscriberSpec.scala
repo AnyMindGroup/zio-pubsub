@@ -118,8 +118,7 @@ object SubscriberSpec extends ZIOSpecDefault {
         )
       )
     }.provideSome[Scope](
-      emulatorConnectionConfigLayer(),
-      SubscriptionAdmin.layer,
+      emulatorConnectionConfigLayer()
     ),
     test("Subscription with dead letters policy should be successfully created with dead letter topic") {
       for {
@@ -140,8 +139,7 @@ object SubscriberSpec extends ZIOSpecDefault {
             .createSubscriptionIfNotExists(connection, subAdminClient, subscription)
       } yield assertCompletes
     }.provideSome[Scope](
-      emulatorConnectionConfigLayer(),
-      SubscriptionAdmin.layer,
+      emulatorConnectionConfigLayer()
     ),
   )
 
