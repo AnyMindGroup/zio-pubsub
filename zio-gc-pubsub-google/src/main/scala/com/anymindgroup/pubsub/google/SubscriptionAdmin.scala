@@ -1,10 +1,10 @@
 package com.anymindgroup.pubsub.google
 
 import com.anymindgroup.pubsub.sub.{SubscriberFilter, Subscription}
-import com.google.api.gax.rpc.{AlreadyExistsException, NotFoundException}
-import com.google.cloud.pubsub.v1.{SubscriptionAdminClient, SubscriptionAdminSettings, TopicAdminClient}
+import com.google.api.gax.rpc.AlreadyExistsException
+import com.google.cloud.pubsub.v1.{SubscriptionAdminClient, SubscriptionAdminSettings}
 import com.google.protobuf.Duration as ProtoDuration
-import com.google.pubsub.v1.{DeadLetterPolicy, ExpirationPolicy, SubscriptionName, TopicName, Subscription as GSubscription}
+import com.google.pubsub.v1.{DeadLetterPolicy, ExpirationPolicy, ProjectTopicName, SubscriptionName, TopicName, Subscription as GSubscription}
 import zio.{Duration, RIO, RLayer, Scope, ZIO, ZLayer}
 
 import java.util.concurrent.TimeUnit
@@ -48,29 +48,33 @@ object SubscriptionAdmin {
   ): RIO[Scope, Unit] =
     for {
       subscriptionAdmin <- SubscriptionAdmin.makeClient(connection)
-      topicAdminClient  <- TopicAdmin.makeClient(connection)
-      _                 <- createSubscriptionIfNotExists(connection, subscriptionAdmin, subscription, topicAdminClient)
+      _                 <- createSubscriptionIfNotExists(connection, subscriptionAdmin, subscription)
     } yield ()
 
   def createSubscriptionIfNotExists(
     connection: PubsubConnectionConfig,
     subscriptionAdmin: SubscriptionAdminClient,
     subscription: Subscription,
-    topicAdminClient: TopicAdminClient,
   ): RIO[Scope, Unit] =
     for {
       _ <-
-        ZIO.foreach(subscription.deadLettersSettings)(s =>
-          ZIO
-            .attempt(topicAdminClient.getTopic(TopicName.format(connection.project.toString, s.deadLetterTopicName)))
-            .catchSome { case _: NotFoundException =>
-              ZIO.fail(
-                new Throwable(
-                  s"Dead Letter Topic for subscription ${subscription.name} not found. Please ensure that topic ${s.deadLetterTopicName} exists"
+        subscription.deadLettersSettings
+          .map(s =>
+            TopicAdmin
+              .makeClient(connection)
+              .flatMap(admin =>
+                ZIO.attempt(
+                  admin.getTopic(
+                    ProjectTopicName
+                      .of(connection.project.name, s.deadLetterTopicName)
+                      .toString
+                  )
                 )
               )
-            }
-        )
+              .as(())
+          )
+          .getOrElse(ZIO.unit)
+          .tapError(_ => ZIO.logError(s"Dead letter topic for subscription ${subscription.name} not found!"))
       gSubscription <- ZIO.attempt {
                          val topicId        = TopicName.of(connection.project.name, subscription.topicName)
                          val subscriptionId = SubscriptionName.of(connection.project.name, subscription.name)
@@ -84,7 +88,9 @@ object SubscriptionAdmin {
                            subscription.deadLettersSettings.map(s =>
                              DeadLetterPolicy
                                .newBuilder()
-                               .setDeadLetterTopic(s.deadLetterTopicName)
+                               .setDeadLetterTopic(
+                                 ProjectTopicName.of(connection.project.name, s.deadLetterTopicName).toString
+                               )
                                .setMaxDeliveryAttempts(s.maxRetryNum)
                                .build()
                            )

@@ -20,14 +20,8 @@ object ExamplesAdminSetup extends ZIOAppDefault {
     serde = Serde.int,
   )
 
-  val exampleDeadLettersTopic: Topic[Any, Int] = Topic(
-    name = "basic_example_dead_letters",
-    schemaSetting = SchemaSettings(
-      encoding = Encoding.Binary,
-      schema = None,
-    ),
-    serde = Serde.int,
-  )
+  val exampleDeadLettersTopic: Topic[Any, Int] =
+    exampleTopic.copy(name = s"${exampleTopic.name}__dead_letters")
 
   val exampleSub: Subscription = Subscription(
     topicName = exampleTopic.name,
@@ -36,5 +30,11 @@ object ExamplesAdminSetup extends ZIOAppDefault {
     enableOrdering = false,
     expiration = None,
     deadLettersSettings = Some(DeadLettersSettings(exampleDeadLettersTopic.name, 5)),
+  )
+
+  val exampleDeadLettersSub = exampleSub.copy(
+    topicName = exampleDeadLettersTopic.name,
+    name = s"${exampleSub.name}__dead_letters",
+    deadLettersSettings = None,
   )
 }

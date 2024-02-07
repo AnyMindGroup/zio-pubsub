@@ -23,7 +23,7 @@ object PubsubAdmin {
         _                 <- setupTopicsWithSchema(connection, topicAdmin, topics)
         subscriptionAdmin <- SubscriptionAdmin.makeClient(connection)
         _ <- ZIO.foreachDiscard(subscriptions) { s =>
-               SubscriptionAdmin.createSubscriptionIfNotExists(connection, subscriptionAdmin, s, topicAdmin)
+               SubscriptionAdmin.createSubscriptionIfNotExists(connection, subscriptionAdmin, s)
              }
       } yield ()
     )
