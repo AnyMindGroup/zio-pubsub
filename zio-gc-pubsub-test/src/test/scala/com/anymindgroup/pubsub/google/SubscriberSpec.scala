@@ -170,7 +170,7 @@ object SubscriberSpec extends ZIOSpecDefault {
     createRandomTopic.map(topic =>
       List(
         topic,
-        topic.copy(name = s"${topic.name}__dead_letter"),
+        topic.copy(name = s"${topic.name}__dead_letters"),
       )
     )
 
