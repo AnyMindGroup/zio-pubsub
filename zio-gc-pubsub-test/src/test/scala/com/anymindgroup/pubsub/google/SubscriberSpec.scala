@@ -111,7 +111,7 @@ object SubscriberSpec extends ZIOSpecDefault {
               "description",
               e => Option(e.getMessage).getOrElse(""),
               equalTo(
-                "io.grpc.StatusRuntimeException: NOT_FOUND: Dead letter topic not found"
+                "io.grpc.StatusRuntimeException: NOT_FOUND: Topic not found"
               ),
             )
           )

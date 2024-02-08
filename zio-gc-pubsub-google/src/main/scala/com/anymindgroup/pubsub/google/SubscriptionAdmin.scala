@@ -57,6 +57,24 @@ object SubscriptionAdmin {
     subscription: Subscription,
   ): RIO[Scope, Unit] =
     for {
+      _ <-
+        subscription.deadLettersSettings
+          .map(s =>
+            TopicAdmin
+              .makeClient(connection)
+              .flatMap(admin =>
+                ZIO.attempt(
+                  admin.getTopic(
+                    ProjectTopicName
+                      .of(connection.project.name, s.deadLetterTopicName)
+                      .toString
+                  )
+                )
+              )
+              .as(())
+          )
+          .getOrElse(ZIO.unit)
+          .tapError(_ => ZIO.logError(s"Dead letter topic for subscription ${subscription.name} not found!"))
       gSubscription <- ZIO.attempt {
                          val topicId        = TopicName.of(connection.project.name, subscription.topicName)
                          val subscriptionId = SubscriptionName.of(connection.project.name, subscription.name)
