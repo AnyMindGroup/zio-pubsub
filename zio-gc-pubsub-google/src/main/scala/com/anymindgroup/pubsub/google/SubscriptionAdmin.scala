@@ -51,30 +51,34 @@ object SubscriptionAdmin {
       _                 <- createSubscriptionIfNotExists(connection, subscriptionAdmin, subscription)
     } yield ()
 
+  private def checkDeadLettersTopicExists(
+    connection: PubsubConnectionConfig,
+    subscription: Subscription,
+  ): RIO[Scope, Unit] = subscription.deadLettersSettings
+    .map(s =>
+      TopicAdmin
+        .makeClient(connection)
+        .flatMap(admin =>
+          ZIO.attempt(
+            admin.getTopic(
+              ProjectTopicName
+                .of(connection.project.name, s.deadLetterTopicName)
+                .toString
+            )
+          )
+        )
+        .as(())
+    )
+    .getOrElse(ZIO.unit)
+    .tapError(_ => ZIO.logError(s"Dead letter topic for subscription ${subscription.name} not found!"))
+
   def createSubscriptionIfNotExists(
     connection: PubsubConnectionConfig,
     subscriptionAdmin: SubscriptionAdminClient,
     subscription: Subscription,
   ): RIO[Scope, Unit] =
     for {
-      _ <-
-        subscription.deadLettersSettings
-          .map(s =>
-            TopicAdmin
-              .makeClient(connection)
-              .flatMap(admin =>
-                ZIO.attempt(
-                  admin.getTopic(
-                    ProjectTopicName
-                      .of(connection.project.name, s.deadLetterTopicName)
-                      .toString
-                  )
-                )
-              )
-              .as(())
-          )
-          .getOrElse(ZIO.unit)
-          .tapError(_ => ZIO.logError(s"Dead letter topic for subscription ${subscription.name} not found!"))
+      _ <- checkDeadLettersTopicExists(connection, subscription)
       gSubscription <- ZIO.attempt {
                          val topicId        = TopicName.of(connection.project.name, subscription.topicName)
                          val subscriptionId = SubscriptionName.of(connection.project.name, subscription.name)
