@@ -1,14 +1,13 @@
 package com.anymindgroup.pubsub.google
 
-import java.util.concurrent.TimeUnit
-
 import com.anymindgroup.pubsub.sub.{SubscriberFilter, Subscription}
 import com.google.api.gax.rpc.AlreadyExistsException
 import com.google.cloud.pubsub.v1.{SubscriptionAdminClient, SubscriptionAdminSettings}
 import com.google.protobuf.Duration as ProtoDuration
-import com.google.pubsub.v1.{ExpirationPolicy, Subscription as GSubscription, SubscriptionName, TopicName}
-
+import com.google.pubsub.v1.{DeadLetterPolicy, ExpirationPolicy, ProjectTopicName, SubscriptionName, TopicName, Subscription as GSubscription}
 import zio.{Duration, RIO, RLayer, Scope, ZIO, ZLayer}
+
+import java.util.concurrent.TimeUnit
 
 object SubscriptionAdmin {
   def makeClient(connection: PubsubConnectionConfig): RIO[Scope, SubscriptionAdminClient] =
@@ -43,11 +42,35 @@ object SubscriptionAdmin {
     } yield client
   }
 
-  def createSubscriptionIfNotExists(connection: PubsubConnectionConfig, subscription: Subscription): RIO[Scope, Unit] =
+  def createSubscriptionIfNotExists(
+    connection: PubsubConnectionConfig,
+    subscription: Subscription,
+  ): RIO[Scope, Unit] =
     for {
       subscriptionAdmin <- SubscriptionAdmin.makeClient(connection)
       _                 <- createSubscriptionIfNotExists(connection, subscriptionAdmin, subscription)
     } yield ()
+
+  private def checkDeadLettersTopicExists(
+    connection: PubsubConnectionConfig,
+    subscription: Subscription,
+  ): RIO[Scope, Unit] = subscription.deadLettersSettings
+    .map(s =>
+      TopicAdmin
+        .makeClient(connection)
+        .flatMap(admin =>
+          ZIO.attempt(
+            admin.getTopic(
+              ProjectTopicName
+                .of(connection.project.name, s.deadLetterTopicName)
+                .toString
+            )
+          )
+        )
+        .as(())
+    )
+    .getOrElse(ZIO.unit)
+    .tapError(_ => ZIO.logError(s"Dead letter topic for subscription ${subscription.name} not found!"))
 
   def createSubscriptionIfNotExists(
     connection: PubsubConnectionConfig,
@@ -55,6 +78,7 @@ object SubscriptionAdmin {
     subscription: Subscription,
   ): RIO[Scope, Unit] =
     for {
+      _ <- checkDeadLettersTopicExists(connection, subscription)
       gSubscription <- ZIO.attempt {
                          val topicId        = TopicName.of(connection.project.name, subscription.topicName)
                          val subscriptionId = SubscriptionName.of(connection.project.name, subscription.name)
@@ -64,7 +88,16 @@ object SubscriptionAdmin {
                              .setTtl(ProtoDuration.newBuilder().setSeconds(t.getSeconds()))
                              .build()
                          }
-
+                         val deadLetterPolicy: Option[DeadLetterPolicy] =
+                           subscription.deadLettersSettings.map(s =>
+                             DeadLetterPolicy
+                               .newBuilder()
+                               .setDeadLetterTopic(
+                                 ProjectTopicName.of(connection.project.name, s.deadLetterTopicName).toString
+                               )
+                               .setMaxDeliveryAttempts(s.maxRetryNum)
+                               .build()
+                           )
                          val subscriptionBuilder = GSubscription
                            .newBuilder()
                            .setTopic(topicId.toString)
@@ -72,6 +105,7 @@ object SubscriptionAdmin {
                            .setEnableMessageOrdering(subscription.enableOrdering)
 
                          expirationPolicy.foreach(subscriptionBuilder.setExpirationPolicy)
+                         deadLetterPolicy.foreach(subscriptionBuilder.setDeadLetterPolicy)
                          subscription.filter.foreach(s => subscriptionBuilder.setFilter(s.value))
 
                          subscriptionBuilder.build()
@@ -112,5 +146,6 @@ object SubscriptionAdmin {
     filter = subscriptionFilter,
     enableOrdering = enableOrdering,
     expiration = Some(maxTtl),
+    deadLettersSettings = None,
   )
 }

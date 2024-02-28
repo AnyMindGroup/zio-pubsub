@@ -8,7 +8,6 @@ import com.anymindgroup.pubsub.serde.VulcanSerde
 import com.anymindgroup.pubsub.sub.*
 import com.google.cloud.pubsub.v1.SubscriptionAdminClient
 import com.google.pubsub.v1.{SubscriptionName, TopicName}
-
 import zio.test.Assertion.{equalTo, hasSameElements}
 import zio.test.{Spec, ZIOSpecDefault, *}
 import zio.{RIO, Ref, Scope, ZIO, durationInt}
@@ -63,6 +62,7 @@ object AvroPublisherSpec extends ZIOSpecDefault {
                        filter = None,
                        enableOrdering = true,
                        expiration = None,
+                       deadLettersSettings = None,
                      )
     } yield TestConfig(conn, publisherConfig, subscription, topic)
 

@@ -1,23 +1,21 @@
 package com.anymindgroup.pubsub.google
 
-import java.time.Instant
-
-import scala.jdk.CollectionConverters.*
-
 import com.anymindgroup.pubsub.google.PubsubConnectionConfig.GcpProject
 import com.anymindgroup.pubsub.google.PubsubTestSupport.*
 import com.anymindgroup.pubsub.model.*
 import com.anymindgroup.pubsub.serde.VulcanSerde
-import com.anymindgroup.pubsub.sub.AckId
+import com.anymindgroup.pubsub.sub.{AckId, DeadLettersSettings, Subscription}
 import com.google.api.gax.rpc.NotFoundException
 import com.google.cloud.pubsub.v1.SubscriptionAdminClient
 import com.google.protobuf.Timestamp
-import com.google.pubsub.v1.{PubsubMessage, ReceivedMessage as GReceivedMessage, SubscriptionName}
+import com.google.pubsub.v1.{PubsubMessage, SubscriptionName, ReceivedMessage as GReceivedMessage}
 import vulcan.Codec
-
+import zio.test.*
 import zio.test.Assertion.*
-import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, *}
 import zio.{Duration, RIO, Scope, ZIO}
+
+import java.time.Instant
+import scala.jdk.CollectionConverters.*
 
 object SubscriberSpec extends ZIOSpecDefault {
 
@@ -51,20 +49,20 @@ object SubscriberSpec extends ZIOSpecDefault {
       for {
         (connection, topicName) <- initTopicWithSchema
         tempSubName             <- Gen.alphaNumericStringBounded(10, 10).map("sub_" + _).runHead.map(_.get)
-        (subscription, testResultA) <- ZIO.scoped {
-                                         for {
-                                           subscription <- Subscriber
-                                                             .makeTempRawStreamingPullSubscription(
-                                                               connection = connection,
-                                                               topicName = topicName,
-                                                               subscriptionName = tempSubName,
-                                                               subscriptionFilter = None,
-                                                               maxTtl = Duration.Infinity,
-                                                               enableOrdering = enableOrdering,
-                                                             )
-                                           existsOnCreation <- subscriptionExists(tempSubName)
-                                         } yield (subscription, assertTrue(existsOnCreation))
-                                       }
+        (_, testResultA) <- ZIO.scoped {
+                              for {
+                                subscription <- Subscriber
+                                                  .makeTempRawStreamingPullSubscription(
+                                                    connection = connection,
+                                                    topicName = topicName,
+                                                    subscriptionName = tempSubName,
+                                                    subscriptionFilter = None,
+                                                    maxTtl = Duration.Infinity,
+                                                    enableOrdering = enableOrdering,
+                                                  )
+                                existsOnCreation <- subscriptionExists(tempSubName)
+                              } yield (subscription, assertTrue(existsOnCreation))
+                            }
         existsAfterUsage <- subscriptionExists(tempSubName)
       } yield testResultA && assertTrue(!existsAfterUsage)
     }.provideSome[Scope](
@@ -88,6 +86,61 @@ object SubscriberSpec extends ZIOSpecDefault {
         } yield assertCompletes
       }
     },
+    test("Subscription with dead letters policy shouldn't be created without a dead letter topic") {
+      for {
+        (connection, topicName) <- initTopicWithSchema
+        tempSubName             <- Gen.alphaNumericStringBounded(10, 10).map("sub_" + _).runHead.map(_.get)
+        subAdminClient          <- SubscriptionAdmin.makeClient(connection)
+        deadLettersSettings      = DeadLettersSettings("non-existing-topic", 5)
+        subscription = Subscription(
+                         topicName = topicName,
+                         name = tempSubName,
+                         filter = None,
+                         enableOrdering = true,
+                         expiration = None,
+                         deadLettersSettings = Some(deadLettersSettings),
+                       )
+        subscriptionCreateAttempt <-
+          SubscriptionAdmin
+            .createSubscriptionIfNotExists(connection, subAdminClient, subscription)
+            .exit
+      } yield assert(subscriptionCreateAttempt)(
+        fails(
+          isSubtype[NotFoundException](
+            hasField(
+              "description",
+              e => Option(e.getMessage).getOrElse(""),
+              equalTo(
+                "io.grpc.StatusRuntimeException: NOT_FOUND: Topic not found"
+              ),
+            )
+          )
+        )
+      )
+    }.provideSome[Scope](
+      emulatorConnectionConfigLayer()
+    ),
+    test("Subscription with dead letters policy should be successfully created with dead letter topic") {
+      for {
+        (connection, topicName) <- initTopicWithSchemaAndDeadLetters
+        tempSubName             <- Gen.alphaNumericStringBounded(10, 10).map("sub_" + _).runHead.map(_.get)
+        subAdminClient          <- SubscriptionAdmin.makeClient(connection)
+        deadLettersSettings      = DeadLettersSettings(s"${topicName}__dead_letters", 5)
+        subscription = Subscription(
+                         topicName = topicName,
+                         name = tempSubName,
+                         filter = None,
+                         enableOrdering = true,
+                         expiration = None,
+                         deadLettersSettings = Some(deadLettersSettings),
+                       )
+        _ <-
+          SubscriptionAdmin
+            .createSubscriptionIfNotExists(connection, subAdminClient, subscription)
+      } yield assertCompletes
+    }.provideSome[Scope](
+      emulatorConnectionConfigLayer()
+    ),
   )
 
   private def subscriptionExists(subscriptionName: String): RIO[GcpProject & SubscriptionAdminClient, Boolean] = for {
@@ -98,19 +151,42 @@ object SubscriberSpec extends ZIOSpecDefault {
               }
   } yield result
 
+  def createRandomTopic: RIO[PubsubConnectionConfig.Emulator & Scope, Topic[Any, Int]] =
+    topicNameGen.runHead
+      .map(_.get)
+      .map(_.getTopic())
+      .map(topicName =>
+        Topic(
+          topicName,
+          SchemaSettings(
+            schema = None,
+            encoding = testEncoding,
+          ),
+          VulcanSerde.fromAvroCodec(Codec.int, testEncoding),
+        )
+      )
+
+  def createRandomTopicWithDeadLettersTopic: RIO[PubsubConnectionConfig.Emulator & Scope, List[Topic[Any, Int]]] =
+    createRandomTopic.map(topic =>
+      List(
+        topic,
+        topic.copy(name = s"${topic.name}__dead_letters"),
+      )
+    )
+
   private def initTopicWithSchema
-    : RIO[PubsubConnectionConfig.Emulator & Scope, (PubsubConnectionConfig.Emulator, String)] = for {
+    : RIO[PubsubConnectionConfig.Emulator & Scope, (PubsubConnectionConfig.Emulator, String)] =
+    createRandomTopic.flatMap(t => initTopicsWithSchema(List(t)))
+
+  private def initTopicWithSchemaAndDeadLetters
+    : RIO[PubsubConnectionConfig.Emulator & Scope, (PubsubConnectionConfig.Emulator, String)] =
+    createRandomTopicWithDeadLettersTopic.flatMap(initTopicsWithSchema)
+
+  private def initTopicsWithSchema(
+    topics: List[Topic[Any, Int]]
+  ): RIO[PubsubConnectionConfig.Emulator & Scope, (PubsubConnectionConfig.Emulator, String)] = for {
     connection <- ZIO.service[PubsubConnectionConfig.Emulator]
-    topicName  <- topicNameGen.runHead.map(_.get).map(_.getTopic())
-    topic = Topic(
-              topicName,
-              SchemaSettings(
-                schema = None,
-                encoding = testEncoding,
-              ),
-              VulcanSerde.fromAvroCodec(Codec.int, testEncoding),
-            )
     // init topic with schema settings
-    _ <- PubsubAdmin.setup(connection, List(topic), Nil)
-  } yield (connection, topicName)
+    _ <- PubsubAdmin.setup(connection, topics, Nil)
+  } yield (connection, topics.head.name)
 }

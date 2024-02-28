@@ -6,12 +6,11 @@ import com.anymindgroup.pubsub.model.*
 import com.anymindgroup.pubsub.serde.{CirceSerde, VulcanSerde}
 import com.anymindgroup.pubsub.sub.*
 import com.google.api.gax.rpc.NotFoundException
-import com.google.cloud.pubsub.v1.{Publisher as GPublisher, SubscriptionAdminClient, TopicAdminClient}
+import com.google.cloud.pubsub.v1.{SubscriptionAdminClient, TopicAdminClient, Publisher as GPublisher}
 import com.google.protobuf.ByteString
-import com.google.pubsub.v1.{PubsubMessage, Subscription as GSubscription, SubscriptionName, TopicName}
+import com.google.pubsub.v1.{PubsubMessage, SubscriptionName, TopicName, Subscription as GSubscription}
 import vulcan.Codec
 import vulcan.generic.*
-
 import zio.stream.ZStream
 import zio.test.Gen
 import zio.{Duration, RIO, RLayer, Scope, Task, ZIO, ZLayer, durationInt}
@@ -199,5 +198,6 @@ object PubsubTestSupport {
     filter = filter,
     enableOrdering = enableOrdering,
     expiration = expiration,
+    deadLettersSettings = None,
   ))
 }

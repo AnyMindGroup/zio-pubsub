@@ -4,8 +4,7 @@ import com.anymindgroup.pubsub.model.*
 import com.anymindgroup.pubsub.sub.*
 import com.google.api.gax.rpc.AlreadyExistsException
 import com.google.cloud.pubsub.v1.TopicAdminClient
-import com.google.pubsub.v1.{Encoding as GEncoding, SchemaSettings as GSchemaSettings, Topic as GTopic, TopicName}
-
+import com.google.pubsub.v1.{TopicName, Encoding as GEncoding, SchemaSettings as GSchemaSettings, Topic as GTopic}
 import zio.{RIO, Task, ZIO}
 
 object PubsubAdmin {
@@ -78,4 +77,5 @@ object PubsubAdmin {
         )
       )
   }
+
 }

@@ -1,14 +1,13 @@
 import com.anymindgroup.pubsub.google.{PubsubAdmin, PubsubConnectionConfig}
 import com.anymindgroup.pubsub.model.{Encoding, SchemaSettings, Topic}
 import com.anymindgroup.pubsub.serde.Serde
-import com.anymindgroup.pubsub.sub.Subscription
-
+import com.anymindgroup.pubsub.sub.{DeadLettersSettings, Subscription}
 import zio.{Scope, ZIO, ZIOAppDefault}
 
 object ExamplesAdminSetup extends ZIOAppDefault {
   override def run: ZIO[Scope, Any, Any] = PubsubAdmin.setup(
     connection = PubsubConnectionConfig.Emulator(PubsubConnectionConfig.GcpProject("any"), "localhost:8085"),
-    topics = List(exampleTopic),
+    topics = List(exampleTopic, exampleDeadLettersTopic),
     subscriptions = List(exampleSub),
   )
 
@@ -21,11 +20,21 @@ object ExamplesAdminSetup extends ZIOAppDefault {
     serde = Serde.int,
   )
 
+  val exampleDeadLettersTopic: Topic[Any, Int] =
+    exampleTopic.copy(name = s"${exampleTopic.name}__dead_letters")
+
   val exampleSub: Subscription = Subscription(
     topicName = exampleTopic.name,
     name = "basic_example",
     filter = None,
     enableOrdering = false,
     expiration = None,
+    deadLettersSettings = Some(DeadLettersSettings(exampleDeadLettersTopic.name, 5)),
+  )
+
+  val exampleDeadLettersSub = exampleSub.copy(
+    topicName = exampleDeadLettersTopic.name,
+    name = s"${exampleSub.name}__dead_letters",
+    deadLettersSettings = None,
   )
 }
