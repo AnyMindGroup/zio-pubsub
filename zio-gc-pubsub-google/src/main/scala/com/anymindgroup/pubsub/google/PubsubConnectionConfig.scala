@@ -1,12 +1,13 @@
 package com.anymindgroup.pubsub.google
 
+import java.util.concurrent.TimeUnit
+
 import com.google.api.gax.core.{CredentialsProvider, NoCredentialsProvider}
 import com.google.api.gax.grpc.GrpcTransportChannel
 import com.google.api.gax.rpc.{FixedTransportChannelProvider, TransportChannelProvider}
 import io.grpc.{ManagedChannel, ManagedChannelBuilder}
-import zio.{RIO, Scope, ZIO}
 
-import java.util.concurrent.TimeUnit
+import zio.{RIO, Scope, ZIO}
 
 sealed trait PubsubConnectionConfig {
   def project: PubsubConnectionConfig.GcpProject

@@ -3,26 +3,17 @@ package com.anymindgroup.pubsub.google
 import com.anymindgroup.pubsub.google
 import com.anymindgroup.pubsub.google.PubsubConnectionConfig.GcpProject
 import com.anymindgroup.pubsub.model.*
-import com.anymindgroup.pubsub.serde.{CirceSerde, VulcanSerde}
 import com.anymindgroup.pubsub.sub.*
 import com.google.api.gax.rpc.NotFoundException
 import com.google.cloud.pubsub.v1.{SubscriptionAdminClient, TopicAdminClient, Publisher as GPublisher}
 import com.google.protobuf.ByteString
 import com.google.pubsub.v1.{PubsubMessage, SubscriptionName, TopicName, Subscription as GSubscription}
-import vulcan.Codec
-import vulcan.generic.*
+
 import zio.stream.ZStream
 import zio.test.Gen
 import zio.{Duration, RIO, RLayer, Scope, Task, ZIO, ZLayer, durationInt}
 
 object PubsubTestSupport {
-  final case class TestEvent(name: String, age: Int)
-  object TestEvent {
-    implicit val avroCodec: Codec[TestEvent]          = Codec.derive[TestEvent]
-    val avroCodecSchema: String                       = TestEvent.avroCodec.schema.map(_.toString()).toOption.get
-    implicit val jsonCodec: io.circe.Codec[TestEvent] = io.circe.generic.semiauto.deriveCodec[TestEvent]
-  }
-
   def emulatorConnectionConfig(
     project: GcpProject = sys.env.get("PUBSUB_EMULATOR_GCP_PROJECT").map(GcpProject(_)).getOrElse(GcpProject("any")),
     host: String = sys.env.get("PUBSUB_EMULATOR_HOST").getOrElse("localhost:8085"),
@@ -164,25 +155,6 @@ object PubsubTestSupport {
   } yield result
 
   val encodingGen: Gen[Any, Encoding] = Gen.fromIterable(List(Encoding.Binary, Encoding.Json))
-  val schemaRegistryGen: Gen[Any, SchemaRegistry] =
-    (Gen.alphaNumericStringBounded(5, 20) <*> Gen.elements((SchemaType.Avro, TestEvent.avroCodecSchema))).map {
-      case (id, (schemaType, schemaDefinition)) =>
-        SchemaRegistry("schema_" + id, schemaType, ZIO.succeed(schemaDefinition))
-    }
-  val schemaSettingsGen: Gen[Any, SchemaSettings] = (encodingGen <*> Gen.option(schemaRegistryGen))
-    .map(setting => SchemaSettings(setting._1, setting._2))
-    .filter(setting => setting.encoding == Encoding.Json || setting.schema.isDefined)
-
-  val topicConfigsGen: Gen[PubsubConnectionConfig.Emulator, Topic[Any, TestEvent]] = for {
-    schemaSetting <- schemaSettingsGen
-    serde = schemaSetting match {
-              case SchemaSettings(Encoding.Binary, _) => VulcanSerde.fromAvroCodec(TestEvent.avroCodec, Encoding.Binary)
-              case SchemaSettings(Encoding.Json, Some(_)) =>
-                VulcanSerde.fromAvroCodec(TestEvent.avroCodec, Encoding.Json)
-              case SchemaSettings(Encoding.Json, None) => CirceSerde.fromCirceCodec(TestEvent.jsonCodec)
-            }
-    topicName <- topicNameGen
-  } yield Topic(topicName.getTopic(), schemaSetting, serde)
 
   def subscriptionsConfigsGen(topicName: String): Gen[PubsubConnectionConfig.Emulator, Subscription] = (for {
     filter <- Gen

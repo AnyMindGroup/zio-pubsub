@@ -1,11 +1,11 @@
 val scala213 = "2.13.12"
 val scala3   = "3.3.1"
-val allScala = Seq(scala213, scala3)
+val allScala = Seq(scala3, scala213)
 
 ThisBuild / organization       := "com.anymindgroup"
 ThisBuild / licenses           := Seq(License.Apache2)
 ThisBuild / homepage           := Some(url("https://anymindgroup.com"))
-ThisBuild / scalaVersion       := scala213
+ThisBuild / scalaVersion       := scala3
 ThisBuild / crossScalaVersions := allScala
 ThisBuild / scalafmt           := true
 ThisBuild / scalafmtSbtCheck   := true
@@ -66,42 +66,45 @@ val noPublishSettings = List(
 
 lazy val root =
   (project in file("."))
-    .dependsOn(
-      zioPubsub,
-      zioPubsubGoogle,
-      zioPubsubTestkit,
-      zioPubsubSerdeCirce,
-      zioPubsubSerdeVulcan,
-      zioPubsubTest,
-    )
     .aggregate(
-      zioPubsub,
+      zioPubsub.jvm,
+      zioPubsub.native,
       zioPubsubGoogle,
+      zioPubsubGoogleTest,
       zioPubsubTestkit,
-      zioPubsubSerdeCirce,
+      zioPubsubSerdeCirce.jvm,
+      zioPubsubSerdeCirce.native,
       zioPubsubSerdeVulcan,
-      zioPubsubTest,
+      zioPubsubTest.jvm,
+      zioPubsubTest.native,
       examplesGoogle,
     )
     .settings(commonSettings)
     .settings(noPublishSettings)
+    .settings(
+      coverageDataDir := {
+        val scalaVersionMajor = scalaVersion.value.head
+        target.value / s"scala-$scalaVersionMajor"
+      }
+    )
 
-val zioVersion = "2.0.21"
-lazy val zioPubsub = (project in file("zio-gc-pubsub"))
+lazy val zioVersion = "2.0.21"
+lazy val zioPubsub = crossProject(JVMPlatform, NativePlatform)
+  .in(file("zio-gc-pubsub"))
   .settings(moduleName := "zio-gc-pubsub")
   .settings(commonSettings)
   .settings(releaseSettings)
   .settings(
     libraryDependencies ++= Seq(
-      "dev.zio" %% "zio"         % zioVersion,
-      "dev.zio" %% "zio-streams" % zioVersion,
+      "dev.zio" %%% "zio"         % zioVersion,
+      "dev.zio" %%% "zio-streams" % zioVersion,
     )
   )
 
 val vulcanVersion = "1.10.1"
 lazy val zioPubsubSerdeVulcan = (project in file("zio-gc-pubsub-serde-vulcan"))
   .settings(moduleName := "zio-gc-pubsub-serde-vulcan")
-  .dependsOn(zioPubsub)
+  .dependsOn(zioPubsub.jvm)
   .settings(commonSettings)
   .settings(releaseSettings)
   .settings(
@@ -112,24 +115,25 @@ lazy val zioPubsubSerdeVulcan = (project in file("zio-gc-pubsub-serde-vulcan"))
   )
 
 val circeVersion = "0.14.6"
-lazy val zioPubsubSerdeCirce = (project in file("zio-gc-pubsub-serde-circe"))
+lazy val zioPubsubSerdeCirce = crossProject(JVMPlatform, NativePlatform)
+  .in(file("zio-gc-pubsub-serde-circe"))
   .settings(moduleName := "zio-gc-pubsub-serde-circe")
   .dependsOn(zioPubsub)
   .settings(commonSettings)
   .settings(releaseSettings)
   .settings(
     libraryDependencies ++= Seq(
-      "io.circe" %% "circe-core"    % circeVersion,
-      "io.circe" %% "circe-parser"  % circeVersion,
-      "io.circe" %% "circe-generic" % circeVersion,
+      "io.circe" %%% "circe-core"    % circeVersion,
+      "io.circe" %%% "circe-parser"  % circeVersion,
+      "io.circe" %%% "circe-generic" % circeVersion,
     )
   )
 
 val googleCloudPubsubVersion = "1.126.2"
 lazy val zioPubsubGoogle = (project in file("zio-gc-pubsub-google"))
   .settings(moduleName := "zio-gc-pubsub-google")
-  .dependsOn(zioPubsub)
-  .aggregate(zioPubsub)
+  .dependsOn(zioPubsub.jvm)
+  .aggregate(zioPubsub.jvm)
   .settings(commonSettings)
   .settings(releaseSettings)
   .settings(
@@ -139,36 +143,53 @@ lazy val zioPubsubGoogle = (project in file("zio-gc-pubsub-google"))
     ),
   )
 
+lazy val zioPubsubGoogleTest = project
+  .in(file("zio-gc-pubsub-google-test"))
+  .dependsOn(zioPubsub.jvm, zioPubsubGoogle, zioPubsubTestkit, zioPubsubSerdeCirce.jvm, zioPubsubSerdeVulcan)
+  .settings(moduleName := "zio-gc-pubsub-google-test")
+  .settings(commonSettings)
+  .settings(noPublishSettings)
+  .settings(testDeps)
+  .settings(
+    coverageEnabled            := true,
+    (Test / parallelExecution) := true,
+    (Test / fork)              := true,
+  )
+
+// TODO remove dependency on zioPubsubGoogle
 lazy val zioPubsubTestkit =
   (project in file("zio-gc-pubsub-testkit"))
-    .dependsOn(zioPubsub, zioPubsubGoogle, zioPubsubSerdeCirce, zioPubsubSerdeVulcan)
+    .dependsOn(zioPubsub.jvm, zioPubsubGoogle)
     .settings(moduleName := "zio-gc-pubsub-testkit")
     .settings(commonSettings)
     .settings(releaseSettings)
     .settings(
       scalafixConfig := Some(new File(".scalafix_test.conf")),
       libraryDependencies ++= Seq(
-        "dev.zio" %% "zio-test"          % zioVersion,
-        "dev.zio" %% "zio-test-sbt"      % zioVersion,
-        "dev.zio" %% "zio-test-magnolia" % zioVersion,
+        "dev.zio" %% "zio-test" % zioVersion
       ),
     )
 
 lazy val zioPubsubTest =
-  (project in file("zio-gc-pubsub-test"))
-    .dependsOn(zioPubsub, zioPubsubTestkit, zioPubsubSerdeCirce, zioPubsubSerdeVulcan)
+  crossProject(JVMPlatform, NativePlatform)
+    .in(file("zio-gc-pubsub-test"))
+    .dependsOn(zioPubsub, zioPubsubSerdeCirce)
     .settings(moduleName := "zio-gc-pubsub-test")
     .settings(commonSettings)
     .settings(noPublishSettings)
-    .settings(
-      coverageEnabled            := true,
-      (Test / parallelExecution) := true,
-      (Test / fork)              := true,
-      testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
-    )
+    .settings(testDeps)
+    .jvmSettings(coverageEnabled := true)
+    .nativeSettings(coverageEnabled := false)
 
 lazy val examplesGoogle = (project in file("examples/google"))
   .dependsOn(zioPubsubGoogle)
   .settings(commonSettings)
   .settings(noPublishSettings)
   .settings(coverageEnabled := false)
+
+lazy val testDeps = Seq(
+  libraryDependencies ++= Seq(
+    "dev.zio" %%% "zio-test"     % zioVersion % Test,
+    "dev.zio" %%% "zio-test-sbt" % zioVersion % Test,
+  )
+)

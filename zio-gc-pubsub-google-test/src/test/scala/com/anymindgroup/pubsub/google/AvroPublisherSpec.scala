@@ -2,18 +2,19 @@ package com.anymindgroup.pubsub.google
 
 import com.anymindgroup.pubsub.google
 import com.anymindgroup.pubsub.google.PubsubTestSupport.*
+import com.anymindgroup.pubsub.google.TestSupport.*
 import com.anymindgroup.pubsub.model.*
 import com.anymindgroup.pubsub.pub.*
 import com.anymindgroup.pubsub.serde.VulcanSerde
 import com.anymindgroup.pubsub.sub.*
 import com.google.cloud.pubsub.v1.SubscriptionAdminClient
 import com.google.pubsub.v1.{SubscriptionName, TopicName}
+
 import zio.test.Assertion.{equalTo, hasSameElements}
 import zio.test.{Spec, ZIOSpecDefault, *}
 import zio.{RIO, Ref, Scope, ZIO, durationInt}
 
 object AvroPublisherSpec extends ZIOSpecDefault {
-
   final case class TestConfig(
     connection: PubsubConnectionConfig,
     publisherConf: PublisherConfig,
@@ -23,11 +24,6 @@ object AvroPublisherSpec extends ZIOSpecDefault {
     val subscriptionId: SubscriptionName = SubscriptionName.of(connection.project.name, subscription.name)
     val topicId: TopicName               = publisherConf.topicId
   }
-
-  val testEventGen: Gen[Any, TestEvent] = for {
-    name <- Gen.alphaNumericString
-    age  <- Gen.int
-  } yield TestEvent(name, age)
 
   val testPublishMessageGen: Gen[Any, PublishMessage[TestEvent]] = for {
     testEvent   <- testEventGen

@@ -1,7 +1,7 @@
 package com.anymindgroup.pubsub.sub
 
 import com.anymindgroup.pubsub.serde.Deserializer
-import com.anymindgroup.pubsub.sub.{RawReceipt, *}
+import com.anymindgroup.pubsub.sub.*
 
 import zio.stream.ZPipeline
 import zio.{RIO, ZIO}

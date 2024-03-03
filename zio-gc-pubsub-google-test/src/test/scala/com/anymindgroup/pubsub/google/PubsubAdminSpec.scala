@@ -3,14 +3,35 @@ package com.anymindgroup.pubsub.google
 import scala.util.Try
 
 import com.anymindgroup.pubsub.google.PubsubTestSupport.*
-import com.anymindgroup.pubsub.model.{SchemaRegistry, SchemaType}
+import com.anymindgroup.pubsub.google.TestSupport.*
+import com.anymindgroup.pubsub.model.{SchemaRegistry, SchemaType, *}
+import com.anymindgroup.pubsub.serde.{CirceSerde, VulcanSerde}
 import com.google.pubsub.v1.{Schema, SchemaName}
 
 import zio.test.Assertion.*
-import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, *}
+import zio.test.*
 import zio.{Scope, ZIO}
 
 object PubsubAdminSpec extends ZIOSpecDefault {
+  val schemaRegistryGen: Gen[Any, SchemaRegistry] =
+    (Gen.alphaNumericStringBounded(5, 20) <*> Gen.elements((SchemaType.Avro, TestEvent.avroCodecSchema))).map {
+      case (id, (schemaType, schemaDefinition)) =>
+        SchemaRegistry("schema_" + id, schemaType, ZIO.succeed(schemaDefinition))
+    }
+  val schemaSettingsGen: Gen[Any, SchemaSettings] = (encodingGen <*> Gen.option(schemaRegistryGen))
+    .map(setting => SchemaSettings(setting._1, setting._2))
+    .filter(setting => setting.encoding == Encoding.Json || setting.schema.isDefined)
+
+  val topicConfigsGen: Gen[PubsubConnectionConfig.Emulator, Topic[Any, TestEvent]] = for {
+    schemaSetting <- schemaSettingsGen
+    serde = schemaSetting match {
+              case SchemaSettings(Encoding.Binary, _) => VulcanSerde.fromAvroCodec(TestEvent.avroCodec, Encoding.Binary)
+              case SchemaSettings(Encoding.Json, Some(_)) =>
+                VulcanSerde.fromAvroCodec(TestEvent.avroCodec, Encoding.Json)
+              case SchemaSettings(Encoding.Json, None) => CirceSerde.fromCirceCodec(TestEvent.jsonCodec)
+            }
+    topicName <- topicNameGen
+  } yield Topic(topicName.getTopic(), schemaSetting, serde)
 
   override def spec: Spec[TestEnvironment & Scope, Any] = suite("PubsubAdminSpec")(
     test("crating a subscriptions for non existing topic fails") {
