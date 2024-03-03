@@ -41,12 +41,13 @@ commands:
           key: build-{{ .Revision }}
           paths:
             - target
-            - zio-pubsub/target
-            - zio-pubsub-grpc/target
-            - zio-pubsub-serde-circe/target
-            - zio-pubsub-serde-vulcan/target
-            - zio-pubsub-testkit/target
-            - zio-pubsub-test/target
+            - zio-gc-pubsub/target
+            - zio-gc-pubsub-google/target
+            - zio-gc-pubsub-google-test/target
+            - zio-gc-pubsub-serde-circe/target
+            - zio-gc-pubsub-serde-vulcan/target
+            - zio-gc-pubsub-testkit/target
+            - zio-gc-pubsub-test/target
             - project/target
             - project/project
 
@@ -73,14 +74,14 @@ jobs:
       - run:
           name: Compile and test 
           command: |
-            [ -f target/test_completed_${GIT_REVISION} ] && echo "test completed" || (sbt +coverage +test +coverageReport +coverageAggregate && touch target/test_completed_${GIT_REVISION})            
+            [ -f target/test_completed_${GIT_REVISION} ] && echo "test completed" || (sbt +clean +coverage +zioPubsubTestJVM/test +zioPubsubGoogleTest/test +coverageReport +coverageAggregate +coverageOff +zioPubsubTestNative/test && touch target/test_completed_${GIT_REVISION})            
       - store_dependencies
       - store_build
       - store_artifacts:
-          path: target/scala-2.13/scoverage-report
+          path: target/scala-2/scoverage-report
 
       - store_artifacts:
-          path: target/scala-3.3.0/scoverage-report
+          path: target/scala-3/scoverage-report
 
   publish:
     executor: docker

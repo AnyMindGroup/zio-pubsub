@@ -1,13 +1,21 @@
 package com.anymindgroup.pubsub.google
 
+import java.util.concurrent.TimeUnit
+
 import com.anymindgroup.pubsub.sub.{SubscriberFilter, Subscription}
 import com.google.api.gax.rpc.AlreadyExistsException
 import com.google.cloud.pubsub.v1.{SubscriptionAdminClient, SubscriptionAdminSettings}
 import com.google.protobuf.Duration as ProtoDuration
-import com.google.pubsub.v1.{DeadLetterPolicy, ExpirationPolicy, ProjectTopicName, SubscriptionName, TopicName, Subscription as GSubscription}
-import zio.{Duration, RIO, RLayer, Scope, ZIO, ZLayer}
+import com.google.pubsub.v1.{
+  DeadLetterPolicy,
+  ExpirationPolicy,
+  ProjectTopicName,
+  Subscription as GSubscription,
+  SubscriptionName,
+  TopicName,
+}
 
-import java.util.concurrent.TimeUnit
+import zio.{Duration, RIO, RLayer, Scope, ZIO, ZLayer}
 
 object SubscriptionAdmin {
   def makeClient(connection: PubsubConnectionConfig): RIO[Scope, SubscriptionAdminClient] =
