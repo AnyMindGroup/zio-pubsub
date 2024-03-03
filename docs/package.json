@@ -1,0 +1,5 @@
+{
+  "name": "@anymindgroup.com/zio-gc-pubsub",
+  "description": "ZIO Google Cloud Pub/Sub Documentation",
+  "license": "Apache-2.0"
+}
