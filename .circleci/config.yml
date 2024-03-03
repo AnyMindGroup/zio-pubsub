@@ -72,6 +72,9 @@ jobs:
       - restore_dependencies
       - restore_build
       - run:
+          name: Install scala native dependencies
+          command: sudo apt-get update && sudo apt-get install -y clang libuv1-dev
+      - run:
           name: Compile and test 
           command: |
             [ -f target/test_completed_${GIT_REVISION} ] && echo "test completed" || (sbt +clean +coverage +zioPubsubTestJVM/test +zioPubsubGoogleTest/test +coverageReport +coverageAggregate +coverageOff +zioPubsubTestNative/test && touch target/test_completed_${GIT_REVISION})            
