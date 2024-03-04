@@ -1,7 +1,7 @@
 package com.anymindgroup.pubsub.google
 
-import java.util.concurrent.atomic.AtomicReference
 import java.util as ju
+import java.util.concurrent.atomic.AtomicReference
 
 import scala.jdk.CollectionConverters.*
 

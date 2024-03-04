@@ -2,6 +2,7 @@ import com.anymindgroup.pubsub.google.{PubsubAdmin, PubsubConnectionConfig}
 import com.anymindgroup.pubsub.model.{Encoding, SchemaSettings, Topic}
 import com.anymindgroup.pubsub.serde.Serde
 import com.anymindgroup.pubsub.sub.{DeadLettersSettings, Subscription}
+
 import zio.{Scope, ZIO, ZIOAppDefault}
 
 object ExamplesAdminSetup extends ZIOAppDefault {
@@ -32,7 +33,7 @@ object ExamplesAdminSetup extends ZIOAppDefault {
     deadLettersSettings = Some(DeadLettersSettings(exampleDeadLettersTopic.name, 5)),
   )
 
-  val exampleDeadLettersSub = exampleSub.copy(
+  val exampleDeadLettersSub: Subscription = exampleSub.copy(
     topicName = exampleDeadLettersTopic.name,
     name = s"${exampleSub.name}__dead_letters",
     deadLettersSettings = None,

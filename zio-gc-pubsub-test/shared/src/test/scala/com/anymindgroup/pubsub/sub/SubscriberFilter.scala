@@ -1,8 +1,8 @@
 package com.anymindgroup.pubsub.sub
 
 import zio.Scope
-import zio.test.Assertion.equalTo
 import zio.test.*
+import zio.test.Assertion.equalTo
 
 object SubscriberFilterSpec extends ZIOSpecDefault {
 

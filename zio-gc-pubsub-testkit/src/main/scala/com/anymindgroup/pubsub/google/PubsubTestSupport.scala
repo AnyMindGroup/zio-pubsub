@@ -5,9 +5,9 @@ import com.anymindgroup.pubsub.google.PubsubConnectionConfig.GcpProject
 import com.anymindgroup.pubsub.model.*
 import com.anymindgroup.pubsub.sub.*
 import com.google.api.gax.rpc.NotFoundException
-import com.google.cloud.pubsub.v1.{SubscriptionAdminClient, TopicAdminClient, Publisher as GPublisher}
+import com.google.cloud.pubsub.v1.{Publisher as GPublisher, SubscriptionAdminClient, TopicAdminClient}
 import com.google.protobuf.ByteString
-import com.google.pubsub.v1.{PubsubMessage, SubscriptionName, TopicName, Subscription as GSubscription}
+import com.google.pubsub.v1.{PubsubMessage, Subscription as GSubscription, SubscriptionName, TopicName}
 
 import zio.stream.ZStream
 import zio.test.Gen

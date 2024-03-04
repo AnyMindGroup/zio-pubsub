@@ -8,8 +8,8 @@ import com.anymindgroup.pubsub.model.{SchemaRegistry, SchemaType, *}
 import com.anymindgroup.pubsub.serde.{CirceSerde, VulcanSerde}
 import com.google.pubsub.v1.{Schema, SchemaName}
 
-import zio.test.Assertion.*
 import zio.test.*
+import zio.test.Assertion.*
 import zio.{Scope, ZIO}
 
 object PubsubAdminSpec extends ZIOSpecDefault {

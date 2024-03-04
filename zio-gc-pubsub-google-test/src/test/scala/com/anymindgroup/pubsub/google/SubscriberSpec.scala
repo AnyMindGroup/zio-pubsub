@@ -15,8 +15,8 @@ import com.google.protobuf.Timestamp
 import com.google.pubsub.v1.{PubsubMessage, ReceivedMessage as GReceivedMessage, SubscriptionName}
 import vulcan.Codec
 
-import zio.test.Assertion.*
 import zio.test.*
+import zio.test.Assertion.*
 import zio.{Duration, RIO, Scope, ZIO}
 
 object SubscriberSpec extends ZIOSpecDefault {
