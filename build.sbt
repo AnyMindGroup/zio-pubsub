@@ -1,3 +1,4 @@
+import zio.sbt.githubactions.{Job, Step}
 enablePlugins(ZioSbtEcosystemPlugin, ZioSbtCiPlugin)
 
 inThisBuild(
@@ -10,6 +11,15 @@ inThisBuild(
     crossScalaVersions := Seq("2.13.12", "3.3.1"),
     ciEnabledBranches  := Seq("master"),
     ciJvmOptions ++= Seq("-Xms2G", "-Xmx2G", "-Xss4M", "-XX:+UseG1GC"),
+    ciTestJobs := ciTestJobs.value.map {
+      case j if j.id == "test" =>
+        val startPubsub = Step.SingleStep(name = "Start up pubsub", run = Some("docker compose up -d"))
+        j.copy(steps = j.steps.flatMap {
+          case s: Step.SingleStep if s.name.contains("Git Checkout") => Seq(s, startPubsub)
+          case s                                                     => Seq(s)
+        })
+      case j => j
+    },
     scalafmt         := true,
     scalafmtSbtCheck := true,
     scalafixDependencies ++= List(
