@@ -11,6 +11,7 @@ inThisBuild(
     crossScalaVersions := Seq("2.13.12", "3.3.1"),
     ciEnabledBranches  := Seq("master"),
     ciJvmOptions ++= Seq("-Xms2G", "-Xmx2G", "-Xss4M", "-XX:+UseG1GC"),
+    ciTargetJavaVersions := Seq("17", "21"),
     ciTestJobs := ciTestJobs.value.map {
       case j if j.id == "test" =>
         val startPubsub = Step.SingleStep(name = "Start up pubsub", run = Some("docker compose up -d"))
