@@ -1,7 +1,7 @@
 package com.anymindgroup.pubsub.google
 
-import java.util.concurrent.TimeUnit
 import java.util as ju
+import java.util.concurrent.TimeUnit
 
 import scala.jdk.CollectionConverters.*
 

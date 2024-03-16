@@ -1,9 +1,13 @@
-# ZIO Google Cloud Pub/Sub
+---
+id: index
+title: "Getting Started with ZIO Google Cloud Pub/Sub"
+sidebar_label: "Getting Started"
+---
 
 [Google Cloud Pub/Sub](https://cloud.google.com/pubsub) client providing stream-based, declarative, high-level API to help to concentrate on the business logic
 leveraging [ZIO](https://zio.dev) with [ZIO Streams](https://zio.dev/reference/stream).
 
-# Modules
+## Modules
 
 - `zio-gc-pubsub` Provides shared components/interfaces/models
 - `zio-gc-pubsub-google` Provides subscriber, publisher and admin clients implementations using the [Google Java](https://cloud.google.com/java/docs/reference/google-cloud-pubsub/latest/overview) library
@@ -17,12 +21,12 @@ Alternative implementations and codecs may be added later.
 To get started with sbt, add the following line to your build.sbt file to use the implementation with the Google Java library:
 
 ```scala
-libraryDependencies += "com.anymindgroup" %% "zio-gc-pubsub-google" % zioGcPubsubVersion
+libraryDependencies += "com.anymindgroup" %% "zio-gc-pubsub-google" % "@VERSION@"
 ```
 
 ## Usage examples
 
-Create a stream for existing subscription (see [examples/google/src/main/scala/BasicSubscription.scala](examples/google/src/main/scala/BasicSubscription.scala))
+Create a stream for existing subscription:
 
 ```scala
 import com.anymindgroup.pubsub.google.{PubsubConnectionConfig, Subscriber as GoogleSubscriber}
@@ -57,7 +61,7 @@ object BasicSubscription extends ZIOAppDefault {
 }
 ```
 
-Publish random integer every 2 seconds (see [examples/google/src/main/scala/SamplesPublisher.scala](examples/google/src/main/scala/SamplesPublisher.scala))
+Publish random integer every 2 seconds
 
 ```scala
 import com.anymindgroup.pubsub.google.{Publisher as GooglePublisher, PublisherConfig, PubsubConnectionConfig}
@@ -104,7 +108,7 @@ object SamplesPublisher extends ZIOAppDefault {
 }
 ```
 
-Setup topics and subscription using the admin client (see [examples/google/src/main/scala/ExamplesAdminSetup.scala](examples/google/src/main/scala/ExamplesAdminSetup.scala)):
+Setup topics and subscription using the admin client:
 
 ```scala
 import com.anymindgroup.pubsub.google.{PubsubAdmin, PubsubConnectionConfig}
@@ -140,7 +144,7 @@ object ExamplesAdminSetup extends ZIOAppDefault {
 }
 ```
 
-See [examples](examples/google) for more examples.
+See [examples](https://github.com/AnyMindGroup/zio-gc-pubsub/tree/master/examples/google) for more examples.
 
 ### Running example code
 

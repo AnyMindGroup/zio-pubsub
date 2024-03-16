@@ -1,41 +1,47 @@
-val scala213 = "2.13.12"
-val scala3   = "3.3.1"
-val allScala = Seq(scala3, scala213)
+import zio.sbt.githubactions.{Job, Step}
+enablePlugins(ZioSbtEcosystemPlugin, ZioSbtCiPlugin)
 
-ThisBuild / organization       := "com.anymindgroup"
-ThisBuild / licenses           := Seq(License.Apache2)
-ThisBuild / homepage           := Some(url("https://anymindgroup.com"))
-ThisBuild / scalaVersion       := scala3
-ThisBuild / crossScalaVersions := allScala
-ThisBuild / scalafmt           := true
-ThisBuild / scalafmtSbtCheck   := true
-ThisBuild / semanticdbEnabled  := true
-ThisBuild / semanticdbOptions ++= { if (scalaVersion.value == scala3) Seq() else Seq("-P:semanticdb:synthetics:on") }
-ThisBuild / semanticdbVersion          := scalafixSemanticdb.revision // use Scalafix compatible version
-ThisBuild / scalafixScalaBinaryVersion := CrossVersion.binaryScalaVersion(scalaVersion.value)
-ThisBuild / scalafixDependencies ++= List(
-  "com.github.liancheng" %% "organize-imports" % "0.5.0",
-  "com.github.vovapolu"  %% "scaluzzi"         % "0.1.23",
+inThisBuild(
+  List(
+    name               := "ZIO Google Cloud Pub/Sub",
+    zioVersion         := "2.0.21",
+    organization       := "com.anymindgroup",
+    licenses           := Seq(License.Apache2),
+    homepage           := Some(url("https://anymindgroup.com")),
+    crossScalaVersions := Seq("2.13.12", "3.3.1"),
+    ciEnabledBranches  := Seq("master"),
+    ciJvmOptions ++= Seq("-Xms2G", "-Xmx2G", "-Xss4M", "-XX:+UseG1GC"),
+    ciTargetJavaVersions := Seq("17", "21"),
+    ciTestJobs := ciTestJobs.value.map {
+      case j if j.id == "test" =>
+        val startPubsub = Step.SingleStep(name = "Start up pubsub", run = Some("docker compose up -d"))
+        j.copy(steps = j.steps.flatMap {
+          case s: Step.SingleStep if s.name.contains("Git Checkout") => Seq(s, startPubsub)
+          case s                                                     => Seq(s)
+        })
+      case j => j
+    },
+    scalafmt         := true,
+    scalafmtSbtCheck := true,
+    scalafixDependencies ++= List(
+      "com.github.vovapolu" %% "scaluzzi" % "0.1.23"
+    ),
+  )
 )
 
 lazy val commonSettings = List(
   libraryDependencies ++= {
-    if (scalaVersion.value == scala3)
-      Seq()
-    else
-      Seq(
-        compilerPlugin(("org.typelevel" %% "kind-projector" % "0.13.2").cross(CrossVersion.full)),
-        compilerPlugin("com.olegpy" %% "better-monadic-for" % "0.3.1"),
-      )
+    CrossVersion.partialVersion(scalaVersion.value) match {
+      case Some((2, _)) => Seq(compilerPlugin("com.olegpy" %% "better-monadic-for" % "0.3.1"))
+      case _            => Seq()
+    }
   },
   javacOptions ++= Seq("-source", "17"),
   Compile / scalacOptions ++= {
-    if (scalaVersion.value == scala3)
-      Seq(
-        "-source:future"
-      )
-    else
-      Seq("-Ymacro-annotations", "-Xsource:3")
+    CrossVersion.partialVersion(scalaVersion.value) match {
+      case Some((2, _)) => Seq("-Ymacro-annotations", "-Xsource:3")
+      case _            => Seq("-source:future")
+    }
   },
   Compile / scalacOptions --= sys.env.get("CI").fold(Seq("-Xfatal-warnings"))(_ => Nil),
   Test / scalafixConfig := Some(new File(".scalafix_test.conf")),
@@ -47,11 +53,7 @@ lazy val commonSettings = List(
       apiKey   <- sys.env.get("ARTIFACT_REGISTRY_PASSWORD")
     } yield Credentials("https://asia-maven.pkg.dev", "asia-maven.pkg.dev", username, apiKey)
   }.getOrElse(Credentials(Path.userHome / ".ivy2" / ".credentials")),
-)
-
-addCommandAlias("fmt", "all scalafmtSbt scalafmt test:scalafmt")
-addCommandAlias("fix", "; all scalafixAll; all scalafmtSbt scalafmtAll")
-addCommandAlias("check", "; scalafmtSbtCheck; scalafmtCheckAll; scalafixAll --check")
+) ++ scalafixSettings
 
 val releaseSettings = List(
   publishTo := Some("AnyChat Maven" at "https://asia-maven.pkg.dev/anychat-staging/maven")
@@ -88,7 +90,6 @@ lazy val root =
       }
     )
 
-lazy val zioVersion = "2.0.21"
 lazy val zioPubsub = crossProject(JVMPlatform, NativePlatform)
   .in(file("zio-gc-pubsub"))
   .settings(moduleName := "zio-gc-pubsub")
@@ -96,8 +97,8 @@ lazy val zioPubsub = crossProject(JVMPlatform, NativePlatform)
   .settings(releaseSettings)
   .settings(
     libraryDependencies ++= Seq(
-      "dev.zio" %%% "zio"         % zioVersion,
-      "dev.zio" %%% "zio-streams" % zioVersion,
+      "dev.zio" %%% "zio"         % zioVersion.value,
+      "dev.zio" %%% "zio-streams" % zioVersion.value,
     )
   )
 
@@ -166,7 +167,7 @@ lazy val zioPubsubTestkit =
     .settings(
       scalafixConfig := Some(new File(".scalafix_test.conf")),
       libraryDependencies ++= Seq(
-        "dev.zio" %% "zio-test" % zioVersion
+        "dev.zio" %% "zio-test" % zioVersion.value
       ),
     )
 
@@ -189,7 +190,30 @@ lazy val examplesGoogle = (project in file("examples/google"))
 
 lazy val testDeps = Seq(
   libraryDependencies ++= Seq(
-    "dev.zio" %%% "zio-test"     % zioVersion % Test,
-    "dev.zio" %%% "zio-test-sbt" % zioVersion % Test,
+    "dev.zio" %%% "zio-test"     % zioVersion.value % Test,
+    "dev.zio" %%% "zio-test-sbt" % zioVersion.value % Test,
   )
 )
+
+lazy val docs = project
+  .in(file("zio-gc-pubsub-docs"))
+  .settings(
+    moduleName := "zio-gc-pubsub-docs",
+    scalacOptions -= "-Yno-imports",
+    scalacOptions -= "-Xfatal-warnings",
+    projectName                                := "ZIO Google Cloud Pub/Sub",
+    mainModuleName                             := (zioPubsub.jvm / moduleName).value,
+    projectStage                               := ProjectStage.Development,
+    ScalaUnidoc / unidoc / unidocProjectFilter := inProjects(zioPubsub.jvm),
+    readmeDocumentation                        := "",
+    readmeContribution                         := "",
+    readmeSupport                              := "",
+    readmeLicense                              := "",
+    readmeAcknowledgement                      := "",
+    readmeCodeOfConduct                        := "",
+    readmeCredits                              := "",
+    readmeBanner                               := "",
+    readmeMaintainers                          := "",
+  )
+  .enablePlugins(WebsitePlugin)
+  .dependsOn(zioPubsub.jvm, zioPubsubGoogle)
