@@ -1,21 +1,13 @@
 package com.anymindgroup.pubsub.google
 
-import java.util.concurrent.TimeUnit
-
 import com.anymindgroup.pubsub.sub.{SubscriberFilter, Subscription}
 import com.google.api.gax.rpc.AlreadyExistsException
 import com.google.cloud.pubsub.v1.{SubscriptionAdminClient, SubscriptionAdminSettings}
 import com.google.protobuf.Duration as ProtoDuration
-import com.google.pubsub.v1.{
-  DeadLetterPolicy,
-  ExpirationPolicy,
-  ProjectTopicName,
-  Subscription as GSubscription,
-  SubscriptionName,
-  TopicName,
-}
+import com.google.pubsub.v1.{DeadLetterPolicy, ExpirationPolicy, ProjectTopicName, SubscriptionName, TopicName, Subscription as GSubscription}
+import zio.{Duration, Exit, RIO, RLayer, Scope, ZIO, ZLayer}
 
-import zio.{Duration, RIO, RLayer, Scope, ZIO, ZLayer}
+import java.util.concurrent.TimeUnit
 
 object SubscriptionAdmin {
   def makeClient(connection: PubsubConnectionConfig): RIO[Scope, SubscriptionAdminClient] =
@@ -59,7 +51,7 @@ object SubscriptionAdmin {
       _                 <- createSubscriptionIfNotExists(connection, subscriptionAdmin, subscription)
     } yield ()
 
-  private def checkDeadLettersTopicExists(
+  private def createDeadLettersTopicIfNeeded(
     connection: PubsubConnectionConfig,
     subscription: Subscription,
   ): RIO[Scope, Unit] = subscription.deadLettersSettings
@@ -67,18 +59,33 @@ object SubscriptionAdmin {
       TopicAdmin
         .makeClient(connection)
         .flatMap(admin =>
-          ZIO.attempt(
-            admin.getTopic(
-              ProjectTopicName
-                .of(connection.project.name, s.deadLetterTopicName)
-                .toString
+          ZIO
+            .attempt(
+              admin.getTopic(
+                ProjectTopicName
+                  .of(connection.project.name, s.deadLetterTopicName)
+                  .toString
+              )
             )
-          )
+            .exit
+            .flatMap {
+              case Exit.Success(_) => ZIO.unit
+              case Exit.Failure(cause) =>
+                if (cause.prettyPrint.contains("io.grpc.StatusRuntimeException: NOT_FOUND: Topic not found")) {
+                  for {
+                    _ <- ZIO.logInfo(s"Dead letter topic for subscription ${subscription.name} not found! Creating...")
+                    _  = admin.createTopic(TopicName.format(connection.project.name, s.deadLetterTopicName))
+                    _ <- ZIO.logInfo(
+                           s"Created dead letter topic for subscription ${subscription.name}: ${s.deadLetterTopicName}"
+                         )
+                  } yield ()
+                } else {
+                  ZIO.fail(new Throwable(s"Unexpected PubSubError: ${cause.prettyPrint}"))
+                }
+            }
         )
-        .as(())
     )
     .getOrElse(ZIO.unit)
-    .tapError(_ => ZIO.logError(s"Dead letter topic for subscription ${subscription.name} not found!"))
 
   def createSubscriptionIfNotExists(
     connection: PubsubConnectionConfig,
@@ -86,7 +93,6 @@ object SubscriptionAdmin {
     subscription: Subscription,
   ): RIO[Scope, Unit] =
     for {
-      _ <- checkDeadLettersTopicExists(connection, subscription)
       gSubscription <- ZIO.attempt {
                          val topicId        = TopicName.of(connection.project.name, subscription.topicName)
                          val subscriptionId = SubscriptionName.of(connection.project.name, subscription.name)
@@ -118,6 +124,7 @@ object SubscriptionAdmin {
 
                          subscriptionBuilder.build()
                        }
+      _ <- createDeadLettersTopicIfNeeded(connection, subscription)
       _ <- ZIO.attempt(subscriptionAdmin.createSubscription(gSubscription)).catchSome {
              case _: AlreadyExistsException => ZIO.unit
            }

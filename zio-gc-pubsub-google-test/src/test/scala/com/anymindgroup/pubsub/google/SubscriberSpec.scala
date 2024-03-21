@@ -1,9 +1,5 @@
 package com.anymindgroup.pubsub.google
 
-import java.time.Instant
-
-import scala.jdk.CollectionConverters.*
-
 import com.anymindgroup.pubsub.google.PubsubConnectionConfig.GcpProject
 import com.anymindgroup.pubsub.google.PubsubTestSupport.*
 import com.anymindgroup.pubsub.model.*
@@ -12,12 +8,14 @@ import com.anymindgroup.pubsub.sub.{AckId, DeadLettersSettings, Subscription}
 import com.google.api.gax.rpc.NotFoundException
 import com.google.cloud.pubsub.v1.SubscriptionAdminClient
 import com.google.protobuf.Timestamp
-import com.google.pubsub.v1.{PubsubMessage, ReceivedMessage as GReceivedMessage, SubscriptionName}
+import com.google.pubsub.v1.{PubsubMessage, SubscriptionName, TopicName, ReceivedMessage as GReceivedMessage}
 import vulcan.Codec
-
 import zio.test.*
 import zio.test.Assertion.*
 import zio.{Duration, RIO, Scope, ZIO}
+
+import java.time.Instant
+import scala.jdk.CollectionConverters.*
 
 object SubscriberSpec extends ZIOSpecDefault {
 
@@ -88,12 +86,18 @@ object SubscriberSpec extends ZIOSpecDefault {
         } yield assertCompletes
       }
     },
-    test("Subscription with dead letters policy shouldn't be created without a dead letter topic") {
+    test("Dead letters topic should be created if subscription has dead letters policy") {
       for {
         (connection, topicName) <- initTopicWithSchema
         tempSubName             <- Gen.alphaNumericStringBounded(10, 10).map("sub_" + _).runHead.map(_.get)
+        deadLetterTopicName     <- Gen.alphaNumericStringBounded(10, 10).map("dlt_" + _).runHead.map(_.get)
         subAdminClient          <- SubscriptionAdmin.makeClient(connection)
-        deadLettersSettings      = DeadLettersSettings("non-existing-topic", 5)
+        topicAdmin              <- TopicAdmin.makeClient(connection)
+        deadLettersSettings      = DeadLettersSettings(deadLetterTopicName, 5)
+        dltNotExists <-
+          ZIO.succeed(topicAdmin.getTopic(TopicName.format(connection.project.name, deadLetterTopicName))).exit
+        _ <-
+          assertTrue(dltNotExists.isFailure).label("Dead letter topic should not exist before creating a subscription")
         subscription = Subscription(
                          topicName = topicName,
                          name = tempSubName,
@@ -102,23 +106,15 @@ object SubscriberSpec extends ZIOSpecDefault {
                          expiration = None,
                          deadLettersSettings = Some(deadLettersSettings),
                        )
-        subscriptionCreateAttempt <-
+        _ <-
           SubscriptionAdmin
             .createSubscriptionIfNotExists(connection, subAdminClient, subscription)
             .exit
-      } yield assert(subscriptionCreateAttempt)(
-        fails(
-          isSubtype[NotFoundException](
-            hasField(
-              "description",
-              e => Option(e.getMessage).getOrElse(""),
-              equalTo(
-                "io.grpc.StatusRuntimeException: NOT_FOUND: Topic not found"
-              ),
-            )
-          )
-        )
-      )
+        dltExists <-
+          ZIO.succeed(topicAdmin.getTopic(TopicName.format(connection.project.name, deadLetterTopicName))).exit
+        _ <-
+          assertTrue(dltExists.isSuccess).label("Dead letter topic should exist after creating a subscription")
+      } yield assertCompletes
     }.provideSome[Scope](
       emulatorConnectionConfigLayer()
     ),
