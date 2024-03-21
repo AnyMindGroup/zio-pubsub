@@ -90,7 +90,7 @@ object SubscriberSpec extends ZIOSpecDefault {
       for {
         (connection, topicName) <- initTopicWithSchema
         tempSubName             <- Gen.alphaNumericStringBounded(10, 10).map("sub_" + _).runHead.map(_.get)
-        deadLetterTopicName     <- Gen.alphaNumericStringBounded(10, 10).map("dlt_" + _).runHead.map(_.get)
+        deadLetterTopicName     <- Live.live(Gen.alphaNumericStringBounded(10, 10).map("dlt_" + _).runHead.map(_.get))
         subAdminClient          <- SubscriptionAdmin.makeClient(connection)
         topicAdmin              <- TopicAdmin.makeClient(connection)
         deadLettersSettings      = DeadLettersSettings(deadLetterTopicName, 5)
