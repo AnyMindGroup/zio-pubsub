@@ -9,4 +9,6 @@ object SubscriberFilter {
   def matchingAttributes(values: Map[String, String]): SubscriberFilter =
     new SubscriberFilter(values.toList.map { case (k, v) => s"""attributes.$k="$v"""" }.mkString("", " AND ", "")) {}
 
+  def of(builtString: String): SubscriberFilter = new SubscriberFilter(builtString) {}
+
 }
