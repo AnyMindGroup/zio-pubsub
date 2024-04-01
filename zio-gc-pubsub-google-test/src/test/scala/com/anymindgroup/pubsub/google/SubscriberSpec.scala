@@ -1,5 +1,9 @@
 package com.anymindgroup.pubsub.google
 
+import java.time.Instant
+
+import scala.jdk.CollectionConverters.*
+
 import com.anymindgroup.pubsub.google.PubsubConnectionConfig.GcpProject
 import com.anymindgroup.pubsub.google.PubsubTestSupport.*
 import com.anymindgroup.pubsub.model.*
@@ -8,14 +12,12 @@ import com.anymindgroup.pubsub.sub.{AckId, DeadLettersSettings, SubscriberFilter
 import com.google.api.gax.rpc.NotFoundException
 import com.google.cloud.pubsub.v1.SubscriptionAdminClient
 import com.google.protobuf.Timestamp
-import com.google.pubsub.v1.{PubsubMessage, SubscriptionName, TopicName, ReceivedMessage as GReceivedMessage}
+import com.google.pubsub.v1.{PubsubMessage, ReceivedMessage as GReceivedMessage, SubscriptionName, TopicName}
 import vulcan.Codec
+
 import zio.test.*
 import zio.test.Assertion.*
 import zio.{Duration, RIO, Scope, Task, ZIO}
-
-import java.time.Instant
-import scala.jdk.CollectionConverters.*
 
 object SubscriberSpec extends ZIOSpecDefault {
 
