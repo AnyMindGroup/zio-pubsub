@@ -53,7 +53,7 @@ object SubscriberSpec extends ZIOSpecDefault {
   ): Task[Unit] =
     ZIO.attempt {
       subscriptionAdmin.deleteSubscription(SubscriptionName.of(projectName, subscriptionName))
-    }
+    }.ignore
 
   override def spec: Spec[TestEnvironment & Scope, Any] = suite("SubscriberSpec")(
     test("create a subscription and remove after usage") {
@@ -164,6 +164,19 @@ object SubscriberSpec extends ZIOSpecDefault {
         _                         <- SubscriptionAdmin.createOrUpdate(connection, subscriptionWithDeadLetter)
         afterUpdate               <- SubscriptionAdmin.fetchCurrentSubscription(client, connection.project.name, tempSubName)
         _                         <- assertTrue(afterUpdate.is(_.some).deadLettersSettings.get == deadLettersSettings)
+        _                         <- SubscriptionAdmin.createOrUpdate(connection, subscription)
+        afterUpdateToEmpty        <- SubscriptionAdmin.fetchCurrentSubscription(client, connection.project.name, tempSubName)
+        _                         <- assertTrue(afterUpdateToEmpty.is(_.some).deadLettersSettings.isEmpty)
+      } yield assertCompletes
+    }.provideSome[Scope](emulatorConnectionConfigLayer()),
+    test("Fetch Not Found Subscription should be handled properly") {
+      for {
+        (connection, _) <- initTopicWithSchemaAndDeadLetters
+        client          <- SubscriptionAdmin.makeClient(connection)
+        tempSubName     <- Gen.alphaNumericStringBounded(10, 10).map("sub_" + _).runHead.map(_.get)
+        _               <- deleteSubscription(connection.project.name, tempSubName, client)
+        result          <- SubscriptionAdmin.fetchCurrentSubscription(client, connection.project.name, tempSubName).either
+        _               <- assertTrue(result.is(_.right).isEmpty)
       } yield assertCompletes
     }.provideSome[Scope](emulatorConnectionConfigLayer()),
   )

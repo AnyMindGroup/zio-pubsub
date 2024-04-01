@@ -1,14 +1,21 @@
 package com.anymindgroup.pubsub.google
 
-import java.util.concurrent.TimeUnit
-
 import com.anymindgroup.pubsub.sub.{DeadLettersSettings, SubscriberFilter, Subscription}
 import com.google.api.gax.rpc.{AlreadyExistsException, NotFoundException}
 import com.google.cloud.pubsub.v1.{SubscriptionAdminClient, SubscriptionAdminSettings}
-import com.google.protobuf.{Duration as ProtoDuration, FieldMask}
-import com.google.pubsub.v1.{DeadLetterPolicy, ExpirationPolicy, ProjectTopicName, Subscription as GSubscription, SubscriptionName, TopicName, UpdateSubscriptionRequest}
-
+import com.google.protobuf.{FieldMask, Duration as ProtoDuration}
+import com.google.pubsub.v1.{
+  DeadLetterPolicy,
+  ExpirationPolicy,
+  ProjectTopicName,
+  SubscriptionName,
+  TopicName,
+  UpdateSubscriptionRequest,
+  Subscription as GSubscription,
+}
 import zio.{Duration, RIO, RLayer, Scope, ZIO, ZLayer, durationLong}
+
+import java.util.concurrent.TimeUnit
 
 object SubscriptionAdmin {
   def makeClient(connection: PubsubConnectionConfig): RIO[Scope, SubscriptionAdminClient] =
@@ -120,7 +127,7 @@ object SubscriptionAdmin {
     subscriptionName: String,
   ): ZIO[Any, Throwable, Option[Subscription]] =
     (ZIO
-      .attempt(subscriptionAdmin.getSubscription(SubscriptionName.of(projectName, subscriptionName)))
+      .attempt({ subscriptionAdmin.getSubscription(SubscriptionName.of(projectName, subscriptionName)) })
       .map { gSub =>
         Some(
           Subscription(
@@ -138,7 +145,7 @@ object SubscriptionAdmin {
         )
       })
       .catchSome { case _: NotFoundException => ZIO.none }
-  private def updateSubscription(
+  private def updateSubscriptionIfExist(
     projectName: String,
     subscriptionAdmin: SubscriptionAdminClient,
     update: Subscription,
@@ -182,7 +189,7 @@ object SubscriptionAdmin {
       gSubscription = buildGSubscription(connection.project.name, subscription)
       _ <-
         ZIO.attempt(subscriptionAdmin.createSubscription(gSubscription)).catchSome { case _: AlreadyExistsException =>
-          updateSubscription(
+          updateSubscriptionIfExist(
             projectName = connection.project.name,
             subscriptionAdmin = subscriptionAdmin,
             update = subscription,
