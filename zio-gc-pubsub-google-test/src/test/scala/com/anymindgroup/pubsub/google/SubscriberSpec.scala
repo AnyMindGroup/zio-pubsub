@@ -8,16 +8,16 @@ import com.anymindgroup.pubsub.google.PubsubConnectionConfig.GcpProject
 import com.anymindgroup.pubsub.google.PubsubTestSupport.*
 import com.anymindgroup.pubsub.model.*
 import com.anymindgroup.pubsub.serde.VulcanSerde
-import com.anymindgroup.pubsub.sub.{AckId, DeadLettersSettings, Subscription}
+import com.anymindgroup.pubsub.sub.{AckId, DeadLettersSettings, SubscriberFilter, Subscription}
 import com.google.api.gax.rpc.NotFoundException
 import com.google.cloud.pubsub.v1.SubscriptionAdminClient
 import com.google.protobuf.Timestamp
-import com.google.pubsub.v1.{PubsubMessage, ReceivedMessage as GReceivedMessage, SubscriptionName}
+import com.google.pubsub.v1.{PubsubMessage, ReceivedMessage as GReceivedMessage, SubscriptionName, TopicName}
 import vulcan.Codec
 
 import zio.test.*
 import zio.test.Assertion.*
-import zio.{Duration, RIO, Scope, ZIO}
+import zio.{Duration, RIO, Scope, Task, ZIO}
 
 object SubscriberSpec extends ZIOSpecDefault {
 
@@ -45,6 +45,15 @@ object SubscriberSpec extends ZIOSpecDefault {
     .setAckId(ackId)
     .setDeliveryAttempt(deliveryAttempt)
     .build()
+
+  private def deleteSubscription(
+    projectName: String,
+    subscriptionName: String,
+    subscriptionAdmin: SubscriptionAdminClient,
+  ): Task[Unit] =
+    ZIO.attempt {
+      subscriptionAdmin.deleteSubscription(SubscriptionName.of(projectName, subscriptionName))
+    }.ignore
 
   override def spec: Spec[TestEnvironment & Scope, Any] = suite("SubscriberSpec")(
     test("create a subscription and remove after usage") {
@@ -88,12 +97,17 @@ object SubscriberSpec extends ZIOSpecDefault {
         } yield assertCompletes
       }
     },
-    test("Subscription with dead letters policy shouldn't be created without a dead letter topic") {
+    test("Dead letters topic should be created if subscription has dead letters policy") {
       for {
         (connection, topicName) <- initTopicWithSchema
         tempSubName             <- Gen.alphaNumericStringBounded(10, 10).map("sub_" + _).runHead.map(_.get)
-        subAdminClient          <- SubscriptionAdmin.makeClient(connection)
-        deadLettersSettings      = DeadLettersSettings("non-existing-topic", 5)
+        deadLetterTopicName     <- Live.live(Gen.alphaNumericStringBounded(10, 10).map("dlt_" + _).runHead.map(_.get))
+        topicAdmin              <- TopicAdmin.makeClient(connection)
+        deadLettersSettings      = DeadLettersSettings(deadLetterTopicName, 5)
+        dltNotExists <-
+          ZIO.succeed(topicAdmin.getTopic(TopicName.format(connection.project.name, deadLetterTopicName))).exit
+        _ <-
+          assertTrue(dltNotExists.isFailure).label("Dead letter topic should not exist before creating a subscription")
         subscription = Subscription(
                          topicName = topicName,
                          name = tempSubName,
@@ -102,23 +116,12 @@ object SubscriberSpec extends ZIOSpecDefault {
                          expiration = None,
                          deadLettersSettings = Some(deadLettersSettings),
                        )
-        subscriptionCreateAttempt <-
-          SubscriptionAdmin
-            .createSubscriptionIfNotExists(connection, subAdminClient, subscription)
-            .exit
-      } yield assert(subscriptionCreateAttempt)(
-        fails(
-          isSubtype[NotFoundException](
-            hasField(
-              "description",
-              e => Option(e.getMessage).getOrElse(""),
-              equalTo(
-                "io.grpc.StatusRuntimeException: NOT_FOUND: Topic not found"
-              ),
-            )
-          )
-        )
-      )
+        _ <- SubscriptionAdmin.createOrUpdate(connection, subscription).exit
+        dltExists <-
+          ZIO.succeed(topicAdmin.getTopic(TopicName.format(connection.project.name, deadLetterTopicName))).exit
+        _ <-
+          assertTrue(dltExists.isSuccess).label("Dead letter topic should exist after creating a subscription")
+      } yield assertCompletes
     }.provideSome[Scope](
       emulatorConnectionConfigLayer()
     ),
@@ -126,7 +129,6 @@ object SubscriberSpec extends ZIOSpecDefault {
       for {
         (connection, topicName) <- initTopicWithSchemaAndDeadLetters
         tempSubName             <- Gen.alphaNumericStringBounded(10, 10).map("sub_" + _).runHead.map(_.get)
-        subAdminClient          <- SubscriptionAdmin.makeClient(connection)
         deadLettersSettings      = DeadLettersSettings(s"${topicName}__dead_letters", 5)
         subscription = Subscription(
                          topicName = topicName,
@@ -136,13 +138,47 @@ object SubscriberSpec extends ZIOSpecDefault {
                          expiration = None,
                          deadLettersSettings = Some(deadLettersSettings),
                        )
-        _ <-
-          SubscriptionAdmin
-            .createSubscriptionIfNotExists(connection, subAdminClient, subscription)
+        _ <- SubscriptionAdmin.createOrUpdate(connection, subscription)
       } yield assertCompletes
-    }.provideSome[Scope](
-      emulatorConnectionConfigLayer()
-    ),
+    }.provideSome[Scope](emulatorConnectionConfigLayer()),
+    test("Subscription without dead letters policy should be updated when already exist") {
+      for {
+        (connection, topicName) <- initTopicWithSchemaAndDeadLetters
+        client                  <- SubscriptionAdmin.makeClient(connection)
+        tempSubName             <- Gen.alphaNumericStringBounded(10, 10).map("sub_" + _).runHead.map(_.get)
+        _                       <- deleteSubscription(connection.project.name, tempSubName, client)
+        deadLettersSettings      = DeadLettersSettings(s"${topicName}__dead_letters", 5)
+        subscription = Subscription(
+                         topicName = topicName,
+                         name = tempSubName,
+                         filter = Some(SubscriberFilter.matchingAttributes(Map("name" -> "20"))),
+                         enableOrdering = true,
+                         expiration = None,
+                         deadLettersSettings = None,
+                       )
+
+        _                         <- SubscriptionAdmin.createOrUpdate(connection, subscription)
+        existingSub               <- SubscriptionAdmin.fetchCurrentSubscription(client, connection.project.name, tempSubName)
+        _                         <- assertTrue(existingSub.is(_.some).deadLettersSettings.isEmpty)
+        subscriptionWithDeadLetter = subscription.copy(deadLettersSettings = Some(deadLettersSettings))
+        _                         <- SubscriptionAdmin.createOrUpdate(connection, subscriptionWithDeadLetter)
+        afterUpdate               <- SubscriptionAdmin.fetchCurrentSubscription(client, connection.project.name, tempSubName)
+        _                         <- assertTrue(afterUpdate.is(_.some).deadLettersSettings.get == deadLettersSettings)
+        _                         <- SubscriptionAdmin.createOrUpdate(connection, subscription)
+        afterUpdateToEmpty        <- SubscriptionAdmin.fetchCurrentSubscription(client, connection.project.name, tempSubName)
+        _                         <- assertTrue(afterUpdateToEmpty.is(_.some).deadLettersSettings.isEmpty)
+      } yield assertCompletes
+    }.provideSome[Scope](emulatorConnectionConfigLayer()),
+    test("Fetch Not Found Subscription should be handled properly") {
+      for {
+        (connection, _) <- initTopicWithSchemaAndDeadLetters
+        client          <- SubscriptionAdmin.makeClient(connection)
+        tempSubName     <- Gen.alphaNumericStringBounded(10, 10).map("sub_" + _).runHead.map(_.get)
+        _               <- deleteSubscription(connection.project.name, tempSubName, client)
+        result          <- SubscriptionAdmin.fetchCurrentSubscription(client, connection.project.name, tempSubName).either
+        _               <- assertTrue(result.is(_.right).isEmpty)
+      } yield assertCompletes
+    }.provideSome[Scope](emulatorConnectionConfigLayer()),
   )
 
   private def subscriptionExists(subscriptionName: String): RIO[GcpProject & SubscriptionAdminClient, Boolean] = for {
