@@ -141,7 +141,7 @@ object SubscriberSpec extends ZIOSpecDefault {
         _ <- SubscriptionAdmin.createOrUpdate(connection, subscription)
       } yield assertCompletes
     }.provideSome[Scope](emulatorConnectionConfigLayer()),
-    test("Subscription without dead letters policy should be updated if when already exist") {
+    test("Subscription without dead letters policy should be updated when already exist") {
       for {
         (connection, topicName) <- initTopicWithSchemaAndDeadLetters
         client                  <- SubscriptionAdmin.makeClient(connection)
@@ -158,14 +158,14 @@ object SubscriberSpec extends ZIOSpecDefault {
                        )
 
         _                         <- SubscriptionAdmin.createOrUpdate(connection, subscription)
-        existingSub               <- SubscriptionAdmin.fetchCurrentSubscription(client, connection.project.name, tempSubName)
+        existingSub               <- SubscriptionAdmin.fetchSubscription(client, connection.project.name, tempSubName)
         _                         <- assertTrue(existingSub.is(_.some).deadLettersSettings.isEmpty)
         subscriptionWithDeadLetter = subscription.copy(deadLettersSettings = Some(deadLettersSettings))
         _                         <- SubscriptionAdmin.createOrUpdate(connection, subscriptionWithDeadLetter)
-        afterUpdate               <- SubscriptionAdmin.fetchCurrentSubscription(client, connection.project.name, tempSubName)
+        afterUpdate               <- SubscriptionAdmin.fetchSubscription(client, connection.project.name, tempSubName)
         _                         <- assertTrue(afterUpdate.is(_.some).deadLettersSettings.get == deadLettersSettings)
         _                         <- SubscriptionAdmin.createOrUpdate(connection, subscription)
-        afterUpdateToEmpty        <- SubscriptionAdmin.fetchCurrentSubscription(client, connection.project.name, tempSubName)
+        afterUpdateToEmpty        <- SubscriptionAdmin.fetchSubscription(client, connection.project.name, tempSubName)
         _                         <- assertTrue(afterUpdateToEmpty.is(_.some).deadLettersSettings.isEmpty)
       } yield assertCompletes
     }.provideSome[Scope](emulatorConnectionConfigLayer()),
@@ -175,7 +175,7 @@ object SubscriberSpec extends ZIOSpecDefault {
         client          <- SubscriptionAdmin.makeClient(connection)
         tempSubName     <- Gen.alphaNumericStringBounded(10, 10).map("sub_" + _).runHead.map(_.get)
         _               <- deleteSubscription(connection.project.name, tempSubName, client)
-        result          <- SubscriptionAdmin.fetchCurrentSubscription(client, connection.project.name, tempSubName).either
+        result          <- SubscriptionAdmin.fetchSubscription(client, connection.project.name, tempSubName).either
         _               <- assertTrue(result.is(_.right).isEmpty)
       } yield assertCompletes
     }.provideSome[Scope](emulatorConnectionConfigLayer()),
