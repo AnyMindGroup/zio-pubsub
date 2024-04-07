@@ -4,7 +4,6 @@ import java.util.concurrent.TimeUnit
 
 import scala.jdk.CollectionConverters.*
 
-import com.anymindgroup.pubsub.google.PubsubConnectionConfig.{Cloud, Emulator}
 import com.anymindgroup.pubsub.model.*
 import com.anymindgroup.pubsub.pub.*
 import com.anymindgroup.pubsub.serde.Serializer
@@ -33,10 +32,10 @@ object Publisher {
   private[pubsub] def makeUnderlyingPublisher(config: PublisherConfig): RIO[Scope, GPublisher] = ZIO.acquireRelease {
     for {
       builder <- config.connection match {
-                   case _: Cloud => ZIO.attempt(GPublisher.newBuilder(config.topicId))
-                   case emulator: Emulator =>
+                   case _: PubsubConnectionConfig.Cloud => ZIO.attempt(GPublisher.newBuilder(config.topicId))
+                   case emulator: PubsubConnectionConfig.Emulator =>
                      for {
-                       (channelProvider, credentialsProvider) <- PubsubConnectionConfig.createEmulatorSettings(emulator)
+                       (channelProvider, credentialsProvider) <- Emulator.createEmulatorSettings(emulator)
                        p <- ZIO.attempt(
                               GPublisher
                                 .newBuilder(config.topicId)

@@ -1,4 +1,5 @@
-import com.anymindgroup.pubsub.google.{PubsubConnectionConfig, Subscriber as GoogleSubscriber}
+import com.anymindgroup.pubsub.google.Subscriber as GoogleSubscriber
+import com.anymindgroup.pubsub.model.PubsubConnectionConfig
 import com.anymindgroup.pubsub.serde.Serde
 import com.anymindgroup.pubsub.sub.Subscriber
 

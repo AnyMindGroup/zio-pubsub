@@ -5,6 +5,7 @@ import java.util.concurrent.TimeUnit
 
 import scala.jdk.CollectionConverters.*
 
+import com.anymindgroup.pubsub.model.PubsubConnectionConfig
 import com.anymindgroup.pubsub.sub.*
 import com.google.api.gax.rpc.{BidiStream as GBidiStream, ClientStream}
 import com.google.cloud.pubsub.v1.stub.{GrpcSubscriberStub, SubscriberStubSettings}
@@ -31,7 +32,7 @@ private[pubsub] object StreamingPullSubscriber {
                        )
                    )
                  case c: PubsubConnectionConfig.Emulator =>
-                   PubsubConnectionConfig.createEmulatorSettings(c).map { case (channelProvider, credentialsProvider) =>
+                   Emulator.createEmulatorSettings(c).map { case (channelProvider, credentialsProvider) =>
                      SubscriberStubSettings.newBuilder
                        .setTransportChannelProvider(channelProvider)
                        .setCredentialsProvider(credentialsProvider)

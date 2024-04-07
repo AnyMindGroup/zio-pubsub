@@ -2,6 +2,7 @@ package com.anymindgroup.pubsub.google
 
 import java.util.concurrent.TimeUnit
 
+import com.anymindgroup.pubsub.model.PubsubConnectionConfig
 import com.anymindgroup.pubsub.sub.{DeadLettersSettings, SubscriberFilter, Subscription}
 import com.google.api.gax.rpc.{AlreadyExistsException, NotFoundException}
 import com.google.cloud.pubsub.v1.{SubscriptionAdminClient, SubscriptionAdminSettings}
@@ -17,7 +18,7 @@ object SubscriptionAdmin {
       connection match {
         case config: PubsubConnectionConfig.Emulator =>
           for {
-            (channelProvider, credentialsProvider) <- PubsubConnectionConfig.createEmulatorSettings(config)
+            (channelProvider, credentialsProvider) <- Emulator.createEmulatorSettings(config)
             s <- ZIO.attempt(
                    SubscriptionAdminClient.create(
                      SubscriptionAdminSettings

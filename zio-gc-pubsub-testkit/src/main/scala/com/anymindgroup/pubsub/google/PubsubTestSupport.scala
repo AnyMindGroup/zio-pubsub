@@ -1,8 +1,8 @@
 package com.anymindgroup.pubsub.google
 
 import com.anymindgroup.pubsub.google
-import com.anymindgroup.pubsub.google.PubsubConnectionConfig.GcpProject
 import com.anymindgroup.pubsub.model.*
+import com.anymindgroup.pubsub.model.PubsubConnectionConfig.GcpProject
 import com.anymindgroup.pubsub.sub.*
 import com.google.api.gax.rpc.NotFoundException
 import com.google.cloud.pubsub.v1.{Publisher as GPublisher, SubscriptionAdminClient, TopicAdminClient}

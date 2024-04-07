@@ -1,8 +1,5 @@
-import com.anymindgroup.pubsub.google.{
-  Publisher as GooglePublisher,
-  PubsubConnectionConfig,
-  Subscriber as GoogleSubscriber,
-}
+import com.anymindgroup.pubsub.google.{Publisher as GooglePublisher, Subscriber as GoogleSubscriber}
+import com.anymindgroup.pubsub.model.PubsubConnectionConfig
 import com.anymindgroup.pubsub.pub.{PublishMessage, Publisher}
 import com.anymindgroup.pubsub.serde.Serde
 import com.anymindgroup.pubsub.sub.Subscriber

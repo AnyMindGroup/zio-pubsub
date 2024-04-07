@@ -8,7 +8,7 @@ inThisBuild(
     organization       := "com.anymindgroup",
     licenses           := Seq(License.Apache2),
     homepage           := Some(url("https://anymindgroup.com")),
-    crossScalaVersions := Seq("2.13.12", "3.3.1"),
+    crossScalaVersions := Seq("2.13.13", "3.3.3"),
     ciEnabledBranches  := Seq("master"),
     ciJvmOptions ++= Seq("-Xms2G", "-Xmx2G", "-Xss4M", "-XX:+UseG1GC"),
     ciTargetJavaVersions := Seq("17", "21"),
@@ -32,8 +32,12 @@ inThisBuild(
 lazy val commonSettings = List(
   libraryDependencies ++= {
     CrossVersion.partialVersion(scalaVersion.value) match {
-      case Some((2, _)) => Seq(compilerPlugin("com.olegpy" %% "better-monadic-for" % "0.3.1"))
-      case _            => Seq()
+      case Some((2, _)) =>
+        Seq(
+          compilerPlugin("com.olegpy"    %% "better-monadic-for" % "0.3.1"),
+          compilerPlugin("org.typelevel" %% "kind-projector"     % "0.13.3" cross CrossVersion.full),
+        )
+      case _ => Seq()
     }
   },
   javacOptions ++= Seq("-source", "17"),
@@ -46,7 +50,6 @@ lazy val commonSettings = List(
   Compile / scalacOptions --= sys.env.get("CI").fold(Seq("-Xfatal-warnings"))(_ => Nil),
   Test / scalafixConfig := Some(new File(".scalafix_test.conf")),
   Test / scalacOptions --= Seq("-Xfatal-warnings"),
-  version ~= { v => if (v.contains('+')) s"${v.replace('+', '-')}-SNAPSHOT" else v },
   credentials += {
     for {
       username <- sys.env.get("ARTIFACT_REGISTRY_USERNAME")
@@ -142,6 +145,18 @@ lazy val zioPubsubGoogle = (project in file("zio-gc-pubsub-google"))
     libraryDependencies ++= Seq(
       "com.google.cloud" % "google-cloud-pubsub" % googleCloudPubsubVersion
     ),
+  )
+
+lazy val zioPubsubHttp = crossProject(JVMPlatform, NativePlatform)
+  .in(file("zio-gc-pubsub-http"))
+  .settings(moduleName := "zio-gc-pubsub-http")
+  .dependsOn(zioPubsub)
+  .settings(commonSettings)
+  .settings(releaseSettings)
+  .settings(
+    libraryDependencies ++= Seq(
+      "com.anymindgroup" %%% "zio-gc-auth" % "0.0.1"
+    )
   )
 
 lazy val zioPubsubGoogleTest = project

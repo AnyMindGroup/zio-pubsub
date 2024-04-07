@@ -1,5 +1,5 @@
-import com.anymindgroup.pubsub.google.{Publisher as GooglePublisher, PublisherConfig, PubsubConnectionConfig}
-import com.anymindgroup.pubsub.model.Encoding
+import com.anymindgroup.pubsub.google.{Publisher as GooglePublisher, PublisherConfig}
+import com.anymindgroup.pubsub.model.{Encoding, PubsubConnectionConfig}
 import com.anymindgroup.pubsub.pub.{PublishMessage, Publisher}
 import com.anymindgroup.pubsub.serde.Serde
 
