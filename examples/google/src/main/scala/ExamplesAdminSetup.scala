@@ -1,5 +1,5 @@
-import com.anymindgroup.pubsub.google.{PubsubAdmin, PubsubConnectionConfig}
-import com.anymindgroup.pubsub.model.{Encoding, SchemaSettings, Topic}
+import com.anymindgroup.pubsub.google.PubsubAdmin
+import com.anymindgroup.pubsub.model.{Encoding, PubsubConnectionConfig, SchemaSettings, Topic}
 import com.anymindgroup.pubsub.serde.Serde
 import com.anymindgroup.pubsub.sub.{DeadLettersSettings, Subscription}
 

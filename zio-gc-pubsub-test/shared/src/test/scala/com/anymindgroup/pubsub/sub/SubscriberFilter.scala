@@ -11,11 +11,13 @@ object SubscriberFilterSpec extends ZIOSpecDefault {
     test("create from map") {
       import SubscriberFilter.*
 
-      assert(matchingAttributes(Map.empty).value)(equalTo(""))
-        && assert(matchingAttributes(Map("a" -> "b")).value)(equalTo("""attributes.a="b""""))
-        && assert(matchingAttributes(Map("a" -> "b", "c" -> "d")).value)(
-          equalTo("""attributes.a="b" AND attributes.c="d"""")
-        )
+      for {
+        _ <- assert(matchingAttributes(Map.empty).value)(equalTo(""))
+        _ <- assert(matchingAttributes(Map("a" -> "b")).value)(equalTo("""attributes.a="b""""))
+        _ <- assert(matchingAttributes(Map("a" -> "b", "c" -> "d")).value)(
+               equalTo("""attributes.a="b" AND attributes.c="d"""")
+             )
+      } yield assertCompletes
     }
   )
 
