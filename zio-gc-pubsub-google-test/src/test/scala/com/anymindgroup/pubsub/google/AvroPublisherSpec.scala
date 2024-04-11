@@ -91,8 +91,8 @@ object AvroPublisherSpec extends ZIOSpecDefault {
             )
         publishedOrderingKeys = testMessages.map(_.orderingKey)
         consumedOrderingKeys  = consumed.map(_.meta.orderingKey)
-      } yield assert(consumedAttr)(hasSameElements(publishedAttrs))
-      && assert(publishedOrderingKeys)(hasSameElements(consumedOrderingKeys))
+        _                    <- assert(consumedAttr)(hasSameElements(publishedAttrs))
+      } yield assert(publishedOrderingKeys)(hasSameElements(consumedOrderingKeys))
     }) ::
       List(
         Encoding.Json,
