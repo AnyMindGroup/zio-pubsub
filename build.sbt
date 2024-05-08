@@ -4,11 +4,11 @@ enablePlugins(ZioSbtEcosystemPlugin, ZioSbtCiPlugin)
 inThisBuild(
   List(
     name               := "ZIO Google Cloud Pub/Sub",
-    zioVersion         := "2.0.21",
+    zioVersion         := "2.0.22",
     organization       := "com.anymindgroup",
     licenses           := Seq(License.Apache2),
     homepage           := Some(url("https://anymindgroup.com")),
-    crossScalaVersions := Seq("2.13.13", "3.3.3"),
+    crossScalaVersions := Seq("2.13.14", "3.3.3"),
     ciEnabledBranches  := Seq("master"),
     ciJvmOptions ++= Seq("-Xms2G", "-Xmx2G", "-Xss4M", "-XX:+UseG1GC"),
     ciTargetJavaVersions := Seq("17", "21"),
@@ -130,7 +130,7 @@ lazy val zioPubsubSerdeCirce = crossProject(JVMPlatform, NativePlatform)
     )
   )
 
-val googleCloudPubsubVersion = "1.128.1"
+val googleCloudPubsubVersion = "1.129.3"
 lazy val zioPubsubGoogle = (project in file("zio-gc-pubsub-google"))
   .settings(moduleName := "zio-gc-pubsub-google")
   .dependsOn(zioPubsub.jvm)
