@@ -1,14 +1,19 @@
 import zio.sbt.githubactions.{Job, Step}
 enablePlugins(ZioSbtEcosystemPlugin, ZioSbtCiPlugin)
 
+lazy val scala2Version = "2.13.14"
+
+lazy val scala3Version = "3.3.3"
+
 inThisBuild(
   List(
     name               := "ZIO Google Cloud Pub/Sub",
-    zioVersion         := "2.0.22",
+    zioVersion         := "2.1.3",
     organization       := "com.anymindgroup",
     licenses           := Seq(License.Apache2),
     homepage           := Some(url("https://anymindgroup.com")),
-    crossScalaVersions := Seq("2.13.14", "3.3.3"),
+    scalaVersion       := scala2Version,
+    crossScalaVersions := Seq(scala2Version, scala3Version),
     ciEnabledBranches  := Seq("master"),
     ciJvmOptions ++= Seq("-Xms2G", "-Xmx2G", "-Xss4M", "-XX:+UseG1GC"),
     ciTargetJavaVersions := Seq("17", "21"),
@@ -46,7 +51,6 @@ lazy val commonSettings = List(
   Compile / scalacOptions --= sys.env.get("CI").fold(Seq("-Xfatal-warnings"))(_ => Nil),
   Test / scalafixConfig := Some(new File(".scalafix_test.conf")),
   Test / scalacOptions --= Seq("-Xfatal-warnings"),
-  version ~= { v => if (v.contains('+')) s"${v.replace('+', '-')}-SNAPSHOT" else v },
   credentials += {
     for {
       username <- sys.env.get("ARTIFACT_REGISTRY_USERNAME")
@@ -115,7 +119,7 @@ lazy val zioPubsubSerdeVulcan = (project in file("zio-gc-pubsub-serde-vulcan"))
     )
   )
 
-val circeVersion = "0.14.6"
+val circeVersion = "0.14.7"
 lazy val zioPubsubSerdeCirce = crossProject(JVMPlatform, NativePlatform)
   .in(file("zio-gc-pubsub-serde-circe"))
   .settings(moduleName := "zio-gc-pubsub-serde-circe")
@@ -130,7 +134,7 @@ lazy val zioPubsubSerdeCirce = crossProject(JVMPlatform, NativePlatform)
     )
   )
 
-val googleCloudPubsubVersion = "1.129.3"
+val googleCloudPubsubVersion = "1.130.1"
 lazy val zioPubsubGoogle = (project in file("zio-gc-pubsub-google"))
   .settings(moduleName := "zio-gc-pubsub-google")
   .dependsOn(zioPubsub.jvm)
