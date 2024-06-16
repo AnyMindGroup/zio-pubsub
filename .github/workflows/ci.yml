@@ -90,7 +90,7 @@ jobs:
       with:
         fetch-depth: '0'
     - name: Start up pubsub
-      run: docker compose up -d
+      run: docker compose up -d && until curl -s http://localhost:8085; do printf 'waiting for pubsub...'; sleep 1; done && echo "pubsub ready"
     - name: Test
       run: sbt +test
   update-readme:

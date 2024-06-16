@@ -19,7 +19,12 @@ inThisBuild(
     ciTargetJavaVersions := Seq("17", "21"),
     ciTestJobs := ciTestJobs.value.map {
       case j if j.id == "test" =>
-        val startPubsub = Step.SingleStep(name = "Start up pubsub", run = Some("docker compose up -d"))
+        val startPubsub = Step.SingleStep(
+          name = "Start up pubsub",
+          run = Some(
+            "docker compose up -d && until curl -s http://localhost:8085; do printf 'waiting for pubsub...'; sleep 1; done && echo \"pubsub ready\""
+          ),
+        )
         j.copy(steps = j.steps.flatMap {
           case s: Step.SingleStep if s.name.contains("Git Checkout") => Seq(s, startPubsub)
           case s                                                     => Seq(s)
