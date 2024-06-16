@@ -118,9 +118,9 @@ object AvroPublisherSpec extends ZIOSpecDefault {
                 )
             _         <- stream.via(Pipeline.processPipeline(e => consumedRef.getAndUpdate(_ :+ e.data))).runDrain.forkScoped
             testEvents = testEventsData.map(d => PublishMessage[TestEvent](d, None, Map.empty[String, String]))
-            _         <- ZIO.foreachDiscard(testEvents)(e => p.publish(e)) *> ZIO.sleep(200.millis)
-            consumed  <- consumedRef.get
-          } yield assert(consumed)(equalTo(testEventsData.toVector))
+            _         <- ZIO.foreachDiscard(testEvents)(e => p.publish(e))
+            consumed  <- consumedRef.get.repeatUntil(_.length == testEventsData.length).timeout(5.seconds)
+          } yield assert(consumed)(equalTo(Some(testEventsData.toVector)))
         }
       }
   ).provideSomeShared[Scope](

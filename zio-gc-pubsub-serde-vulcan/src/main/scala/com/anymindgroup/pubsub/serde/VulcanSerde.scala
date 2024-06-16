@@ -8,13 +8,15 @@ import zio.{RIO, ZIO}
 
 object VulcanSerde {
   def fromAvroCodec[T](codec: Codec[T], encoding: Encoding): Serde[Any, T] = new Serde[Any, T] {
+    private implicit val c: Codec[T] = codec
+
     override def serialize(data: T): RIO[Any, Array[Byte]] =
       ZIO
         .fromEither(encoding match {
           case Encoding.Binary =>
-            Codec.toBinary(data)(codec)
+            Codec.toBinary(data)
           case Encoding.Json =>
-            Codec.toJson(data)(codec).map(_.getBytes)
+            Codec.toJson(data).map(_.getBytes)
         })
         .mapError(_.throwable)
 
@@ -22,9 +24,9 @@ object VulcanSerde {
       ZIO
         .fromEither(encoding match {
           case Encoding.Binary =>
-            codec.schema.flatMap(sc => Codec.fromBinary(message.data, sc)(codec))
+            codec.schema.flatMap(sc => Codec.fromBinary(message.data, sc))
           case Encoding.Json =>
-            codec.schema.flatMap(sc => Codec.fromJson(new String(message.data), sc)(codec))
+            codec.schema.flatMap(sc => Codec.fromJson(new String(message.data), sc))
         })
         .mapError(_.throwable)
   }

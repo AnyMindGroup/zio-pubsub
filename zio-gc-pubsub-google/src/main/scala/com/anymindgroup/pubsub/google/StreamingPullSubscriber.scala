@@ -16,7 +16,7 @@ import com.google.pubsub.v1.{
 }
 
 import zio.stream.{ZStream, ZStreamAspect}
-import zio.{Cause, Chunk, Exit, Promise, Queue, RIO, Schedule, Scope, UIO, ZIO}
+import zio.{Cause, Chunk, Promise, Queue, RIO, Schedule, Scope, UIO, ZIO}
 
 private[pubsub] object StreamingPullSubscriber {
   private def settingsFromConfig(
@@ -106,16 +106,17 @@ private[pubsub] object StreamingPullSubscriber {
     _ <- ZStream
            .scoped[Any](
              for {
-               sc <- ZIO.service[Scope]
-               _ <- sc.addFinalizerExit {
-                      case Exit.Success(_) =>
-                        for {
-                          // cancel receiving stream before processing the rest of the queue
-                          _ <- ZIO.succeed(bidiStream.cancel())
-                          _ <- processAckQueue(ackQueue, bidiStream, None)
-                        } yield ()
-                      case _ =>
-                        ZIO.unit // no finalizers needed on failures as we expect the bidi stream to be recovered
+               _ <- ZIO.serviceWithZIO[Scope] {
+                      _.addFinalizerExit {
+                        case e if e.isSuccess || e.isInterrupted =>
+                          for {
+                            // cancel receiving stream before processing the rest of the queue
+                            _ <- ZIO.succeed(bidiStream.cancel())
+                            _ <- processAckQueue(ackQueue, bidiStream, None)
+                          } yield ()
+                        case _ =>
+                          ZIO.unit // no finalizers needed on failures as we expect the bidi stream to be recovered
+                      }
                     }
                _ <- ackStream
                       .runForeachScoped(_ => ZIO.unit)

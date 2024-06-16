@@ -19,6 +19,7 @@ import zio.test.{
   assert,
   assertCompletes,
   assertTrue,
+  assertZIO,
   check,
 }
 import zio.{Promise, Queue, Random, Ref, Schedule, Scope, ZIO, durationInt}
@@ -141,8 +142,7 @@ object StreamingPullSubscriberSpec extends ZIOSpecDefault {
                    .exit
             processedAckIds  <- processedRef.get
             ackedAndNackedIds = ackedRef.get ++ nackedRef.get
-            queueEmpty       <- ackQueue.isEmpty
-            _                <- assertTrue(queueEmpty)
+            _                <- assertZIO(ackQueue.size)(equalTo(0))
             _                <- assertTrue(processedAckIds.size >= interruptAfterCount)
             _                <- assertTrue(ackedAndNackedIds.size >= interruptAfterCount)
             _                <- assert(processedAckIds)(hasSameElements(ackedAndNackedIds))
