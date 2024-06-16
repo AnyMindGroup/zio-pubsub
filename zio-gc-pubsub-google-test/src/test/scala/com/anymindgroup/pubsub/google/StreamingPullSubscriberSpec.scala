@@ -9,18 +9,7 @@ import com.google.pubsub.v1.{ReceivedMessage, StreamingPullRequest, StreamingPul
 
 import zio.stream.ZStream
 import zio.test.Assertion.*
-import zio.test.{
-  Gen,
-  Live,
-  Spec,
-  TestAspect,
-  TestEnvironment,
-  ZIOSpecDefault,
-  assert,
-  assertCompletes,
-  assertTrue,
-  check,
-}
+import zio.test.{Gen, Live, Spec, TestAspect, TestEnvironment, TestRandom, ZIOSpecDefault, assert, assertCompletes, assertTrue, assertZIO, check}
 import zio.{Promise, Queue, Random, Ref, Schedule, Scope, ZIO, durationInt}
 object StreamingPullSubscriberSpec extends ZIOSpecDefault {
 
@@ -139,10 +128,11 @@ object StreamingPullSubscriberSpec extends ZIOSpecDefault {
                    .interruptWhen(interruptPromise)
                    .runDrain
                    .exit
+                   .debug
+            _                <- TestRandom.getSeed.debug("all processed messages are acked or nacked on interruption seed:")
             processedAckIds  <- processedRef.get
             ackedAndNackedIds = ackedRef.get ++ nackedRef.get
-            queueEmpty       <- ackQueue.isEmpty
-            _                <- assertTrue(queueEmpty)
+            _                <- assertZIO(ackQueue.size)(equalTo(0))
             _                <- assertTrue(processedAckIds.size >= interruptAfterCount)
             _                <- assertTrue(ackedAndNackedIds.size >= interruptAfterCount)
             _                <- assert(processedAckIds)(hasSameElements(ackedAndNackedIds))
