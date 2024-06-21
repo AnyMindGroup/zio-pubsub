@@ -14,6 +14,7 @@ inThisBuild(
     homepage           := Some(url("https://anymindgroup.com")),
     scalaVersion       := scala2Version,
     crossScalaVersions := Seq(scala2Version, scala3Version),
+    versionScheme      := Some("early-semver"),
     ciEnabledBranches  := Seq("master"),
     ciJvmOptions ++= Seq("-Xms2G", "-Xmx2G", "-Xss4M", "-XX:+UseG1GC"),
     ciTargetJavaVersions := Seq("17", "21"),
