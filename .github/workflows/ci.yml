@@ -188,12 +188,10 @@ jobs:
     - name: Cache Dependencies
       uses: coursier/cache-action@v6.4.5
     - name: Release
-      run: sbt ci-release
+      run: sbt +publish
       env:
-        PGP_PASSPHRASE: ${{ secrets.PGP_PASSPHRASE }}
-        PGP_SECRET: ${{ secrets.PGP_SECRET }}
-        SONATYPE_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
-        SONATYPE_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
+        ARTIFACT_REGISTRY_USERNAME: ${{ vars.ARTIFACT_REGISTRY_USERNAME }}
+        ARTIFACT_REGISTRY_PASSWORD: ${{ secrets.ARTIFACT_REGISTRY_PASSWORD }}
   release-docs:
     name: Release Docs
     runs-on: ubuntu-latest

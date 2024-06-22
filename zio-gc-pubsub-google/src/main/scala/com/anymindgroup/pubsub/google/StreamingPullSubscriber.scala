@@ -96,34 +96,28 @@ private[pubsub] object StreamingPullSubscriber {
                }
                (message, ackReply)
              }
-    ackStream = ZStream.unfoldZIO(())(_ =>
-                  processAckQueue(ackQueue, bidiStream, Some(1024)).flatMap {
-                    case None    => ZIO.some(((), ()))
-                    case Some(c) => ZIO.failCause(c)
-                  }
-                )
-    ackStreamFailed <- ZStream.fromZIO(Promise.make[Throwable, Nothing])
-    _ <- ZStream
-           .scoped[Any](
-             for {
-               _ <- ZIO.serviceWithZIO[Scope] {
-                      _.addFinalizerExit {
-                        case e if e.isSuccess || e.isInterrupted =>
-                          for {
-                            // cancel receiving stream before processing the rest of the queue
-                            _ <- ZIO.succeed(bidiStream.cancel())
-                            _ <- processAckQueue(ackQueue, bidiStream, None)
-                          } yield ()
-                        case _ =>
-                          ZIO.unit // no finalizers needed on failures as we expect the bidi stream to be recovered
-                      }
+    ackStream = ZStream
+                  .unfoldZIO(())(_ =>
+                    processAckQueue(ackQueue, bidiStream, Some(1024)).flatMap {
+                      case None    => ZIO.some(((), ()))
+                      case Some(c) => ZIO.failCause(c)
                     }
-               _ <- ackStream
-                      .runForeachScoped(_ => ZIO.unit)
-                      .catchAllCause(ackStreamFailed.failCause)
-                      .forkScoped
-             } yield ()
-           )
+                  )
+    ackStreamFailed <- ZStream.fromZIO(Promise.make[Throwable, Nothing])
+    _ <-
+      ZStream.scopedWith { scope =>
+        for {
+          _ <-
+            scope.addFinalizerExit { _ =>
+              for {
+                // cancel receiving stream before processing the rest of the queue
+                _ <- ZIO.succeed(bidiStream.cancel())
+                _ <- processAckQueue(ackQueue, bidiStream, None)
+              } yield ()
+            }
+          _ <- ackStream.channel.drain.runIn(scope).catchAllCause(ackStreamFailed.failCause(_)).forkIn(scope)
+        } yield ()
+      }
     s <- stream.interruptWhen(ackStreamFailed)
   } yield s).retry(retrySchedule)
 
