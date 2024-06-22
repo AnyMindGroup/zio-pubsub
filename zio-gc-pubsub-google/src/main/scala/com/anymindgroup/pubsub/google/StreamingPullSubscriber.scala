@@ -16,7 +16,7 @@ import com.google.pubsub.v1.{
 }
 
 import zio.stream.{ZStream, ZStreamAspect}
-import zio.{Cause, Chunk, Promise, Queue, RIO, Schedule, Scope, UIO, ZIO}
+import zio.{Cause, Chunk, Queue, RIO, Schedule, Scope, UIO, ZIO}
 
 private[pubsub] object StreamingPullSubscriber {
   private def settingsFromConfig(
@@ -96,35 +96,14 @@ private[pubsub] object StreamingPullSubscriber {
                }
                (message, ackReply)
              }
-    ackStream = ZStream.unfoldZIO(())(_ =>
-                  processAckQueue(ackQueue, bidiStream, Some(1024)).flatMap {
-                    case None    => ZIO.some(((), ()))
-                    case Some(c) => ZIO.failCause(c)
-                  }
-                )
-    ackStreamFailed <- ZStream.fromZIO(Promise.make[Throwable, Nothing])
-    _ <- ZStream
-           .scoped[Any](
-             for {
-               _ <- ZIO.serviceWithZIO[Scope] {
-                      _.addFinalizerExit {
-                        case e if e.isSuccess || e.isInterrupted =>
-                          for {
-                            // cancel receiving stream before processing the rest of the queue
-                            _ <- ZIO.succeed(bidiStream.cancel())
-                            _ <- processAckQueue(ackQueue, bidiStream, None)
-                          } yield ()
-                        case _ =>
-                          ZIO.unit // no finalizers needed on failures as we expect the bidi stream to be recovered
-                      }
+    ackStream = ZStream
+                  .unfoldZIO(())(_ =>
+                    processAckQueue(ackQueue, bidiStream, Some(1024)).flatMap {
+                      case None    => ZIO.some(((), ()))
+                      case Some(c) => ZIO.failCause(c)
                     }
-               _ <- ackStream
-                      .runForeachScoped(_ => ZIO.unit)
-                      .catchAllCause(ackStreamFailed.failCause)
-                      .forkScoped
-             } yield ()
-           )
-    s <- stream.interruptWhen(ackStreamFailed)
+                  )
+    s <- stream.drainFork(ackStream)
   } yield s).retry(retrySchedule)
 
   private[pubsub] def initGrpcBidiStream(
