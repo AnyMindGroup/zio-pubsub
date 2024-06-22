@@ -39,7 +39,10 @@ inThisBuild(
           Step.SingleStep(
             name = "Release",
             run = Some("sbt +publish"),
-            env = Map("ARTIFACT_REGISTRY_PASSWORD" -> "${{ secrets.ARTIFACT_REGISTRY_PASSWORD }}"),
+            env = Map(
+              "ARTIFACT_REGISTRY_USERNAME" -> "${{ vars.ARTIFACT_REGISTRY_USERNAME }}",
+              "ARTIFACT_REGISTRY_PASSWORD" -> "${{ secrets.ARTIFACT_REGISTRY_PASSWORD }}",
+            ),
           )
         case s => s
       })

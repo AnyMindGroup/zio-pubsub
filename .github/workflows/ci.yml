@@ -190,6 +190,7 @@ jobs:
     - name: Release
       run: sbt +publish
       env:
+        ARTIFACT_REGISTRY_USERNAME: ${{ vars.ARTIFACT_REGISTRY_USERNAME }}
         ARTIFACT_REGISTRY_PASSWORD: ${{ secrets.ARTIFACT_REGISTRY_PASSWORD }}
   release-docs:
     name: Release Docs
