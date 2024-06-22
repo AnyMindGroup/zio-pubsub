@@ -8,7 +8,7 @@ lazy val scala3Version = "3.3.3"
 inThisBuild(
   List(
     name               := "ZIO Google Cloud Pub/Sub",
-    zioVersion         := "2.1.3",
+    zioVersion         := "2.1.4",
     organization       := "com.anymindgroup",
     licenses           := Seq(License.Apache2),
     homepage           := Some(url("https://anymindgroup.com")),
@@ -31,6 +31,18 @@ inThisBuild(
         })
       case j => j
     },
+    // remove the release step modification once public
+    ciReleaseJobs := ciReleaseJobs.value.map(j =>
+      j.copy(steps = j.steps.map {
+        case Step.SingleStep("Release", _, _, _, _, _, _) =>
+          Step.SingleStep(
+            name = "Release",
+            run = Some("sbt +publish"),
+            env = Map("ARTIFACT_REGISTRY_PASSWORD" -> "${{ secrets.ARTIFACT_REGISTRY_PASSWORD }}"),
+          )
+        case s => s
+      })
+    ),
     scalafmt         := true,
     scalafmtSbtCheck := true,
     scalafixDependencies ++= List(
