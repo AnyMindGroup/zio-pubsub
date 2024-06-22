@@ -123,7 +123,7 @@ object StreamingPullSubscriberSpec extends ZIOSpecDefault {
                  .makeStream(
                    ZStream.succeed(testBidiStream(ackedRef = ackedRef, nackedRef = nackedRef)),
                    ackQueue,
-                   Schedule.recurs(5),
+                   Schedule.stop,
                  )
                  .mapZIOPar(parralelism) { case (msg, reply) =>
                    (for {
@@ -132,8 +132,8 @@ object StreamingPullSubscriberSpec extends ZIOSpecDefault {
                             case true  => reply.ack()
                             case false => reply.nack()
                           }
-                   } yield c).uninterruptible.flatMap {
-                     case c if c.size >= interruptOnCount =>
+                   } yield c.size).uninterruptible.flatMap {
+                     case s if s >= interruptOnCount =>
                        if (interruptWithFailure) interruptPromise.fail(new Throwable("interrupt with error"))
                        else interruptPromise.succeed(())
                      case _ => ZIO.unit
@@ -147,6 +147,7 @@ object StreamingPullSubscriberSpec extends ZIOSpecDefault {
           _                <- assertZIO(ackQueue.size)(equalTo(0))
           _                <- assertTrue(processedAckIds.size >= interruptOnCount)
           _                <- assertTrue(ackedAndNackedIds.size >= interruptOnCount)
+          _                <- assertTrue(ackedAndNackedIds.size == processedAckIds.size)
           _                <- assert(processedAckIds)(hasSameElements(ackedAndNackedIds))
         } yield assertCompletes
       }
