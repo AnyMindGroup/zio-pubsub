@@ -108,14 +108,9 @@ private[pubsub] object StreamingPullSubscriber {
       ZStream.scopedWith { scope =>
         for {
           _ <-
-            scope.addFinalizerExit { case e =>
+            scope.addFinalizerExit { _ =>
               for {
                 // cancel receiving stream before processing the rest of the queue
-                qs <- ackQueue.size
-                _ <-
-                  ZIO.logInfo(
-                    s"Finalizing ack queue with size $qs: isInterrupted: ${e.isInterrupted} | isFailure: ${e.isFailure} | isSuccess: ${e.isSuccess}"
-                  )
                 _ <- ZIO.succeed(bidiStream.cancel())
                 _ <- processAckQueue(ackQueue, bidiStream, None)
               } yield ()
