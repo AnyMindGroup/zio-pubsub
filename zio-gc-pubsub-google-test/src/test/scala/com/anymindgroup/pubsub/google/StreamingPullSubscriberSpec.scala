@@ -22,7 +22,7 @@ import zio.test.{
   assertZIO,
   check,
 }
-import zio.{Queue, Random, Ref, Schedule, Scope, ZIO, durationInt}
+import zio.{Promise, Queue, Random, Ref, Schedule, Scope, ZIO, durationInt}
 object StreamingPullSubscriberSpec extends ZIOSpecDefault {
 
   trait TestBidiStream[A, B] extends BidiStream[A, B] {
@@ -114,10 +114,11 @@ object StreamingPullSubscriberSpec extends ZIOSpecDefault {
     test("all processed messages are acked or nacked on interruption") {
       check(Gen.int(1, 10000), Gen.boolean, Gen.int(1, 50)) { (interruptOnCount, interruptWithFailure, parralelism) =>
         for {
-          processedRef <- Ref.make(Vector.empty[String])
-          ackedRef      = new AtomicReference(Vector.empty[String])
-          nackedRef     = new AtomicReference(Vector.empty[String])
-          ackQueue     <- Queue.unbounded[(String, Boolean)]
+          processedRef     <- Ref.make(Vector.empty[String])
+          ackedRef          = new AtomicReference(Vector.empty[String])
+          nackedRef         = new AtomicReference(Vector.empty[String])
+          ackQueue         <- Queue.unbounded[(String, Boolean)]
+          interruptPromise <- Promise.make[Throwable, Unit]
           _ <- StreamingPullSubscriber
                  .makeStream(
                    ZStream.succeed(testBidiStream(ackedRef = ackedRef, nackedRef = nackedRef)),
@@ -126,16 +127,19 @@ object StreamingPullSubscriberSpec extends ZIOSpecDefault {
                  )
                  .mapZIOPar(parralelism) { case (msg, reply) =>
                    (for {
-                     _ <- processedRef.updateAndGet(_ :+ msg.getAckId())
+                     c <- processedRef.updateAndGet(_ :+ msg.getAckId())
                      _ <- Live.live(Random.nextBoolean).flatMap {
                             case true  => reply.ack()
                             case false => reply.nack()
                           }
-                   } yield ()).uninterruptible
+                   } yield c).uninterruptible.flatMap {
+                     case c if c.size >= interruptOnCount =>
+                       if (interruptWithFailure) interruptPromise.fail(new Throwable("interrupt with error"))
+                       else interruptPromise.succeed(())
+                     case _ => ZIO.unit
+                   }
                  }
-                 .interruptWhen(processedRef.get.repeatUntil(_.size >= interruptOnCount).flatMap { _ =>
-                   if (interruptWithFailure) ZIO.fail("interrupt with error") else ZIO.unit
-                 })
+                 .interruptWhen(interruptPromise)
                  .runDrain
                  .exit
           processedAckIds  <- processedRef.get
