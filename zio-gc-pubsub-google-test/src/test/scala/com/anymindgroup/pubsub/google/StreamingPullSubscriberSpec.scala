@@ -130,7 +130,7 @@ object StreamingPullSubscriberSpec extends ZIOSpecDefault {
                      for {
                        c <- processedRef.updateAndGet(_ :+ e._1.getAckId())
                        _ <- Live.live(Random.nextBoolean).flatMap(a => if (a) e._2.ack() else e._2.nack())
-                       _ <- (c.size >= interruptAfterCount, interruptWithFailure) match {
+                       _ <- (c.size > interruptAfterCount, interruptWithFailure) match {
                               case (true, false) => interruptPromise.succeed(())
                               case (true, true)  => interruptPromise.fail(new Throwable("interrupt with error"))
                               case _             => ZIO.unit
