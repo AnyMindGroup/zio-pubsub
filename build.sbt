@@ -11,13 +11,20 @@ inThisBuild(
     zioVersion         := "2.1.4",
     organization       := "com.anymindgroup",
     licenses           := Seq(License.Apache2),
-    homepage           := Some(url("https://anymindgroup.com")),
+    homepage           := Some(url("https://github.com/AnyMindGroup/zio-pubsub")),
     scalaVersion       := scala2Version,
     crossScalaVersions := Seq(scala2Version, scala3Version),
     versionScheme      := Some("early-semver"),
     ciEnabledBranches  := Seq("master"),
     ciJvmOptions ++= Seq("-Xms2G", "-Xmx2G", "-Xss4M", "-XX:+UseG1GC"),
     ciTargetJavaVersions := Seq("17", "21"),
+    ciBuildJobs := ciBuildJobs.value.map { j =>
+      j.copy(steps = j.steps.map {
+        case s @ Step.SingleStep("Check all code compiles", _, _, _, _, _, _) =>
+          Step.SingleStep(name = s.name, run = Some("sbt '+Test/compile; +examplesGoogle/compile'"))
+        case s => s
+      })
+    },
     ciTestJobs := ciTestJobs.value.map {
       case j if j.id == "test" =>
         val startPubsub = Step.SingleStep(
@@ -104,7 +111,6 @@ lazy val root =
       zioPubsubSerdeVulcan,
       zioPubsubTest.jvm,
       zioPubsubTest.native,
-      examplesGoogle,
     )
     .settings(commonSettings)
     .settings(noPublishSettings)
@@ -209,9 +215,13 @@ lazy val zioPubsubTest =
 
 lazy val examplesGoogle = (project in file("examples/google"))
   .dependsOn(zioPubsubGoogle)
-  .settings(commonSettings)
   .settings(noPublishSettings)
-  .settings(coverageEnabled := false)
+  .settings(
+    scalaVersion       := scala3Version,
+    crossScalaVersions := Seq(scala3Version),
+    coverageEnabled    := false,
+    fork               := true,
+  )
 
 lazy val testDeps = Seq(
   libraryDependencies ++= Seq(
@@ -230,15 +240,12 @@ lazy val docs = project
     mainModuleName                             := (zioPubsub.jvm / moduleName).value,
     projectStage                               := ProjectStage.Development,
     ScalaUnidoc / unidoc / unidocProjectFilter := inProjects(zioPubsub.jvm),
-    readmeDocumentation                        := "",
-    readmeContribution                         := "",
-    readmeSupport                              := "",
-    readmeLicense                              := "",
-    readmeAcknowledgement                      := "",
-    readmeCodeOfConduct                        := "",
-    readmeCredits                              := "",
-    readmeBanner                               := "",
-    readmeMaintainers                          := "",
+    readmeContribution :=
+      """|If you have any question or problem feel free to open an issue or discussion.
+         |
+         |People are expected to follow the [Code of Conduct](CODE_OF_CONDUCT.md) when discussing on the GitHub issues or PRs.""".stripMargin,
+    readmeSupport       := "Open an issue or discussion on [GitHub](https://github.com/AnyMindGroup/zio-pubsub/issues)",
+    readmeCodeOfConduct := "See the [Code of Conduct](CODE_OF_CONDUCT.md)",
   )
   .enablePlugins(WebsitePlugin)
   .dependsOn(zioPubsub.jvm, zioPubsubGoogle)
