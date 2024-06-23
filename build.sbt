@@ -184,9 +184,9 @@ lazy val zioPubsubGoogleTest = project
 
 // TODO remove dependency on zioPubsubGoogle
 lazy val zioPubsubTestkit =
-  (project in file("zio-gc-pubsub-testkit"))
+  (project in file("zio-pubsub-testkit"))
     .dependsOn(zioPubsub.jvm, zioPubsubGoogle)
-    .settings(moduleName := "zio-gc-pubsub-testkit")
+    .settings(moduleName := "zio-pubsub-testkit")
     .settings(commonSettings)
     .settings(releaseSettings)
     .settings(
@@ -198,9 +198,9 @@ lazy val zioPubsubTestkit =
 
 lazy val zioPubsubTest =
   crossProject(JVMPlatform, NativePlatform)
-    .in(file("zio-gc-pubsub-test"))
+    .in(file("zio-pubsub-test"))
     .dependsOn(zioPubsub, zioPubsubSerdeCirce)
-    .settings(moduleName := "zio-gc-pubsub-test")
+    .settings(moduleName := "zio-pubsub-test")
     .settings(commonSettings)
     .settings(noPublishSettings)
     .settings(testDeps)
