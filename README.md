@@ -143,7 +143,7 @@ See [examples](https://github.com/AnyMindGroup/zio-pubsub/tree/master/examples/g
 
 ### Running example code
 
-Start Google Pub/Sub emulator with docker-compose unsing provided [docker-compose.yaml](docker-compose.yaml)
+Start Google Pub/Sub emulator with docker-compose unsing provided docker-compose.yaml
 
 ```shell
 docker-compose up
