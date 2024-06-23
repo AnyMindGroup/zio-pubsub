@@ -1,12 +1,9 @@
 import com.anymindgroup.pubsub.google.{PubsubAdmin, PubsubConnectionConfig}
-import com.anymindgroup.pubsub.model.{Encoding, SchemaSettings, Topic}
-import com.anymindgroup.pubsub.serde.Serde
-import com.anymindgroup.pubsub.sub.{DeadLettersSettings, Subscription}
+import com.anymindgroup.pubsub.*
+import zio.*
 
-import zio.{Scope, ZIO, ZIOAppDefault}
-
-object ExamplesAdminSetup extends ZIOAppDefault {
-  override def run: ZIO[Scope, Any, Any] = PubsubAdmin.setup(
+object ExamplesAdminSetup extends ZIOAppDefault:
+  def run: Task[Unit] = PubsubAdmin.setup(
     connection = PubsubConnectionConfig.Emulator(PubsubConnectionConfig.GcpProject("any"), "localhost:8085"),
     topics = List(exampleTopic, exampleDeadLettersTopic),
     subscriptions = List(exampleSub),
@@ -38,4 +35,3 @@ object ExamplesAdminSetup extends ZIOAppDefault {
     name = s"${exampleSub.name}__dead_letters",
     deadLettersSettings = None,
   )
-}
