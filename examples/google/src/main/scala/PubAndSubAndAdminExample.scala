@@ -42,7 +42,10 @@ object PubAndSubAndAdminExample extends ZIOAppDefault:
     }
 
   val pubsubConnection: G.PubsubConnectionConfig =
-    G.PubsubConnectionConfig.Emulator(G.PubsubConnectionConfig.GcpProject("any"), "localhost:8085")
+    G.PubsubConnectionConfig.Emulator(
+      G.PubsubConnectionConfig.GcpProject("any"),
+      "localhost:8085",
+    )
 
   val publisherLayer: TaskLayer[Publisher[Any, Int]] = ZLayer.scoped(
     G.Publisher.make(

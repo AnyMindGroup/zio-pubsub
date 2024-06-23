@@ -6,7 +6,11 @@ object BasicSubscription extends ZIOAppDefault:
     .subscribe(subscriptionName = "basic_example", des = Serde.int)
     .mapZIO { (message, ackReply) =>
       for {
-        _ <- printLine(s"Received message with id ${message.meta.messageId.value} and data ${message.data}")
+        _ <- printLine(
+               s"Received message" +
+                 s" with id ${message.meta.messageId.value}" +
+                 s" and data ${message.data}"
+             )
         _ <- ackReply.ack()
       } yield ()
     }
@@ -19,7 +23,10 @@ object BasicSubscription extends ZIOAppDefault:
 
     ZLayer.scoped(
       G.Subscriber.makeStreamingPullSubscriber(
-        connection = G.PubsubConnectionConfig.Emulator(G.PubsubConnectionConfig.GcpProject("any"), "localhost:8085")
+        connection = G.PubsubConnectionConfig.Emulator(
+          G.PubsubConnectionConfig.GcpProject("any"),
+          "localhost:8085",
+        )
       )
     )
   }

@@ -4,16 +4,16 @@ import zio.stream.ZStream, zio.*
 object SamplesPublisher extends ZIOAppDefault:
   def run = ZStream
     .repeatZIOWithSchedule(Random.nextInt, Schedule.fixed(2.seconds))
-    .mapZIO { sampleData =>
+    .mapZIO { sample =>
       for {
-        messageId <- Publisher.publish[Any, Int](
-                       PublishMessage(
-                         data = sampleData,
-                         attributes = Map.empty,
-                         orderingKey = None,
-                       )
-                     )
-        _ <- Console.printLine(s"Published data $sampleData with message id ${messageId.value}")
+        mId <- Publisher.publish[Any, Int](
+                 PublishMessage(
+                   data = sample,
+                   attributes = Map.empty,
+                   orderingKey = None,
+                 )
+               )
+        _ <- Console.printLine(s"Published data $sample with message id ${mId.value}")
       } yield ()
     }
     .runDrain
@@ -26,7 +26,10 @@ object SamplesPublisher extends ZIOAppDefault:
     ZLayer.scoped(
       G.Publisher.make(
         config = G.PublisherConfig(
-          connection = G.PubsubConnectionConfig.Emulator(G.PubsubConnectionConfig.GcpProject("any"), "localhost:8085"),
+          connection = G.PubsubConnectionConfig.Emulator(
+            G.PubsubConnectionConfig.GcpProject("any"),
+            "localhost:8085",
+          ),
           topicName = "basic_example",
           encoding = Encoding.Binary,
           enableOrdering = false,

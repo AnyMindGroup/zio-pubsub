@@ -9,7 +9,7 @@
 ## Modules
 
 - `zio-pubsub` Core components/interfaces/models
-- `zio-pubsub-google` Provides subscriber, publisher and admin clients implementations using the [Google Java](https://cloud.google.com/java/docs/reference/google-cloud-pubsub/latest/overview) library
+- `zio-pubsub-google` Provides publisher, admin and [StreamingPull API](https://cloud.google.com/pubsub/docs/pull#streamingpull_api) based subscriber client implementations using [Google's Java](https://cloud.google.com/java/docs/reference/google-cloud-pubsub/latest/overview) library
 - `zio-pubsub-serde-circe` Provides Json Serializer/Deserializer using the [circe](https://circe.github.io/circe) codec
 - `zio-pubsub-serde-vulcan` Provides Avro schema Serializer/Deserializer using the [vulcan](https://fd4s.github.io/vulcan) codec
 
@@ -36,7 +36,11 @@ object BasicSubscription extends ZIOAppDefault:
     .subscribe(subscriptionName = "basic_example", des = Serde.int)
     .mapZIO { (message, ackReply) =>
       for {
-        _ <- printLine(s"Received message with id ${message.meta.messageId.value} and data ${message.data}")
+        _ <- printLine(
+               s"Received message" +
+                 s" with id ${message.meta.messageId.value}" +
+                 s" and data ${message.data}"
+             )
         _ <- ackReply.ack()
       } yield ()
     }
@@ -49,7 +53,10 @@ object BasicSubscription extends ZIOAppDefault:
 
     ZLayer.scoped(
       G.Subscriber.makeStreamingPullSubscriber(
-        connection = G.PubsubConnectionConfig.Emulator(G.PubsubConnectionConfig.GcpProject("any"), "localhost:8085")
+        connection = G.PubsubConnectionConfig.Emulator(
+          G.PubsubConnectionConfig.GcpProject("any"),
+          "localhost:8085",
+        )
       )
     )
   }
@@ -64,16 +71,16 @@ import zio.stream.ZStream, zio.*
 object SamplesPublisher extends ZIOAppDefault:
   def run = ZStream
     .repeatZIOWithSchedule(Random.nextInt, Schedule.fixed(2.seconds))
-    .mapZIO { sampleData =>
+    .mapZIO { sample =>
       for {
-        messageId <- Publisher.publish[Any, Int](
-                       PublishMessage(
-                         data = sampleData,
-                         attributes = Map.empty,
-                         orderingKey = None,
-                       )
-                     )
-        _ <- Console.printLine(s"Published data $sampleData with message id ${messageId.value}")
+        mId <- Publisher.publish[Any, Int](
+                 PublishMessage(
+                   data = sample,
+                   attributes = Map.empty,
+                   orderingKey = None,
+                 )
+               )
+        _ <- Console.printLine(s"Published data $sample with message id ${mId.value}")
       } yield ()
     }
     .runDrain
@@ -86,7 +93,10 @@ object SamplesPublisher extends ZIOAppDefault:
     ZLayer.scoped(
       G.Publisher.make(
         config = G.PublisherConfig(
-          connection = G.PubsubConnectionConfig.Emulator(G.PubsubConnectionConfig.GcpProject("any"), "localhost:8085"),
+          connection = G.PubsubConnectionConfig.Emulator(
+            G.PubsubConnectionConfig.GcpProject("any"),
+            "localhost:8085",
+          ),
           topicName = "basic_example",
           encoding = Encoding.Binary,
           enableOrdering = false,
