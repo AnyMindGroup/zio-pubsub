@@ -4,9 +4,12 @@ import zio.*
 
 object ExamplesAdminSetup extends ZIOAppDefault:
   def run: Task[Unit] = PubsubAdmin.setup(
-    connection = PubsubConnectionConfig.Emulator(PubsubConnectionConfig.GcpProject("any"), "localhost:8085"),
+    connection = PubsubConnectionConfig.Emulator(
+      PubsubConnectionConfig.GcpProject("any"),
+      "localhost:8085",
+    ),
     topics = List(exampleTopic, exampleDeadLettersTopic),
-    subscriptions = List(exampleSub),
+    subscriptions = List(exampleSub, exampleDeadLettersSub),
   )
 
   val exampleTopic: Topic[Any, Int] = Topic(
