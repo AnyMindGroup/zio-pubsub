@@ -221,9 +221,9 @@ lazy val testDeps = Seq(
 )
 
 lazy val docs = project
-  .in(file("zio-gc-pubsub-docs"))
+  .in(file("zio-pubsub-docs"))
   .settings(
-    moduleName := "zio-gc-pubsub-docs",
+    moduleName := "zio-pubsub-docs",
     scalacOptions -= "-Yno-imports",
     scalacOptions -= "-Xfatal-warnings",
     projectName                                := "ZIO Google Cloud Pub/Sub",
