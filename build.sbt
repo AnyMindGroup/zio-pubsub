@@ -18,6 +18,13 @@ inThisBuild(
     ciEnabledBranches  := Seq("master"),
     ciJvmOptions ++= Seq("-Xms2G", "-Xmx2G", "-Xss4M", "-XX:+UseG1GC"),
     ciTargetJavaVersions := Seq("17", "21"),
+    ciBuildJobs := ciBuildJobs.value.map { j =>
+      j.copy(steps = j.steps.map {
+        case s @ Step.SingleStep("Check all code compiles", _, _, _, _, _, _) =>
+          Step.SingleStep(name = s.name, run = Some("sbt '+Test/compile; +examplesGoogle/compile'"))
+        case s => s
+      })
+    },
     ciTestJobs := ciTestJobs.value.map {
       case j if j.id == "test" =>
         val startPubsub = Step.SingleStep(
