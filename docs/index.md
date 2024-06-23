@@ -11,8 +11,8 @@ leveraging [ZIO](https://zio.dev) with [ZIO Streams](https://zio.dev/reference/s
 
 - `zio-pubsub` Provides shared components/interfaces/models
 - `zio-pubsub-google` Provides subscriber, publisher and admin clients implementations using the [Google Java](https://cloud.google.com/java/docs/reference/google-cloud-pubsub/latest/overview) library
-- `zio-gc-pubsub-serde-circe` Provides Json Serializer/Deserializer using the [circe](https://circe.github.io/circe) codec
-- `zio-gc-pubsub-serde-vulcan` Provides Avro schema Serializer/Deserializer using the [vulcan](https://fd4s.github.io/vulcan) codec
+- `zio-pubsub-serde-circe` Provides Json Serializer/Deserializer using the [circe](https://circe.github.io/circe) codec
+- `zio-pubsub-serde-vulcan` Provides Avro schema Serializer/Deserializer using the [vulcan](https://fd4s.github.io/vulcan) codec
 
 Alternative implementations and codecs may be added later.
 
@@ -21,7 +21,7 @@ Alternative implementations and codecs may be added later.
 To get started with sbt, add the following line to your build.sbt file to use the implementation with the Google Java library:
 
 ```scala
-libraryDependencies += "com.anymindgroup" %% "zio-gc-pubsub-google" % "@VERSION@"
+libraryDependencies += "com.anymindgroup" %% "zio-pubsub-google" % "@VERSION@"
 ```
 
 ## Usage examples
@@ -144,7 +144,7 @@ object ExamplesAdminSetup extends ZIOAppDefault {
 }
 ```
 
-See [examples](https://github.com/AnyMindGroup/zio-gc-pubsub/tree/master/examples/google) for more examples.
+See [examples](https://github.com/AnyMindGroup/zio-pubsub/tree/master/examples/google) for more examples.
 
 ### Running example code
 
