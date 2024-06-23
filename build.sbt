@@ -116,8 +116,8 @@ lazy val root =
     )
 
 lazy val zioPubsub = crossProject(JVMPlatform, NativePlatform)
-  .in(file("zio-gc-pubsub"))
-  .settings(moduleName := "zio-gc-pubsub")
+  .in(file("zio-pubsub"))
+  .settings(moduleName := "zio-pubsub")
   .settings(commonSettings)
   .settings(releaseSettings)
   .settings(

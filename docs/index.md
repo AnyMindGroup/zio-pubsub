@@ -9,7 +9,7 @@ leveraging [ZIO](https://zio.dev) with [ZIO Streams](https://zio.dev/reference/s
 
 ## Modules
 
-- `zio-gc-pubsub` Provides shared components/interfaces/models
+- `zio-pubsub` Provides shared components/interfaces/models
 - `zio-gc-pubsub-google` Provides subscriber, publisher and admin clients implementations using the [Google Java](https://cloud.google.com/java/docs/reference/google-cloud-pubsub/latest/overview) library
 - `zio-gc-pubsub-serde-circe` Provides Json Serializer/Deserializer using the [circe](https://circe.github.io/circe) codec
 - `zio-gc-pubsub-serde-vulcan` Provides Avro schema Serializer/Deserializer using the [vulcan](https://fd4s.github.io/vulcan) codec
