@@ -170,9 +170,9 @@ lazy val zioPubsubGoogle = (project in file("zio-pubsub-google"))
   )
 
 lazy val zioPubsubGoogleTest = project
-  .in(file("zio-gc-pubsub-google-test"))
+  .in(file("zio-pubsub-google-test"))
   .dependsOn(zioPubsub.jvm, zioPubsubGoogle, zioPubsubTestkit, zioPubsubSerdeCirce.jvm, zioPubsubSerdeVulcan)
-  .settings(moduleName := "zio-gc-pubsub-google-test")
+  .settings(moduleName := "zio-pubsub-google-test")
   .settings(commonSettings)
   .settings(noPublishSettings)
   .settings(testDeps)
