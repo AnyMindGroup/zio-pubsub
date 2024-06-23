@@ -156,8 +156,8 @@ lazy val zioPubsubSerdeCirce = crossProject(JVMPlatform, NativePlatform)
   )
 
 val googleCloudPubsubVersion = "1.130.1"
-lazy val zioPubsubGoogle = (project in file("zio-gc-pubsub-google"))
-  .settings(moduleName := "zio-gc-pubsub-google")
+lazy val zioPubsubGoogle = (project in file("zio-pubsub-google"))
+  .settings(moduleName := "zio-pubsub-google")
   .dependsOn(zioPubsub.jvm)
   .aggregate(zioPubsub.jvm)
   .settings(commonSettings)
