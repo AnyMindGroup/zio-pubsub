@@ -116,8 +116,8 @@ lazy val root =
     )
 
 lazy val zioPubsub = crossProject(JVMPlatform, NativePlatform)
-  .in(file("zio-gc-pubsub"))
-  .settings(moduleName := "zio-gc-pubsub")
+  .in(file("zio-pubsub"))
+  .settings(moduleName := "zio-pubsub")
   .settings(commonSettings)
   .settings(releaseSettings)
   .settings(
@@ -128,8 +128,8 @@ lazy val zioPubsub = crossProject(JVMPlatform, NativePlatform)
   )
 
 val vulcanVersion = "1.10.1"
-lazy val zioPubsubSerdeVulcan = (project in file("zio-gc-pubsub-serde-vulcan"))
-  .settings(moduleName := "zio-gc-pubsub-serde-vulcan")
+lazy val zioPubsubSerdeVulcan = (project in file("zio-pubsub-serde-vulcan"))
+  .settings(moduleName := "zio-pubsub-serde-vulcan")
   .dependsOn(zioPubsub.jvm)
   .settings(commonSettings)
   .settings(releaseSettings)
@@ -142,8 +142,8 @@ lazy val zioPubsubSerdeVulcan = (project in file("zio-gc-pubsub-serde-vulcan"))
 
 val circeVersion = "0.14.7"
 lazy val zioPubsubSerdeCirce = crossProject(JVMPlatform, NativePlatform)
-  .in(file("zio-gc-pubsub-serde-circe"))
-  .settings(moduleName := "zio-gc-pubsub-serde-circe")
+  .in(file("zio-pubsub-serde-circe"))
+  .settings(moduleName := "zio-pubsub-serde-circe")
   .dependsOn(zioPubsub)
   .settings(commonSettings)
   .settings(releaseSettings)
@@ -156,8 +156,8 @@ lazy val zioPubsubSerdeCirce = crossProject(JVMPlatform, NativePlatform)
   )
 
 val googleCloudPubsubVersion = "1.130.1"
-lazy val zioPubsubGoogle = (project in file("zio-gc-pubsub-google"))
-  .settings(moduleName := "zio-gc-pubsub-google")
+lazy val zioPubsubGoogle = (project in file("zio-pubsub-google"))
+  .settings(moduleName := "zio-pubsub-google")
   .dependsOn(zioPubsub.jvm)
   .aggregate(zioPubsub.jvm)
   .settings(commonSettings)
@@ -170,9 +170,9 @@ lazy val zioPubsubGoogle = (project in file("zio-gc-pubsub-google"))
   )
 
 lazy val zioPubsubGoogleTest = project
-  .in(file("zio-gc-pubsub-google-test"))
+  .in(file("zio-pubsub-google-test"))
   .dependsOn(zioPubsub.jvm, zioPubsubGoogle, zioPubsubTestkit, zioPubsubSerdeCirce.jvm, zioPubsubSerdeVulcan)
-  .settings(moduleName := "zio-gc-pubsub-google-test")
+  .settings(moduleName := "zio-pubsub-google-test")
   .settings(commonSettings)
   .settings(noPublishSettings)
   .settings(testDeps)
@@ -184,9 +184,9 @@ lazy val zioPubsubGoogleTest = project
 
 // TODO remove dependency on zioPubsubGoogle
 lazy val zioPubsubTestkit =
-  (project in file("zio-gc-pubsub-testkit"))
+  (project in file("zio-pubsub-testkit"))
     .dependsOn(zioPubsub.jvm, zioPubsubGoogle)
-    .settings(moduleName := "zio-gc-pubsub-testkit")
+    .settings(moduleName := "zio-pubsub-testkit")
     .settings(commonSettings)
     .settings(releaseSettings)
     .settings(
@@ -198,9 +198,9 @@ lazy val zioPubsubTestkit =
 
 lazy val zioPubsubTest =
   crossProject(JVMPlatform, NativePlatform)
-    .in(file("zio-gc-pubsub-test"))
+    .in(file("zio-pubsub-test"))
     .dependsOn(zioPubsub, zioPubsubSerdeCirce)
-    .settings(moduleName := "zio-gc-pubsub-test")
+    .settings(moduleName := "zio-pubsub-test")
     .settings(commonSettings)
     .settings(noPublishSettings)
     .settings(testDeps)
@@ -221,9 +221,9 @@ lazy val testDeps = Seq(
 )
 
 lazy val docs = project
-  .in(file("zio-gc-pubsub-docs"))
+  .in(file("zio-pubsub-docs"))
   .settings(
-    moduleName := "zio-gc-pubsub-docs",
+    moduleName := "zio-pubsub-docs",
     scalacOptions -= "-Yno-imports",
     scalacOptions -= "-Xfatal-warnings",
     projectName                                := "ZIO Google Cloud Pub/Sub",
