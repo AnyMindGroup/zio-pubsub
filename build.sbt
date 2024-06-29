@@ -12,7 +12,7 @@ inThisBuild(
     organization       := "com.anymindgroup",
     licenses           := Seq(License.Apache2),
     homepage           := Some(url("https://github.com/AnyMindGroup/zio-pubsub")),
-    scalaVersion       := scala2Version,
+    scalaVersion       := scala3Version,
     crossScalaVersions := Seq(scala2Version, scala3Version),
     versionScheme      := Some("early-semver"),
     ciEnabledBranches  := Seq("master"),
