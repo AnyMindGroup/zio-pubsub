@@ -1,8 +1,16 @@
 # Installation
 
-To get started with sbt, add the following line to your build.sbt file to use the implementation with the Google Java library:
+To get started with sbt, add the following to your build.sbt file:
 
 ```scala
-libraryDependencies += "com.anymindgroup" %% "zio-pubsub-google" % "@VERSION@"
-libraryDependencies += "com.anymindgroup" %% "zio-pubsub-testkit" % "@VERSION@" % Test
+libraryDependencies ++= Seq(
+    // core components
+    "com.anymindgroup" %% "zio-pubsub"         % "@VERSION@",
+    
+    // to use the implementation with Google's Java library
+    "com.anymindgroup" %% "zio-pubsub-google"  % "@VERSION@",
+
+    // include for testing support
+    "com.anymindgroup" %% "zio-pubsub-testkit" % "@VERSION@" % Test
+)
 ```

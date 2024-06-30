@@ -34,13 +34,6 @@ import com.anymindgroup.pubsub.*
 import zio.Console.printLine, zio.stream.*, zio.*
 
 object PubAndSubAndAdminExample extends ZIOAppDefault:
-  def program = for {
-    // ensure example topics and subscription are setup
-    _ <- G.PubsubAdmin.setup(pubsubConnection, List(exampleTopic), List(exampleSubsription))
-    // run subscription while continually publishing in the background
-    _ <- subStream.drainFork(pubStream).runDrain
-  } yield ()
-
   // topic description
   val exampleTopic: Topic[Any, Int] = Topic(
     name = "basic_example",
@@ -61,7 +54,7 @@ object PubAndSubAndAdminExample extends ZIOAppDefault:
     deadLettersSettings = None,
   )
 
-  // subscription stream for existing subscription
+  // subscription process stream
   val subStream: ZStream[Subscriber, Throwable, Unit] =
     Subscriber
       .subscribe(exampleSubsription.name, Serde.int)
@@ -93,6 +86,7 @@ object PubAndSubAndAdminExample extends ZIOAppDefault:
         } yield ()
       }
 
+  // connection config (for emulator)
   val pubsubConnection: G.PubsubConnectionConfig =
     G.PubsubConnectionConfig.Emulator(
       project = G.PubsubConnectionConfig.GcpProject("any"),
@@ -112,8 +106,16 @@ object PubAndSubAndAdminExample extends ZIOAppDefault:
   val subscriberLayer: TaskLayer[Subscriber] =
     ZLayer.scoped(G.Subscriber.makeStreamingPullSubscriber(pubsubConnection))
 
-  def run = program.provide(publisherLayer, subscriberLayer)
+  // program description
+  def program = for {
+    // ensure example topics and subscription are setup
+    _ <- G.PubsubAdmin.setup(pubsubConnection, List(exampleTopic), List(exampleSubsription))
+    // run subscription while continually publishing in the background
+    _ <- subStream.drainFork(pubStream).runDrain
+  } yield ()
 
+  // execute the program
+  def run = program.provide(publisherLayer, subscriberLayer)
 ```
 
 To run the example start Google Pub/Sub emulator with docker-compose unsing provided docker-compose.yaml
@@ -125,7 +127,5 @@ docker-compose up
 Run example with sbt:
 
 ```shell
-sbt '+examplesGoogle/runMain PubAndSubAndAdminExample'
+sbt '+examples/runMain PubAndSubAndAdminExample'
 ```
-
-Visit the documentation site for more examples.

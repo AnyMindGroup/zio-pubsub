@@ -12,7 +12,7 @@ inThisBuild(
     organization       := "com.anymindgroup",
     licenses           := Seq(License.Apache2),
     homepage           := Some(url("https://github.com/AnyMindGroup/zio-pubsub")),
-    scalaVersion       := scala3Version,
+    scalaVersion       := scala2Version,
     crossScalaVersions := Seq(scala2Version, scala3Version),
     versionScheme      := Some("early-semver"),
     ciEnabledBranches  := Seq("master"),
@@ -21,7 +21,10 @@ inThisBuild(
     ciBuildJobs := ciBuildJobs.value.map { j =>
       j.copy(steps = j.steps.map {
         case s @ Step.SingleStep("Check all code compiles", _, _, _, _, _, _) =>
-          Step.SingleStep(name = s.name, run = Some("sbt '+Test/compile; +examplesGoogle/compile'"))
+          Step.SingleStep(
+            name = s.name,
+            run = Some("sbt '+Test/compile; +examples/compile'"),
+          )
         case s => s
       })
     },
@@ -213,7 +216,7 @@ lazy val zioPubsubTest =
     .jvmSettings(coverageEnabled := true)
     .nativeSettings(coverageEnabled := false)
 
-lazy val examplesGoogle = (project in file("examples/google"))
+lazy val examples = (project in file("examples"))
   .dependsOn(zioPubsubGoogle)
   .settings(noPublishSettings)
   .settings(
@@ -221,6 +224,9 @@ lazy val examplesGoogle = (project in file("examples/google"))
     crossScalaVersions := Seq(scala3Version),
     coverageEnabled    := false,
     fork               := true,
+    libraryDependencies ++= Seq(
+      "dev.zio" %% "zio-json" % "0.7.1"
+    ),
   )
 
 lazy val testDeps = Seq(
@@ -246,6 +252,8 @@ lazy val docs = project
          |People are expected to follow the [Code of Conduct](CODE_OF_CONDUCT.md) when discussing on the GitHub issues or PRs.""".stripMargin,
     readmeSupport       := "Open an issue or discussion on [GitHub](https://github.com/AnyMindGroup/zio-pubsub/issues)",
     readmeCodeOfConduct := "See the [Code of Conduct](CODE_OF_CONDUCT.md)",
+    readmeCredits := """|Inspired by libraries like [zio-kafka](https://github.com/zio/zio-kafka) 
+                        |and [fs2-pubsub](https://github.com/permutive-engineering/fs2-pubsub) to provide a similar experience.""".stripMargin,
   )
   .enablePlugins(WebsitePlugin)
   .dependsOn(zioPubsub.jvm, zioPubsubGoogle)

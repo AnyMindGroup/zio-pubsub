@@ -20,28 +20,48 @@ def process(message: ReceivedMessage[Int], reply: AckReply) =
   printLine(s"Processing of $message that can fail...").exit.flatMap {
     case Exit.Success(_)     => reply.ack()
     case Exit.Failure(cause) => reply.nack() *> ZIO.logErrorCause(s"Failure log", cause)
-  }  
+  }
 ```
 
-Processing can then be executed according to the needs.  
+Processing can be controlled according to the needs.  
 E.g. to process all messages in sequence:
 ```scala
-subStream.mapZIO(process)
+val processStream = subStream.mapZIO(process)
 ```
 
 Process up to 16 messages concurrently:
 ```scala
-subStream.mapZIOPar(16)(process)
+val processStream = subStream.mapZIOPar(16)(process)
 ```
 
 Group by ordering key and process the groups in parallel
-while each group item is processed sequentially:  
+while items with same ordering key are processed sequentially:  
 
 ```scala
-subStream.mapZIOParByKey(
+val processStream = subStream.mapZIOParByKey(
     keyBy = (m, _) => m.meta.orderingKey.getOrElse(m.meta.messageId).hashCode(),
     buffer = 16,
 )(process)
+```
+
+Putting it all together for exection by providing the `Subscriber` implementation:
+```scala
+object MyProcess extends ZIOAppDefault:
+  // execute by providing the subscriber implementation
+  def run = processStream.runDrain.provide(subscriberImpl)
+
+  // subscriber implementation using StreamingPull API via Google's Java library
+  val subscriberImpl: TaskLayer[Subscriber] = {
+    import com.anymindgroup.pubsub.google as G
+
+    ZLayer.scoped(
+      G.Subscriber.makeStreamingPullSubscriber(
+        connection = G.PubsubConnectionConfig.Cloud(
+          G.PubsubConnectionConfig.GcpProject("my-gcp-project")
+        )
+      )
+    )
+  }
 ```
 
 ## Subscription with custom deserializer
@@ -61,6 +81,8 @@ val subStream: ZStream[Subscriber, Throwable, (ReceivedMessage[String], AckReply
   Subscriber.subscribe(subscriptionName = "basic_example", des = utf8StringDes)
 ```
 
+For custom data types see the [Serializer/Deserializer for custom data types](./serde.md#serializerdeserializer-for-custom-data-types) section.
+
 ## Subscription without deserializer
 
 It's also possible to create a stream without a deserializer which is going 
@@ -72,3 +94,6 @@ import com.anymindgroup.pubsub.*, zio.stream.ZStream
 val subStream: ZStream[Subscriber, Throwable, (ReceivedMessage[Array[Byte]], AckReply)] =
   Subscriber.subscribeRaw(subscriptionName = "basic_example")
 ```
+
+## Handling deserialization errors
+See section [handling deserialization errors](./serde.md#handling-deserialization-errors).
