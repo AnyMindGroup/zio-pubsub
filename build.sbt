@@ -1,19 +1,21 @@
 import zio.sbt.githubactions.{Job, Step}
 enablePlugins(ZioSbtEcosystemPlugin, ZioSbtCiPlugin)
 
-lazy val scala2Version = "2.13.14"
+lazy val _scala2 = "2.13.14"
 
-lazy val scala3Version = "3.3.3"
+lazy val _scala3 = "3.3.3"
 
 inThisBuild(
   List(
     name               := "ZIO Google Cloud Pub/Sub",
-    zioVersion         := "2.1.4",
     organization       := "com.anymindgroup",
     licenses           := Seq(License.Apache2),
     homepage           := Some(url("https://github.com/AnyMindGroup/zio-pubsub")),
-    scalaVersion       := scala2Version,
-    crossScalaVersions := Seq(scala2Version, scala3Version),
+    zioVersion         := "2.1.5",
+    scala213           := _scala2,
+    scala3             := _scala3,
+    scalaVersion       := _scala2,
+    crossScalaVersions := Seq(_scala2, _scala3),
     versionScheme      := Some("early-semver"),
     ciEnabledBranches  := Seq("master"),
     ciJvmOptions ++= Seq("-Xms2G", "-Xmx2G", "-Xss4M", "-XX:+UseG1GC"),
@@ -220,8 +222,8 @@ lazy val examples = (project in file("examples"))
   .dependsOn(zioPubsubGoogle)
   .settings(noPublishSettings)
   .settings(
-    scalaVersion       := scala3Version,
-    crossScalaVersions := Seq(scala3Version),
+    scalaVersion       := _scala3,
+    crossScalaVersions := Seq(_scala3),
     coverageEnabled    := false,
     fork               := true,
     libraryDependencies ++= Seq(
