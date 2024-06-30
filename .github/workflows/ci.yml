@@ -36,7 +36,7 @@ jobs:
     - name: Cache Dependencies
       uses: coursier/cache-action@v6.4.5
     - name: Check all code compiles
-      run: sbt '+Test/compile; +examplesGoogle/compile'
+      run: sbt '+Test/compile; +examples/compile'
     - name: Check artifacts build process
       run: sbt +publishLocal
     - name: Check website build process
