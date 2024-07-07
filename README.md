@@ -4,9 +4,9 @@
 
 # ZIO Google Cloud Pub/Sub
 
-[Google Cloud Pub/Sub](https://cloud.google.com/pubsub) client providing stream-based, declarative, high-level API with [zio](https://zio.dev) and [zio-streams](https://zio.dev/reference/stream) to help to concentrate on the business logic.
-
 ![Maven Central Version](https://img.shields.io/maven-central/v/com.anymindgroup/zio-pubsub_3)
+
+[Google Cloud Pub/Sub](https://cloud.google.com/pubsub) client providing stream-based, declarative, high-level API with [zio](https://zio.dev) and [zio-streams](https://zio.dev/reference/stream) to help to concentrate on the business logic.
 
 ## Modules
 
