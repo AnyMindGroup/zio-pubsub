@@ -1,6 +1,5 @@
-import com.anymindgroup.pubsub.google as G
-import com.anymindgroup.pubsub.*
-import zio.Console.printLine, zio.stream.*, zio.*
+import com.anymindgroup.pubsub.google as G, com.anymindgroup.pubsub.*
+import zio.stream.*, zio.*, zio.ZIO.*
 
 object PubAndSubAndAdminExample extends ZIOAppDefault:
   def program = for {
@@ -36,7 +35,7 @@ object PubAndSubAndAdminExample extends ZIOAppDefault:
       .subscribe(exampleSubsription.name, Serde.int)
       .mapZIO { case (msg, ackReply) =>
         for {
-          _ <- printLine(
+          _ <- logInfo(
                  s"Received message with id ${msg.meta.messageId.value}"
                    + s" and data ${msg.data}"
                )
@@ -58,7 +57,7 @@ object PubAndSubAndAdminExample extends ZIOAppDefault:
                       orderingKey = None,
                     )
                   )
-          _ <- printLine(s"Published message with id ${id.value}")
+          _ <- logInfo(s"Published message with id ${id.value}")
         } yield ()
       }
 

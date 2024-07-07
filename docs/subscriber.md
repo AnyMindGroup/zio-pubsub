@@ -12,14 +12,14 @@ val subStream: ZStream[Subscriber, Throwable, (ReceivedMessage[Int], AckReply)] 
 In the next step one can define a function that is going to process a message 
 and reply depending on the result:
 ```scala
-import zio.Console.printLine
+import zio.Console.*, zio.ZIO.*
 
 // ack on successful process
 // nack and log the error cause on failures
 def process(message: ReceivedMessage[Int], reply: AckReply) =
   printLine(s"Processing of $message that can fail...").exit.flatMap {
     case Exit.Success(_)     => reply.ack()
-    case Exit.Failure(cause) => reply.nack() *> ZIO.logErrorCause(s"Failure log", cause)
+    case Exit.Failure(cause) => reply.nack() *> logErrorCause("Failure log", cause)
   }
 ```
 
@@ -34,14 +34,13 @@ Process up to 16 messages concurrently:
 val processStream = subStream.mapZIOPar(16)(process)
 ```
 
-Group by ordering key and process the groups in parallel
+Group by ordering key (if present) and process the groups in parallel
 while items with same ordering key are processed sequentially:  
 
 ```scala
-val processStream = subStream.mapZIOParByKey(
-    keyBy = (m, _) => m.meta.orderingKey.getOrElse(m.meta.messageId).hashCode(),
-    buffer = 16,
-)(process)
+val processStream = subStream.groupByKey((m, _) => m.orderingKey.getOrElse(m.messageId).hashCode()) {
+  (_, groupStream) => groupStream.mapZIO(process)
+}
 ```
 
 Putting it all together for exection by providing the `Subscriber` implementation:

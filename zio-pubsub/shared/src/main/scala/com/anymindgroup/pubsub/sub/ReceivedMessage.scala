@@ -4,7 +4,14 @@ import java.time.Instant
 
 import com.anymindgroup.pubsub.model.{MessageId, OrderingKey}
 
-final case class ReceivedMessage[T](meta: ReceivedMessage.Metadata, data: T)
+final case class ReceivedMessage[T](meta: ReceivedMessage.Metadata, data: T) {
+  def orderingKey: Option[OrderingKey] = meta.orderingKey
+  def messageId: MessageId             = meta.messageId
+  def ackId: AckId                     = meta.ackId
+  def publishTime: Instant             = meta.publishTime
+  def attributes: Map[String, String]  = meta.attributes
+  def deliveryAttempt: Int             = meta.deliveryAttempt
+}
 
 object ReceivedMessage {
   type Raw = ReceivedMessage[Array[Byte]]
