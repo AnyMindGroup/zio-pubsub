@@ -1,4 +1,4 @@
-import zio.sbt.githubactions.{Job, Step}
+import zio.sbt.githubactions.{Job, Step, Condition}
 enablePlugins(ZioSbtEcosystemPlugin, ZioSbtCiPlugin)
 
 lazy val _scala2 = "2.13.14"
@@ -7,10 +7,25 @@ lazy val _scala3 = "3.3.3"
 
 inThisBuild(
   List(
-    name               := "ZIO Google Cloud Pub/Sub",
-    organization       := "com.anymindgroup",
-    licenses           := Seq(License.Apache2),
-    homepage           := Some(url("https://github.com/AnyMindGroup/zio-pubsub")),
+    name         := "ZIO Google Cloud Pub/Sub",
+    organization := "com.anymindgroup",
+    licenses     := Seq(License.Apache2),
+    homepage     := Some(url("https://github.com/AnyMindGroup/zio-pubsub")),
+    developers := List(
+      Developer(id = "rolang", name = "Roman Langolf", email = "rolang@pm.me", url = url("https://github.com/rolang")),
+      Developer(
+        id = "dutch3883",
+        name = "Panuwach Boonyasup",
+        email = "dutch3883@hotmail.com",
+        url = url("https://github.com/dutch3883"),
+      ),
+      Developer(
+        id = "qhquanghuy",
+        name = "Huy Nguyen",
+        email = "huy_ngq@flinters.vn",
+        url = url("https://github.com/qhquanghuy"),
+      ),
+    ),
     zioVersion         := "2.1.5",
     scala213           := _scala2,
     scala3             := _scala3,
@@ -44,20 +59,26 @@ inThisBuild(
         })
       case j => j
     },
+    sonatypeCredentialHost := xerial.sbt.Sonatype.sonatypeCentralHost,
     // remove the release step modification once public
     ciReleaseJobs := ciReleaseJobs.value.map(j =>
-      j.copy(steps = j.steps.map {
-        case Step.SingleStep("Release", _, _, _, _, _, _) =>
-          Step.SingleStep(
-            name = "Release",
-            run = Some("sbt +publish"),
-            env = Map(
-              "ARTIFACT_REGISTRY_USERNAME" -> "${{ vars.ARTIFACT_REGISTRY_USERNAME }}",
-              "ARTIFACT_REGISTRY_PASSWORD" -> "${{ secrets.ARTIFACT_REGISTRY_PASSWORD }}",
-            ),
-          )
-        case s => s
-      })
+      j.copy(
+        steps = j.steps.map {
+          case Step.SingleStep(name @ "Release", _, _, _, _, _, env) =>
+            Step.SingleStep(
+              name = name,
+              run = Some(
+                """|echo "$PGP_SECRET" | base64 -d -i - > /tmp/signing-key.gpg
+                   | && echo "$PGP_PASSPHRASE" | gpg --pinentry-mode loopback --passphrase-fd 0 --import /tmp/signing-key.gpg
+                   | && (echo "$PGP_PASSPHRASE"; echo; echo) | gpg --command-fd 0 --pinentry-mode loopback --change-passphrase $(gpg --list-secret-keys --with-colons 2> /dev/null | grep '^sec:' | cut --delimiter ':' --fields 5 | tail -n 1)
+                   | && sbt '+publishSigned; sonatypeCentralRelease'""".stripMargin
+              ),
+              env = env,
+            )
+          case s => s
+        },
+        condition = Some(Condition.Expression("startsWith(github.ref, 'refs/tags/v')")),
+      )
     ),
     scalafmt         := true,
     scalafmtSbtCheck := true,
@@ -84,16 +105,10 @@ lazy val commonSettings = List(
   Compile / scalacOptions --= sys.env.get("CI").fold(Seq("-Xfatal-warnings"))(_ => Nil),
   Test / scalafixConfig := Some(new File(".scalafix_test.conf")),
   Test / scalacOptions --= Seq("-Xfatal-warnings"),
-  credentials += {
-    for {
-      username <- sys.env.get("ARTIFACT_REGISTRY_USERNAME")
-      apiKey   <- sys.env.get("ARTIFACT_REGISTRY_PASSWORD")
-    } yield Credentials("https://asia-maven.pkg.dev", "asia-maven.pkg.dev", username, apiKey)
-  }.getOrElse(Credentials(Path.userHome / ".ivy2" / ".credentials")),
 ) ++ scalafixSettings
 
 val releaseSettings = List(
-  publishTo := Some("AnyChat Maven" at "https://asia-maven.pkg.dev/anychat-staging/maven")
+  publishTo := sonatypePublishToBundle.value
 )
 
 val noPublishSettings = List(
