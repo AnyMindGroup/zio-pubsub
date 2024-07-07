@@ -18,12 +18,12 @@ object PublishRandomString extends ZIOAppDefault:
     _         <- printLine(s"Published message with id $messageId")
   } yield ()
 
-  // publisher implementation based on Google's Java library
+  // publisher implementation layer based on Google's Java library
   // - publishes to topic "basic_example"
   // - ordering disabled
   // - use UTF8 string encoder/serializer
   // - use binary encoding
-  val publisherImpl: TaskLayer[Publisher[Any, String]] = {
+  val publisherLayer: TaskLayer[Publisher[Any, String]] = {
     import com.anymindgroup.pubsub.google as G
 
     val publisherConfig = G.PublisherConfig(
@@ -45,5 +45,5 @@ object PublishRandomString extends ZIOAppDefault:
   }
 
   // execute publishing
-  def run = publish.provide(publisherImpl)
+  def run = publish.provide(publisherLayer)
 ```

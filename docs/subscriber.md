@@ -46,11 +46,11 @@ val processStream = subStream.groupByKey((m, _) => m.orderingKey.getOrElse(m.mes
 Putting it all together for exection by providing the `Subscriber` implementation:
 ```scala
 object MyProcess extends ZIOAppDefault:
-  // execute by providing the subscriber implementation
-  def run = processStream.runDrain.provide(subscriberImpl)
+  // execute by providing the subscriber implementation layer
+  def run = processStream.runDrain.provide(subscriberLayer)
 
-  // subscriber implementation using StreamingPull API via Google's Java library
-  val subscriberImpl: TaskLayer[Subscriber] = {
+  // subscriber implementation layer using StreamingPull API via Google's Java library
+  val subscriberLayer: TaskLayer[Subscriber] = {
     import com.anymindgroup.pubsub.google as G
 
     ZLayer.scoped(
