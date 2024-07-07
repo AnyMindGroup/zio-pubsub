@@ -64,11 +64,11 @@ inThisBuild(
     ciReleaseJobs := ciReleaseJobs.value.map(j =>
       j.copy(
         steps = j.steps.map {
-          case s @ Step.SingleStep("Release", _, _, _, _, _, _) =>
+          case Step.SingleStep(name @ "Release", _, _, _, _, _, env) =>
             Step.SingleStep(
-              name = s.name,
+              name = name,
               run = Some("sbt '+publishSigned; sonatypeCentralRelease'"),
-              env = s.env,
+              env = env,
             )
           case s => s
         },
