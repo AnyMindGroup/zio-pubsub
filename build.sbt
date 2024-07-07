@@ -60,28 +60,8 @@ inThisBuild(
       case j => j
     },
     sonatypeCredentialHost := xerial.sbt.Sonatype.sonatypeCentralHost,
-    // remove the release step modification once public
-    ciReleaseJobs := ciReleaseJobs.value.map(j =>
-      j.copy(
-        steps = j.steps.map {
-          case Step.SingleStep(name @ "Release", _, _, _, _, _, env) =>
-            Step.SingleStep(
-              name = name,
-              run = Some(
-                """|echo "$PGP_SECRET" | base64 -d -i - > /tmp/signing-key.gpg
-                   | && echo "$PGP_PASSPHRASE" | gpg --pinentry-mode loopback --passphrase-fd 0 --import /tmp/signing-key.gpg
-                   | && (echo "$PGP_PASSPHRASE"; echo; echo) | gpg --command-fd 0 --pinentry-mode loopback --change-passphrase $(gpg --list-secret-keys --with-colons 2> /dev/null | grep '^sec:' | cut --delimiter ':' --fields 5 | tail -n 1)
-                   | && sbt '+publishSigned; sonatypeCentralRelease'""".stripMargin
-              ),
-              env = env,
-            )
-          case s => s
-        },
-        condition = Some(Condition.Expression("startsWith(github.ref, 'refs/tags/v')")),
-      )
-    ),
-    scalafmt         := true,
-    scalafmtSbtCheck := true,
+    scalafmt               := true,
+    scalafmtSbtCheck       := true,
     scalafixDependencies ++= List(
       "com.github.vovapolu" %% "scaluzzi" % "0.1.23"
     ),
@@ -106,10 +86,6 @@ lazy val commonSettings = List(
   Test / scalafixConfig := Some(new File(".scalafix_test.conf")),
   Test / scalacOptions --= Seq("-Xfatal-warnings"),
 ) ++ scalafixSettings
-
-val releaseSettings = List(
-  publishTo := sonatypePublishToBundle.value
-)
 
 val noPublishSettings = List(
   publish         := {},
@@ -145,7 +121,6 @@ lazy val zioPubsub = crossProject(JVMPlatform, NativePlatform)
   .in(file("zio-pubsub"))
   .settings(moduleName := "zio-pubsub")
   .settings(commonSettings)
-  .settings(releaseSettings)
   .settings(
     libraryDependencies ++= Seq(
       "dev.zio" %%% "zio"         % zioVersion.value,
@@ -158,7 +133,6 @@ lazy val zioPubsubSerdeVulcan = (project in file("zio-pubsub-serde-vulcan"))
   .settings(moduleName := "zio-pubsub-serde-vulcan")
   .dependsOn(zioPubsub.jvm)
   .settings(commonSettings)
-  .settings(releaseSettings)
   .settings(
     libraryDependencies ++= Seq(
       "com.github.fd4s" %% "vulcan"         % vulcanVersion,
@@ -172,7 +146,6 @@ lazy val zioPubsubSerdeCirce = crossProject(JVMPlatform, NativePlatform)
   .settings(moduleName := "zio-pubsub-serde-circe")
   .dependsOn(zioPubsub)
   .settings(commonSettings)
-  .settings(releaseSettings)
   .settings(
     libraryDependencies ++= Seq(
       "io.circe" %%% "circe-core"    % circeVersion,
@@ -187,7 +160,6 @@ lazy val zioPubsubGoogle = (project in file("zio-pubsub-google"))
   .dependsOn(zioPubsub.jvm)
   .aggregate(zioPubsub.jvm)
   .settings(commonSettings)
-  .settings(releaseSettings)
   .settings(
     scalacOptions --= List("-Wunused:nowarn"),
     libraryDependencies ++= Seq(
@@ -214,7 +186,6 @@ lazy val zioPubsubTestkit =
     .dependsOn(zioPubsub.jvm, zioPubsubGoogle)
     .settings(moduleName := "zio-pubsub-testkit")
     .settings(commonSettings)
-    .settings(releaseSettings)
     .settings(
       scalafixConfig := Some(new File(".scalafix_test.conf")),
       libraryDependencies ++= Seq(
