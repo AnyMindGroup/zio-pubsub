@@ -1,5 +1,4 @@
-import com.anymindgroup.pubsub.*
-import zio.stream.ZStream, zio.*
+import com.anymindgroup.pubsub.*, zio.stream.*, zio.*, zio.ZIO.*
 
 object SamplesPublisher extends ZIOAppDefault:
   def run = ZStream
@@ -13,7 +12,7 @@ object SamplesPublisher extends ZIOAppDefault:
                    orderingKey = None,
                  )
                )
-        _ <- Console.printLine(s"Published data $sample with message id ${mId.value}")
+        _ <- logInfo(s"Published data $sample with message id ${mId.value}")
       } yield ()
     }
     .runDrain

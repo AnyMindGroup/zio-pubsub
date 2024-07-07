@@ -28,15 +28,14 @@ libraryDependencies += "com.anymindgroup" %% "zio-pubsub-google" % "@VERSION@"
 Create a stream for existing subscription:
 
 ```scala
-import com.anymindgroup.pubsub.*
-import zio.*, zio.Console.printLine
+import com.anymindgroup.pubsub.*, zio.*, zio.ZIO.*
 
 object BasicSubscription extends ZIOAppDefault:
   def run = Subscriber
     .subscribe(subscriptionName = "basic_example", des = Serde.int)
     .mapZIO { (message, ackReply) =>
       for {
-        _ <- printLine(
+        _ <- logInfo(
                s"Received message" +
                  s" with id ${message.meta.messageId.value}" +
                  s" and data ${message.data}"
@@ -65,8 +64,7 @@ object BasicSubscription extends ZIOAppDefault:
 Publish random integer every 2 seconds
 
 ```scala
-import com.anymindgroup.pubsub.*
-import zio.stream.ZStream, zio.*
+import com.anymindgroup.pubsub.*, zio.stream.*, zio.*, zio.ZIO.*
 
 object SamplesPublisher extends ZIOAppDefault:
   def run = ZStream
@@ -80,14 +78,14 @@ object SamplesPublisher extends ZIOAppDefault:
                    orderingKey = None,
                  )
                )
-        _ <- Console.printLine(s"Published data $sample with message id ${mId.value}")
+        _ <- logInfo(s"Published data $sample with message id ${mId.value}")
       } yield ()
     }
     .runDrain
     .provide(intPublisher)
 
   // int publisher implementation
-  private val intPublisher: TaskLayer[Publisher[Any, Int]] = {
+  val intPublisher: TaskLayer[Publisher[Any, Int]] = {
     import com.anymindgroup.pubsub.google as G
 
     ZLayer.scoped(
@@ -152,11 +150,7 @@ object ExamplesAdminSetup extends ZIOAppDefault:
   )
 ```
 
-See [examples](https://github.com/AnyMindGroup/zio-pubsub/tree/master/examples/google) for more examples.
-
-### Running example code
-
-Start Google Pub/Sub emulator with docker-compose unsing provided docker-compose.yaml
+To run the example start Google Pub/Sub emulator with docker-compose unsing provided docker-compose.yaml
 
 ```shell
 docker-compose up
@@ -165,15 +159,15 @@ docker-compose up
 Run examples with sbt:
 
 ```shell
-# run to setup example topics + subscriptions
-sbt '+examplesGoogle/runMain ExamplesAdminSetup'
+# run to setup example topics + subscription
+sbt '+examples/runMain ExamplesAdminSetup'
 
-# start basic subscription
-sbt '+examplesGoogle/runMain BasicSubscription'
+# run subscription
+sbt '+examples/runMain BasicSubscription'
 
-# run samples publisher in a separate shell
-sbt '+examplesGoogle/runMain SamplesPublisher'
+# run samples publisher
+sbt '+examples/runMain SamplesPublisher'
 
 # or choose in sbt which example to run
-sbt '+examplesGoogle/run'
+sbt '+examples/run'
 ```

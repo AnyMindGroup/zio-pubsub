@@ -1,12 +1,11 @@
-import com.anymindgroup.pubsub.*
-import zio.*, zio.Console.printLine
+import com.anymindgroup.pubsub.*, zio.*, zio.ZIO.*
 
 object BasicSubscription extends ZIOAppDefault:
   def run = Subscriber
     .subscribe(subscriptionName = "basic_example", des = Serde.int)
     .mapZIO { (message, ackReply) =>
       for {
-        _ <- printLine(
+        _ <- logInfo(
                s"Received message" +
                  s" with id ${message.meta.messageId.value}" +
                  s" and data ${message.data}"
