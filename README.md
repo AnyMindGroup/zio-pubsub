@@ -6,6 +6,8 @@
 
 [Google Cloud Pub/Sub](https://cloud.google.com/pubsub) client providing stream-based, declarative, high-level API with [zio](https://zio.dev) and [zio-streams](https://zio.dev/reference/stream) to help to concentrate on the business logic.
 
+![Maven Central Version](https://img.shields.io/maven-central/v/com.anymindgroup/zio-pubsub_3)
+
 ## Modules
 
 - `zio-pubsub` Core components/interfaces/models
@@ -20,7 +22,7 @@ Alternative implementations and codecs may be added later.
 To get started with sbt, add the following line to your build.sbt file to use the implementation with the Google Java library:
 
 ```scala
-libraryDependencies += "com.anymindgroup" %% "zio-pubsub-google" % "0.2.0"
+libraryDependencies += "com.anymindgroup" %% "zio-pubsub-google" % "0.2.1"
 ```
 
 ## Usage examples
