@@ -22,7 +22,7 @@ Alternative implementations and codecs may be added later.
 To get started with sbt, add the following line to your build.sbt file to use the implementation with the Google Java library:
 
 ```scala
-libraryDependencies += "com.anymindgroup" %% "zio-pubsub-google" % "0.2.1"
+libraryDependencies += "com.anymindgroup" %% "zio-pubsub-google" % "0.2.2"
 ```
 
 ## Usage examples
@@ -176,7 +176,7 @@ sbt '+examples/run'
 
 ## Documentation
 
-Learn more on the [ZIO Google Cloud Pub/Sub homepage](https://github.com/AnyMindGroup/zio-pubsub)!
+Learn more on the [ZIO Google Cloud Pub/Sub homepage](https://anymindgroup.github.io/zio-pubsub)!
 
 ## Contributing
 

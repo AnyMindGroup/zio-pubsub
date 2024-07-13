@@ -11,7 +11,7 @@ inThisBuild(
     name         := "ZIO Google Cloud Pub/Sub",
     organization := "com.anymindgroup",
     licenses     := Seq(License.Apache2),
-    homepage     := Some(url("https://github.com/AnyMindGroup/zio-pubsub")),
+    homepage     := Some(url("https://anymindgroup.github.io/zio-pubsub")),
     developers := List(
       Developer(id = "rolang", name = "Roman Langolf", email = "rolang@pm.me", url = url("https://github.com/rolang")),
       Developer(
@@ -138,7 +138,7 @@ lazy val ciGenerateGithubWorkflowV2 = Def.task {
        |      name: github-pages
        |      url: ${{ steps.deployment.outputs.page_url }}
        |    needs:
-       |    - build
+       |    - release
        |    steps:
        |    - name: Deploy to GitHub Pages
        |      uses: actions/deploy-pages@v4
