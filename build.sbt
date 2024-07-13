@@ -44,6 +44,18 @@ inThisBuild(
               name = s.name,
               run = Some("sbt '+Test/compile; +examples/compile'"),
             )
+          case s @ Step.SingleStep("Check website build process", _, _, _, _, _, _) =>
+            Step.StepSequence(
+              Seq(
+                s,
+                Step.SingleStep(
+                  "Adjust baseUrl in website build",
+                  run = Some(
+                    """sed -i "s/baseUrl:.*/baseUrl: \"\/zio-pibsub\/\",/g" zio-pubsub-docs/target/website/docusaurus.config.js && sbt docs/buildWebsite"""
+                  ),
+                ),
+              )
+            )
           case s => s
         } :+ Step.SingleStep(
           name = "Upload website build",
@@ -308,6 +320,7 @@ lazy val docs = project
     readmeCodeOfConduct := "See the [Code of Conduct](CODE_OF_CONDUCT.md)",
     readmeCredits := """|Inspired by libraries like [zio-kafka](https://github.com/zio/zio-kafka) 
                         |and [fs2-pubsub](https://github.com/permutive-engineering/fs2-pubsub) to provide a similar experience.""".stripMargin,
+    // docusaurusPublishGhpages := docusaurusPublishGhpages.value,
   )
   .enablePlugins(WebsitePlugin)
   .dependsOn(zioPubsub.jvm, zioPubsubGoogle)

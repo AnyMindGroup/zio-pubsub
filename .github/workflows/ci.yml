@@ -44,6 +44,8 @@ jobs:
       run: sbt +publishLocal
     - name: Check website build process
       run: sbt docs/clean; sbt docs/buildWebsite
+    - name: Adjust baseUrl in website build
+      run: 'sed -i "s/baseUrl:.*/baseUrl: \"\/zio-pibsub\/\",/g" zio-pubsub-docs/target/website/docusaurus.config.js && sbt docs/buildWebsite'
     - name: Upload website build
       uses: actions/upload-pages-artifact@v3
       with:
