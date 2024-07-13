@@ -209,8 +209,14 @@ jobs:
     name: Deploy website
     runs-on: ubuntu-latest
     continue-on-error: false
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     needs:
-    - release
+    - build
     steps:
     - name: Deploy to GitHub Pages
       uses: actions/deploy-pages@v4
