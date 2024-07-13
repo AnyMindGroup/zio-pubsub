@@ -51,7 +51,7 @@ inThisBuild(
                 Step.SingleStep(
                   "Adjust baseUrl in website build",
                   run = Some(
-                    """sed -i "s/baseUrl:.*/baseUrl: \"\/zio-pibsub\/\",/g" zio-pubsub-docs/target/website/docusaurus.config.js && sbt docs/buildWebsite"""
+                    """sed -i "s/baseUrl:.*/baseUrl: \"\/zio-pubsub\/\",/g" zio-pubsub-docs/target/website/docusaurus.config.js && sbt docs/buildWebsite"""
                   ),
                 ),
               )
