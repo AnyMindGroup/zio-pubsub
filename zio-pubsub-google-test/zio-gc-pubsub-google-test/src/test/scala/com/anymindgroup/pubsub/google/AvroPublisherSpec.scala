@@ -91,13 +91,9 @@ object AvroPublisherSpec extends ZIOSpecDefault {
             )
         publishedOrderingKeys = testMessages.map(_.orderingKey)
         consumedOrderingKeys  = consumed.map(_.meta.orderingKey)
-<<<<<<< HEAD:zio-gc-pubsub-google-test/src/test/scala/com/anymindgroup/pubsub/google/AvroPublisherSpec.scala
         _                    <- assert(publishedOrderingKeys)(hasSameElements(consumedOrderingKeys))
-      } yield assert(consumedAttr)(hasSameElements(publishedAttrs))
-=======
         _                    <- assert(consumedAttr)(hasSameElements(publishedAttrs))
       } yield assert(publishedOrderingKeys)(hasSameElements(consumedOrderingKeys))
->>>>>>> master:zio-pubsub-google-test/zio-gc-pubsub-google-test/src/test/scala/com/anymindgroup/pubsub/google/AvroPublisherSpec.scala
     }) ::
       List(
         Encoding.Json,
