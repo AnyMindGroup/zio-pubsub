@@ -4,15 +4,16 @@ title: "Getting Started with ZIO Google Cloud Pub/Sub"
 sidebar_label: "Getting Started"
 ---
 
-[Google Cloud Pub/Sub](https://cloud.google.com/pubsub) client providing stream-based, declarative, high-level API to help to concentrate on the business logic
-leveraging [ZIO](https://zio.dev) with [ZIO Streams](https://zio.dev/reference/stream).
+![Maven Central Version](https://img.shields.io/maven-central/v/com.anymindgroup/zio-pubsub_3)
+
+[Google Cloud Pub/Sub](https://cloud.google.com/pubsub) client providing stream-based, declarative, high-level API with [zio](https://zio.dev) and [zio-streams](https://zio.dev/reference/stream) to help to concentrate on the business logic.
 
 ## Modules
 
-- `zio-gc-pubsub` Provides shared components/interfaces/models
-- `zio-gc-pubsub-google` Provides subscriber, publisher and admin clients implementations using the [Google Java](https://cloud.google.com/java/docs/reference/google-cloud-pubsub/latest/overview) library
-- `zio-gc-pubsub-serde-circe` Provides Json Serializer/Deserializer using the [circe](https://circe.github.io/circe) codec
-- `zio-gc-pubsub-serde-vulcan` Provides Avro schema Serializer/Deserializer using the [vulcan](https://fd4s.github.io/vulcan) codec
+- `zio-pubsub` Core components/interfaces/models
+- `zio-pubsub-google` Provides publisher, admin and [StreamingPull API](https://cloud.google.com/pubsub/docs/pull#streamingpull_api) based subscriber client implementations using [Google's Java](https://cloud.google.com/java/docs/reference/google-cloud-pubsub/latest/overview) library
+- `zio-pubsub-serde-circe` Provides Json Serializer/Deserializer using the [circe](https://circe.github.io/circe) codec
+- `zio-pubsub-serde-vulcan` Provides Avro schema Serializer/Deserializer using the [vulcan](https://fd4s.github.io/vulcan) codec
 
 Alternative implementations and codecs may be added later.
 
@@ -21,7 +22,7 @@ Alternative implementations and codecs may be added later.
 To get started with sbt, add the following line to your build.sbt file to use the implementation with the Google Java library:
 
 ```scala
-libraryDependencies += "com.anymindgroup" %% "zio-gc-pubsub-google" % "@VERSION@"
+libraryDependencies += "com.anymindgroup" %% "zio-pubsub-google" % "@VERSION@"
 ```
 
 ## Usage examples
@@ -29,100 +30,98 @@ libraryDependencies += "com.anymindgroup" %% "zio-gc-pubsub-google" % "@VERSION@
 Create a stream for existing subscription:
 
 ```scala
-import com.anymindgroup.pubsub.google.{PubsubConnectionConfig, Subscriber as GoogleSubscriber}
-import com.anymindgroup.pubsub.serde.Serde
-import com.anymindgroup.pubsub.sub.Subscriber
+import com.anymindgroup.pubsub.*, zio.*, zio.ZIO.*
 
-import zio.{Console, Scope, ZIO, ZIOAppDefault, ZLayer}
+object BasicSubscription extends ZIOAppDefault:
+  def run = Subscriber
+    .subscribe(subscriptionName = "basic_example", des = Serde.int)
+    .mapZIO { (message, ackReply) =>
+      for {
+        _ <- logInfo(
+               s"Received message" +
+                 s" with id ${message.meta.messageId.value}" +
+                 s" and data ${message.data}"
+             )
+        _ <- ackReply.ack()
+      } yield ()
+    }
+    .runDrain
+    .provide(googleSubscriber)
 
-object BasicSubscription extends ZIOAppDefault {
-  override def run: ZIO[Scope, Any, Any] =
-    Subscriber
-      .subscribe(subscriptionName = "basic_example", des = Serde.int)
-      .zipWithIndex
-      .mapZIO { case ((message, ackReply), idx) =>
-        for {
-          _ <- Console.printLine(
-                 s"Received message ${idx + 1}"
-                   + s" with id ${message.meta.messageId.value}"
-                   + s" and data ${message.data}"
-               )
-          _ <- ackReply.ack()
-        } yield ()
-      }
-      .runDrain
-      .provideSome[Scope](subscriber)
+  // subscriber implementation
+  private val googleSubscriber: TaskLayer[Subscriber] = {
+    import com.anymindgroup.pubsub.google as G
 
-  private val subscriber = ZLayer.fromZIO(
-    GoogleSubscriber.makeStreamingPullSubscriber(
-      connection = PubsubConnectionConfig.Emulator(PubsubConnectionConfig.GcpProject("any"), "localhost:8085")
+    ZLayer.scoped(
+      G.Subscriber.makeStreamingPullSubscriber(
+        connection = G.PubsubConnectionConfig.Emulator(
+          G.PubsubConnectionConfig.GcpProject("any"),
+          "localhost:8085",
+        )
+      )
     )
-  )
-}
+  }
 ```
 
 Publish random integer every 2 seconds
 
 ```scala
-import com.anymindgroup.pubsub.google.{Publisher as GooglePublisher, PublisherConfig, PubsubConnectionConfig}
-import com.anymindgroup.pubsub.model.Encoding
-import com.anymindgroup.pubsub.pub.{PublishMessage, Publisher}
-import com.anymindgroup.pubsub.serde.Serde
+import com.anymindgroup.pubsub.*, zio.stream.*, zio.*, zio.ZIO.*
 
-import zio.stream.ZStream
-import zio.{Console, Random, Schedule, Scope, ZIO, ZIOAppDefault, ZLayer, durationInt}
-
-object SamplesPublisher extends ZIOAppDefault {
-  override def run: ZIO[Scope, Any, Any] = ZStream
-    .repeatZIOWithSchedule(
-      Random.nextIntBetween(0, Int.MaxValue),
-      Schedule.fixed(2.seconds),
-    )
-    .mapZIO { sampleData =>
+object SamplesPublisher extends ZIOAppDefault:
+  def run = ZStream
+    .repeatZIOWithSchedule(Random.nextInt, Schedule.fixed(2.seconds))
+    .mapZIO { sample =>
       for {
-        messageId <- Publisher.publish[Any, Int](
-                       PublishMessage(
-                         data = sampleData,
-                         attributes = Map.empty,
-                         orderingKey = None,
-                       )
-                     )
-        _ <- Console.printLine(s"Published data $sampleData with message id ${messageId.value}")
+        mId <- Publisher.publish[Any, Int](
+                 PublishMessage(
+                   data = sample,
+                   attributes = Map.empty,
+                   orderingKey = None,
+                 )
+               )
+        _ <- logInfo(s"Published data $sample with message id ${mId.value}")
       } yield ()
-
     }
     .runDrain
-    .provideSome[Scope](publisher)
+    .provide(intPublisher)
 
-  private val publisher = ZLayer.fromZIO(
-    GooglePublisher.make(
-      config = PublisherConfig(
-        connection = PubsubConnectionConfig.Emulator(PubsubConnectionConfig.GcpProject("any"), "localhost:8085"),
-        topicName = "basic_example",
-        encoding = Encoding.Binary,
-        enableOrdering = false,
-      ),
-      ser = Serde.int,
+  // int publisher implementation
+  val intPublisher: TaskLayer[Publisher[Any, Int]] = {
+    import com.anymindgroup.pubsub.google as G
+
+    ZLayer.scoped(
+      G.Publisher.make(
+        config = G.PublisherConfig(
+          connection = G.PubsubConnectionConfig.Emulator(
+            G.PubsubConnectionConfig.GcpProject("any"),
+            "localhost:8085",
+          ),
+          topicName = "basic_example",
+          encoding = Encoding.Binary,
+          enableOrdering = false,
+        ),
+        ser = Serde.int,
+      )
     )
-  )
-}
+  }
 ```
 
 Setup topics and subscription using the admin client:
 
 ```scala
 import com.anymindgroup.pubsub.google.{PubsubAdmin, PubsubConnectionConfig}
-import com.anymindgroup.pubsub.model.{Encoding, SchemaSettings, Topic}
-import com.anymindgroup.pubsub.serde.Serde
-import com.anymindgroup.pubsub.sub.Subscription
+import com.anymindgroup.pubsub.*
+import zio.*
 
-import zio.{Scope, ZIO, ZIOAppDefault}
-
-object ExamplesAdminSetup extends ZIOAppDefault {
-  override def run: ZIO[Scope, Any, Any] = PubsubAdmin.setup(
-    connection = PubsubConnectionConfig.Emulator(PubsubConnectionConfig.GcpProject("any"), "localhost:8085"),
-    topics = List(exampleTopic),
-    subscriptions = List(exampleSub),
+object ExamplesAdminSetup extends ZIOAppDefault:
+  def run: Task[Unit] = PubsubAdmin.setup(
+    connection = PubsubConnectionConfig.Emulator(
+      PubsubConnectionConfig.GcpProject("any"),
+      "localhost:8085",
+    ),
+    topics = List(exampleTopic, exampleDeadLettersTopic),
+    subscriptions = List(exampleSub, exampleDeadLettersSub),
   )
 
   val exampleTopic: Topic[Any, Int] = Topic(
@@ -134,27 +133,26 @@ object ExamplesAdminSetup extends ZIOAppDefault {
     serde = Serde.int,
   )
 
+  val exampleDeadLettersTopic: Topic[Any, Int] =
+    exampleTopic.copy(name = s"${exampleTopic.name}__dead_letters")
+
   val exampleSub: Subscription = Subscription(
     topicName = exampleTopic.name,
     name = "basic_example",
     filter = None,
     enableOrdering = false,
     expiration = None,
+    deadLettersSettings = Some(DeadLettersSettings(exampleDeadLettersTopic.name, 5)),
   )
-}
+
+  val exampleDeadLettersSub: Subscription = exampleSub.copy(
+    topicName = exampleDeadLettersTopic.name,
+    name = s"${exampleSub.name}__dead_letters",
+    deadLettersSettings = None,
+  )
 ```
 
-See [examples](https://github.com/AnyMindGroup/zio-gc-pubsub/tree/master/examples/google) for more examples.
-
-### Running example code
-
-Start Google Pub/Sub emulator with docker:
-
-```shell
- docker run -p 8085:8085 --rm gcr.io/google.com/cloudsdktool/cloud-sdk:427.0.0-emulators -- gcloud beta emulators pubsub start --project=any --host-port=0.0.0.0:8085
-```
-
-or with docker-compose unsing provided docker-compose.yaml
+To run the example start Google Pub/Sub emulator with docker-compose unsing provided docker-compose.yaml
 
 ```shell
 docker-compose up
@@ -163,12 +161,15 @@ docker-compose up
 Run examples with sbt:
 
 ```shell
-# run to setup example topics + subscriptions
-sbt 'examplesGoogle/runMain ExamplesAdminSetup'
+# run to setup example topics + subscription
+sbt '+examples/runMain ExamplesAdminSetup'
 
-# start basic subscription
-sbt 'examplesGoogle/runMain BasicSubscription'
+# run subscription
+sbt '+examples/runMain BasicSubscription'
 
-# run samples publisher in a separate shell
-sbt 'examplesGoogle/runMain SamplesPublisher'
+# run samples publisher
+sbt '+examples/runMain SamplesPublisher'
+
+# or choose in sbt which example to run
+sbt '+examples/run'
 ```

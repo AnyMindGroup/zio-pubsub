@@ -5,7 +5,13 @@ const sidebars = {
       label: "ZIO Google Cloud Pub/Sub",
       collapsed: false,
       link: { type: "doc", id: "index" },
-      items: []
+      items: [
+        "installation",
+        "subscriber",
+        "publisher",
+        "serde",
+        "admin"
+      ]
     }
   ]
 };
