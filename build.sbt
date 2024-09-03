@@ -250,11 +250,10 @@ lazy val zioPubsubGoogle = (project in file("zio-pubsub-google"))
   )
 
 lazy val zioPubsubHttp = crossProject(JVMPlatform, NativePlatform)
-  .in(file("zio-gc-pubsub-http"))
-  .settings(moduleName := "zio-gc-pubsub-http")
+  .in(file("zio-pubsub-http"))
+  .settings(moduleName := "zio-pubsub-http")
   .dependsOn(zioPubsub)
   .settings(commonSettings)
-  .settings(releaseSettings)
   .settings(
     libraryDependencies ++= Seq(
       "com.anymindgroup" %%% "zio-gc-auth" % "0.0.1"
