@@ -40,4 +40,7 @@ package object pubsub {
 
   type DeadLettersSettings = sub.DeadLettersSettings
   val DeadLettersSettings = sub.DeadLettersSettings
+
+  type PubsubConnectionConfig = model.PubsubConnectionConfig
+  val PubsubConnectionConfig = model.PubsubConnectionConfig
 }

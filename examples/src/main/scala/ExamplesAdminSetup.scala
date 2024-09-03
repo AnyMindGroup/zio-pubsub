@@ -1,4 +1,4 @@
-import com.anymindgroup.pubsub.google.{PubsubAdmin, PubsubConnectionConfig}
+import com.anymindgroup.pubsub.google.PubsubAdmin
 import com.anymindgroup.pubsub.*
 import zio.*
 

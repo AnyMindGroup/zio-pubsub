@@ -25,8 +25,8 @@ object SamplesPublisher extends ZIOAppDefault:
     ZLayer.scoped(
       G.Publisher.make(
         config = G.PublisherConfig(
-          connection = G.PubsubConnectionConfig.Emulator(
-            G.PubsubConnectionConfig.GcpProject("any"),
+          connection = PubsubConnectionConfig.Emulator(
+            PubsubConnectionConfig.GcpProject("any"),
             "localhost:8085",
           ),
           topicName = "basic_example",
