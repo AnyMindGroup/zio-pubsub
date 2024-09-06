@@ -27,7 +27,7 @@ inThisBuild(
         url = url("https://github.com/qhquanghuy"),
       ),
     ),
-    zioVersion         := "2.1.7",
+    zioVersion         := "2.1.9",
     scala213           := _scala2,
     scala3             := _scala3,
     scalaVersion       := _scala2,
@@ -232,7 +232,7 @@ lazy val zioPubsubSerdeCirce = crossProject(JVMPlatform, NativePlatform)
     )
   )
 
-val googleCloudPubsubVersion = "1.132.0"
+val googleCloudPubsubVersion = "1.132.1"
 lazy val zioPubsubGoogle = (project in file("zio-pubsub-google"))
   .settings(moduleName := "zio-pubsub-google")
   .dependsOn(zioPubsub.jvm)
