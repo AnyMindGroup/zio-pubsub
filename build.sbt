@@ -218,7 +218,7 @@ lazy val zioPubsubSerdeVulcan = (project in file("zio-pubsub-serde-vulcan"))
     )
   )
 
-val circeVersion = "0.14.9"
+val circeVersion = "0.14.10"
 lazy val zioPubsubSerdeCirce = crossProject(JVMPlatform, NativePlatform)
   .in(file("zio-pubsub-serde-circe"))
   .settings(moduleName := "zio-pubsub-serde-circe")
