@@ -61,9 +61,9 @@ object PubAndSubAndAdminExample extends ZIOAppDefault:
         } yield ()
       }
 
-  val pubsubConnection: G.PubsubConnectionConfig =
-    G.PubsubConnectionConfig.Emulator(
-      project = G.PubsubConnectionConfig.GcpProject("any"),
+  val pubsubConnection: PubsubConnectionConfig =
+    PubsubConnectionConfig.Emulator(
+      project = PubsubConnectionConfig.GcpProject("any"),
       host = "localhost:8085",
     )
 
