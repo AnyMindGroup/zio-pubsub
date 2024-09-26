@@ -2,7 +2,7 @@ import zio.sbt.githubactions.{Job, Step, Condition, ActionRef}
 import _root_.io.circe.Json
 enablePlugins(ZioSbtEcosystemPlugin, ZioSbtCiPlugin)
 
-lazy val _scala2 = "2.13.14"
+lazy val _scala2 = "2.13.15"
 
 lazy val _scala3 = "3.3.3"
 
