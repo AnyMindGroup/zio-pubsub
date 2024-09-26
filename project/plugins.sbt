@@ -15,6 +15,6 @@ addSbtPlugin("org.scalameta" % "sbt-scalafmt" % "2.5.2")
 
 addSbtPlugin("ch.epfl.scala" % "sbt-scalafix" % "0.12.1")
 
-addSbtPlugin("org.scoverage" % "sbt-scoverage" % "2.2.0")
+addSbtPlugin("org.scoverage" % "sbt-scoverage" % "2.2.1")
 
 addSbtPlugin("org.portable-scala" % "sbt-scala-native-crossproject" % "1.3.2")
