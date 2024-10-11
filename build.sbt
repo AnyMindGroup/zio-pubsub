@@ -149,8 +149,12 @@ lazy val ciGenerateGithubWorkflowV2 = Def.task {
 lazy val commonSettings = List(
   libraryDependencies ++= {
     CrossVersion.partialVersion(scalaVersion.value) match {
-      case Some((2, _)) => Seq(compilerPlugin("com.olegpy" %% "better-monadic-for" % "0.3.1"))
-      case _            => Seq()
+      case Some((2, _)) =>
+        Seq(
+          compilerPlugin("com.olegpy"    %% "better-monadic-for" % "0.3.1"),
+          compilerPlugin("org.typelevel" %% "kind-projector"     % "0.13.3" cross CrossVersion.full),
+        )
+      case _ => Seq()
     }
   },
   javacOptions ++= Seq("-source", "17"),
@@ -243,6 +247,17 @@ lazy val zioPubsubGoogle = (project in file("zio-pubsub-google"))
     libraryDependencies ++= Seq(
       "com.google.cloud" % "google-cloud-pubsub" % googleCloudPubsubVersion
     ),
+  )
+
+lazy val zioPubsubHttp = crossProject(JVMPlatform, NativePlatform)
+  .in(file("zio-pubsub-http"))
+  .settings(moduleName := "zio-pubsub-http")
+  .dependsOn(zioPubsub)
+  .settings(commonSettings)
+  .settings(
+    libraryDependencies ++= Seq(
+      "com.anymindgroup" %%% "zio-gc-auth" % "0.0.1"
+    )
   )
 
 lazy val zioPubsubGoogleTest = project

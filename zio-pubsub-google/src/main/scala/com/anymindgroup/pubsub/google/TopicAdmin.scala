@@ -2,6 +2,7 @@ package com.anymindgroup.pubsub.google
 
 import java.util.concurrent.TimeUnit
 
+import com.anymindgroup.pubsub.model.PubsubConnectionConfig
 import com.google.cloud.pubsub.v1.{TopicAdminClient, TopicAdminSettings}
 
 import zio.{RIO, RLayer, Scope, ZIO, ZLayer}
@@ -12,7 +13,7 @@ object TopicAdmin {
       connection match {
         case config: PubsubConnectionConfig.Emulator =>
           for {
-            (channelProvider, credentialsProvider) <- PubsubConnectionConfig.createEmulatorSettings(config)
+            (channelProvider, credentialsProvider) <- Emulator.createEmulatorSettings(config)
             s <- ZIO.attempt(
                    TopicAdminClient.create(
                      TopicAdminSettings
