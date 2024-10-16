@@ -206,7 +206,7 @@ lazy val zioPubsub = crossProject(JVMPlatform, NativePlatform)
     )
   )
 
-val vulcanVersion = "1.11.0"
+val vulcanVersion = "1.11.1"
 lazy val zioPubsubSerdeVulcan = (project in file("zio-pubsub-serde-vulcan"))
   .settings(moduleName := "zio-pubsub-serde-vulcan")
   .dependsOn(zioPubsub.jvm)
