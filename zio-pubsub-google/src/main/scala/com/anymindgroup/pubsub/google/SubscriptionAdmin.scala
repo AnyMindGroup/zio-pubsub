@@ -70,16 +70,16 @@ object SubscriptionAdmin {
                   .toString
               )
             )
+            .unit
             .catchSome { case _: NotFoundException =>
               for {
                 _ <- ZIO.logInfo(s"Dead letter topic for subscription ${subscription.name} not found! Creating...")
-                _  = admin.createTopic(TopicName.format(connection.project.name, s.deadLetterTopicName))
+                _ <- ZIO.attempt(admin.createTopic(TopicName.format(connection.project.name, s.deadLetterTopicName)))
                 _ <- ZIO.logInfo(
                        s"Created dead letter topic for subscription ${subscription.name}: ${s.deadLetterTopicName}"
                      )
               } yield ()
             }
-            .unit
         )
     )
     .getOrElse(ZIO.unit)
@@ -183,12 +183,13 @@ object SubscriptionAdmin {
       _            <- createDeadLettersTopicIfNeeded(connection, subscription)
       gSubscription = buildGSubscription(connection.project.name, subscription)
       _ <-
-        ZIO.attempt(subscriptionAdmin.createSubscription(gSubscription)).catchSome { case _: AlreadyExistsException =>
-          updateSubscriptionIfExist(
-            projectName = connection.project.name,
-            subscriptionAdmin = subscriptionAdmin,
-            update = subscription,
-          )
+        ZIO.attempt(subscriptionAdmin.createSubscription(gSubscription)).unit.catchSome {
+          case _: AlreadyExistsException =>
+            updateSubscriptionIfExist(
+              projectName = connection.project.name,
+              subscriptionAdmin = subscriptionAdmin,
+              update = subscription,
+            )
         }
     } yield ()
 

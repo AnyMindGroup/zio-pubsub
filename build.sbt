@@ -2,9 +2,9 @@ import zio.sbt.githubactions.{Job, Step, Condition, ActionRef}
 import _root_.io.circe.Json
 enablePlugins(ZioSbtEcosystemPlugin, ZioSbtCiPlugin)
 
-lazy val _scala2 = "2.13.14"
+lazy val _scala2 = "2.13.15"
 
-lazy val _scala3 = "3.3.3"
+lazy val _scala3 = "3.3.4"
 
 inThisBuild(
   List(
@@ -27,7 +27,7 @@ inThisBuild(
         url = url("https://github.com/qhquanghuy"),
       ),
     ),
-    zioVersion         := "2.1.7",
+    zioVersion         := "2.1.11",
     scala213           := _scala2,
     scala3             := _scala3,
     scalaVersion       := _scala2,
@@ -210,7 +210,7 @@ lazy val zioPubsub = crossProject(JVMPlatform, NativePlatform)
     )
   )
 
-val vulcanVersion = "1.11.0"
+val vulcanVersion = "1.11.1"
 lazy val zioPubsubSerdeVulcan = (project in file("zio-pubsub-serde-vulcan"))
   .settings(moduleName := "zio-pubsub-serde-vulcan")
   .dependsOn(zioPubsub.jvm)
@@ -222,7 +222,7 @@ lazy val zioPubsubSerdeVulcan = (project in file("zio-pubsub-serde-vulcan"))
     )
   )
 
-val circeVersion = "0.14.9"
+val circeVersion = "0.14.10"
 lazy val zioPubsubSerdeCirce = crossProject(JVMPlatform, NativePlatform)
   .in(file("zio-pubsub-serde-circe"))
   .settings(moduleName := "zio-pubsub-serde-circe")
@@ -236,7 +236,7 @@ lazy val zioPubsubSerdeCirce = crossProject(JVMPlatform, NativePlatform)
     )
   )
 
-val googleCloudPubsubVersion = "1.132.0"
+val googleCloudPubsubVersion = "1.133.1"
 lazy val zioPubsubGoogle = (project in file("zio-pubsub-google"))
   .settings(moduleName := "zio-pubsub-google")
   .dependsOn(zioPubsub.jvm)

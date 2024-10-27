@@ -1,5 +1,4 @@
-import com.anymindgroup.pubsub.google as G, com.anymindgroup.pubsub.*
-import zio.stream.*, zio.*, zio.ZIO.*
+import com.anymindgroup.pubsub.{google as G, *}, zio.stream.*, zio.*, zio.ZIO.*
 
 object PubAndSubAndAdminExample extends ZIOAppDefault:
   def program = for {
