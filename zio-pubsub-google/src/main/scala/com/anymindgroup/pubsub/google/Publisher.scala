@@ -11,7 +11,7 @@ import com.google.cloud.pubsub.v1.Publisher as GPublisher
 import com.google.protobuf.ByteString
 import com.google.pubsub.v1.PubsubMessage as GPubsubMessage
 
-import zio.{RIO, Scope, ZIO}
+import zio.{NonEmptyChunk, RIO, Scope, ZIO}
 
 object Publisher {
   def make[R, E](
@@ -65,6 +65,16 @@ object Publisher {
 }
 
 class GooglePublisher[R, E](publisher: GPublisher, serde: Serializer[R, E]) extends Publisher[R, E] {
+
+  override def publish(messages: NonEmptyChunk[PublishMessage[E]]): RIO[R, NonEmptyChunk[MessageId]] =
+    ZIO
+      .foreach(messages) { message =>
+        toPubsubMessage(message).map(publisher.publish(_))
+      }
+      .flatMap { futures =>
+        ZIO.foreachPar(futures)(f => ZIO.fromFutureJava(f).map(MessageId(_)))
+      }
+
   override def publish(event: PublishMessage[E]): ZIO[R, Throwable, MessageId] =
     for {
       msg       <- toPubsubMessage(event)

@@ -15,7 +15,8 @@ object Emulator {
     config: PubsubConnectionConfig.Emulator
   ): RIO[Scope, (TransportChannelProvider, CredentialsProvider)] = for {
     channel <- ZIO.acquireRelease(ZIO.attempt {
-                 val channel: ManagedChannel = ManagedChannelBuilder.forTarget(config.host).usePlaintext().build
+                 val channel: ManagedChannel =
+                   ManagedChannelBuilder.forTarget(s"${config.host}:${config.port}").usePlaintext().build
                  GrpcTransportChannel.create(channel)
                }) { channel =>
                  (for {

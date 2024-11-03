@@ -2,10 +2,12 @@ package com.anymindgroup.pubsub.pub
 
 import com.anymindgroup.pubsub.model.MessageId
 
-import zio.{RIO, Tag, ZIO}
+import zio.{NonEmptyChunk, RIO, Tag, ZIO}
 
 trait Publisher[R, E] {
   def publish(message: PublishMessage[E]): RIO[R, MessageId]
+
+  def publish(message: NonEmptyChunk[PublishMessage[E]]): RIO[R, NonEmptyChunk[MessageId]]
 }
 
 object Publisher {

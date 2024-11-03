@@ -1,58 +1,51 @@
 package com.anymindgroup.pubsub.http
 
-import com.anymindgroup.pubsub.*
-import zio.{ZIO, Task}
 import java.util.Base64
-import com.anymindgroup.gcp.auth.TokenProvider
-import sttp.model.*
-import sttp.client4.*
-import zio.json.*
-import com.anymindgroup.pubsub.model.MessageId
-import zio.json.ast.Json
-import zio.Chunk
-import com.anymindgroup.pubsub.model.PubsubConnectionConfig
-import com.anymindgroup.pubsub.model.PubsubConnectionConfig.Cloud
-import com.anymindgroup.pubsub.model.PubsubConnectionConfig.Emulator
 
-class HttpPublisher[R, E] private[http] (
+import com.anymindgroup.gcp.auth.{AccessToken, AuthedBackend, TokenProvider}
+import com.anymindgroup.pubsub.*
+import com.anymindgroup.pubsub.http.resources.projects as p
+import com.anymindgroup.pubsub.http.schemas as s
+import com.anymindgroup.pubsub.model.{MessageId, PubsubConnectionConfig, TopicName}
+import sttp.client4.Backend
+
+import zio.{NonEmptyChunk, RIO, Task, ZIO}
+
+class HttpPublisher[R, E](
   serde: Serializer[R, E],
-  tokenProvider: Option[TokenProvider],
-  baseRequest: Request[Either[String, MessageId]],
-  httpBackend: GenericBackend[Task, Any],
+  backend: Backend[Task],
+  topic: TopicName,
 ) extends Publisher[R, E] {
 
+  override def publish(events: NonEmptyChunk[PublishMessage[E]]): RIO[R, NonEmptyChunk[MessageId]] =
+    for {
+      request  <- toRequestBody(events)
+      response <- request.send(backend)
+      ids <- ZIO
+               .fromEither(response.body match {
+                 case Right(s.PublishResponse(Some(x :: xs))) => Right(NonEmptyChunk(x, xs*).map(MessageId(_)))
+                 case Right(_)                                => Left(new Throwable("Missing id in response"))
+                 case Left(err)                               => Left(new Throwable(err))
+               })
+    } yield ids
+
   override def publish(event: PublishMessage[E]): ZIO[R, Throwable, MessageId] =
-    for {
-      request  <- buildRequest(event)
-      response <- httpBackend.send(request)
-      id       <- ZIO.fromEither(response.body).mapError(e => new Throwable(e))
-    } yield id
+    publish(NonEmptyChunk.single(event)).map(_.head)
 
-  private def buildRequest(event: PublishMessage[E]) =
-    for {
-      body <- toRequestBody(event)
-      req <- tokenProvider match {
-               case Some(tp) =>
-                 tp.accessToken.map { t =>
-                   baseRequest.body(body.toString).auth.bearer(t.token.token.value.mkString)
-                 }
-               case _ => ZIO.succeed(baseRequest.body(body.toString))
-             }
-    } yield req
-
-  private def toRequestBody(event: PublishMessage[E]) = for {
-    msgBody <- serde.serialize(event.data).map(Base64.getEncoder.encodeToString)
-    attrs    = Chunk.fromIterable(event.attributes.map { case (k, v) => (k, Json.Str(v)) })
-    orderingKey = event.orderingKey match {
-                    case Some(k) => Chunk("orderingKey" -> Json.Str(k.value))
-                    case _       => Chunk.empty
-                  }
-    message = orderingKey ++ Chunk(
-                "data"       -> Json.Str(msgBody),
-                "attributes" -> Json.Obj(attrs),
-              )
-  } yield Json.Obj(
-    "messages" -> Json.Arr(Json.Obj(message))
+  private def toRequestBody(events: NonEmptyChunk[PublishMessage[E]]) = for {
+    messages <- ZIO.foreach(events) { event =>
+                  for {
+                    data <- serde.serialize(event.data).map(Base64.getEncoder.encodeToString)
+                  } yield s.PublishMessage(
+                    data = data,
+                    orderingKey = event.orderingKey.map(_.value),
+                    attributes = if (event.attributes.nonEmpty) Some(event.attributes) else None,
+                  )
+                }
+  } yield p.Topics.publish(
+    projectsId = topic.projectId,
+    topicsId = topic.topic,
+    request = s.PublishRequest(messages.toList),
   )
 }
 
@@ -61,48 +54,28 @@ object HttpPublisher {
     connection: PubsubConnectionConfig,
     topic: String,
     serde: Serializer[R, E],
-    httpBackend: GenericBackend[Task, Any],
-    tokenProvider: Option[TokenProvider],
-  ): Either[String, HttpPublisher[R, E]] =
-    toPublishUri(connection, topic).map(toBasePublishRequest(_)).map { baseReq =>
-      new HttpPublisher[R, E](
-        serde = serde,
-        tokenProvider = tokenProvider,
-        baseRequest = baseReq,
-        httpBackend = httpBackend,
-      )
+    backend: Backend[Task],
+    tokenProvider: TokenProvider[AccessToken],
+  ): HttpPublisher[R, E] =
+    connection match {
+      case PubsubConnectionConfig.Cloud(project) =>
+        new HttpPublisher[R, E](
+          serde = serde,
+          topic = TopicName(projectId = project.name, topic = topic),
+          backend = AuthedBackend(tokenProvider, backend),
+        )
+      case config @ PubsubConnectionConfig.Emulator(project, _, _) =>
+        new HttpPublisher[R, E](
+          serde = serde,
+          topic = TopicName(projectId = project.name, topic = topic),
+          backend = EmulatorBackend(backend, config),
+        )
     }
-
-  def makeZIO[R, E](
-    connection: PubsubConnectionConfig,
-    topic: String,
-    serde: Serializer[R, E],
-    httpBackend: GenericBackend[Task, Any],
-    tokenProvider: Option[TokenProvider],
-  ): Task[HttpPublisher[R, E]] =
-    ZIO.fromEither(make(connection, topic, serde, httpBackend, tokenProvider)).mapError(new Throwable(_))
 
   def make[R, E](
     connection: PubsubConnectionConfig,
     topic: Topic[R, E],
-    httpBackend: GenericBackend[Task, Any],
-    tokenProvider: Option[TokenProvider],
-  ): Either[String, HttpPublisher[R, E]] = make(connection, topic.name, topic.serde, httpBackend, tokenProvider)
-
-  private def toBasePublishRequest(publishUri: Uri) = basicRequest
-    .post(publishUri)
-    .header(Header.contentType(MediaType.ApplicationJson))
-    .mapResponse(_.flatMap(_.fromJson[MessageIds] match {
-      case Right(MessageIds(id :: Nil)) => Right(id)
-      case Right(MessageIds(Nil))       => Left("Missing message id in response")
-      case Right(MessageIds(ids))       => Left(s"Received multiple message ids: $ids")
-      case Left(err)                    => Left(err)
-    }))
-
-  private def toPublishUri(connection: PubsubConnectionConfig, topic: String) = connection match {
-    case Cloud(project) =>
-      Uri.parse(s"https://pubsub.googleapis.com/v1/projects/$project/topics/$topic:publish")
-    case Emulator(project, host) =>
-      Uri.parse(s"https://$host/v1/projects/$project/topics/$topic:publish")
-  }
+    backend: Backend[Task],
+    tokenProvider: TokenProvider[AccessToken],
+  ): HttpPublisher[R, E] = make(connection, topic.name, topic.serde, backend, tokenProvider)
 }

@@ -1,10 +1,14 @@
-import zio.sbt.githubactions.{Job, Step, Condition, ActionRef}
+import zio.sbt.githubactions.{ActionRef, Condition, Job, Step}
 import _root_.io.circe.Json
+
+import scala.annotation.tailrec
 enablePlugins(ZioSbtEcosystemPlugin, ZioSbtCiPlugin)
 
 lazy val _scala2 = "2.13.15"
 
 lazy val _scala3 = "3.3.4"
+
+lazy val sttpClient4Version = "4.0.0-M19"
 
 inThisBuild(
   List(
@@ -181,9 +185,12 @@ lazy val root =
     .aggregate(
       zioPubsub.jvm,
       zioPubsub.native,
+      zioPubsubHttp.jvm,
+      zioPubsubHttp.native,
       zioPubsubGoogle,
       zioPubsubGoogleTest,
-      zioPubsubTestkit,
+      zioPubsubTestkit.jvm,
+      zioPubsubTestkit.native,
       zioPubsubSerdeCirce.jvm,
       zioPubsubSerdeCirce.native,
       zioPubsubSerdeVulcan,
@@ -208,6 +215,21 @@ lazy val zioPubsub = crossProject(JVMPlatform, NativePlatform)
       "dev.zio" %%% "zio"         % zioVersion.value,
       "dev.zio" %%% "zio-streams" % zioVersion.value,
     )
+  )
+
+lazy val zioPubsubHttp = crossProject(JVMPlatform, NativePlatform)
+  .in(file("zio-pubsub-http"))
+  .settings(moduleName := "zio-pubsub-http")
+  .dependsOn(zioPubsub)
+  .settings(commonSettings)
+  .settings(
+    Compile / sourceGenerators += codegenTask,
+    libraryDependencies ++= Seq(
+      "com.anymindgroup"                      %%% "zio-gc-auth"           % "0.0.3+4-e43d3b96-SNAPSHOT",
+      "com.softwaremill.sttp.client4"         %%% "core"                  % sttpClient4Version,
+      "com.github.plokhotnyuk.jsoniter-scala" %%% "jsoniter-scala-core"   % "2.31.1",
+      "com.github.plokhotnyuk.jsoniter-scala" %%% "jsoniter-scala-macros" % "2.31.1" % "compile-internal",
+    ),
   )
 
 val vulcanVersion = "1.11.1"
@@ -249,20 +271,59 @@ lazy val zioPubsubGoogle = (project in file("zio-pubsub-google"))
     ),
   )
 
-lazy val zioPubsubHttp = crossProject(JVMPlatform, NativePlatform)
-  .in(file("zio-pubsub-http"))
-  .settings(moduleName := "zio-pubsub-http")
-  .dependsOn(zioPubsub)
-  .settings(commonSettings)
-  .settings(
-    libraryDependencies ++= Seq(
-      "com.anymindgroup" %%% "zio-gc-auth" % "0.0.1"
-    )
-  )
+lazy val codegenTask = Def.task {
+  val logger        = streams.value.log
+  val outDir        = (Compile / sourceManaged).value
+  val targetBasePkg = "com.anymindgroup.pubsub.http"
+  val outPkgDir     = outDir / targetBasePkg.split('.').mkString(java.io.File.separator)
+
+  @tailrec
+  def listFilesRec(dir: List[File], res: List[File]): List[File] =
+    dir match {
+      case x :: xs =>
+        val (dirs, files) = IO.listFiles(x).toList.partition(_.isDirectory())
+        listFilesRec(dirs ::: xs, files ::: res)
+      case Nil => res
+    }
+
+  if (outPkgDir.exists()) {
+    logger.info(s"Skipping code generation. Google Pubsub client sources found in ${outPkgDir.getPath()}.")
+    listFilesRec(List(outPkgDir), Nil)
+  } else {
+    import sys.process.*
+
+    val dialect = if (scalaVersion.value.startsWith("2")) "Scala2" else "Scala3"
+
+    logger.info(s"Generating Google Pubsub client sources")
+
+    List(
+      "./project/codegen",
+      s"--out-dir=$outDir",
+      "--specs=project/pubsub_v1.json",
+      s"--resources-pkg=$targetBasePkg.resources",
+      s"--schemas-pkg=$targetBasePkg.schemas",
+      "--http-source=sttp4",
+      "--json-codec=jsoniter",
+      s"--dialect=$dialect",
+      "--include-resources=projects.*,!projects.snapshots,!projects.topics.snapshots",
+    ).mkString(" ") ! ProcessLogger(_ => ()) // add logs when needed
+
+    val files = listFilesRec(List(outPkgDir), Nil)
+    files.foreach(f => logger.success(s"Generated ${f.getPath}"))
+
+    // formatting (may need to find another way...)
+    logger.info(s"Formatting sources in $outDir...")
+    s"scala-cli fmt --scalafmt-conf=./.scalafmt.conf $outDir" ! ProcessLogger(_ => ()) // add logs when needed
+    s"rm -rf $outDir/.scala-build".!!
+    logger.success("Formatting done")
+
+    files
+  }
+}
 
 lazy val zioPubsubGoogleTest = project
   .in(file("zio-pubsub-google-test"))
-  .dependsOn(zioPubsub.jvm, zioPubsubGoogle, zioPubsubTestkit, zioPubsubSerdeCirce.jvm, zioPubsubSerdeVulcan)
+  .dependsOn(zioPubsub.jvm, zioPubsubGoogle, zioPubsubTestkit.jvm, zioPubsubSerdeCirce.jvm, zioPubsubSerdeVulcan)
   .settings(moduleName := "zio-pubsub-google-test")
   .settings(commonSettings)
   .settings(noPublishSettings)
@@ -273,10 +334,10 @@ lazy val zioPubsubGoogleTest = project
     (Test / fork)              := true,
   )
 
-// TODO remove dependency on zioPubsubGoogle
 lazy val zioPubsubTestkit =
-  (project in file("zio-pubsub-testkit"))
-    .dependsOn(zioPubsub.jvm, zioPubsubGoogle)
+  crossProject(JVMPlatform, NativePlatform)
+    .in(file("zio-pubsub-testkit"))
+    .dependsOn(zioPubsub, zioPubsubHttp)
     .settings(moduleName := "zio-pubsub-testkit")
     .settings(commonSettings)
     .settings(
@@ -289,7 +350,7 @@ lazy val zioPubsubTestkit =
 lazy val zioPubsubTest =
   crossProject(JVMPlatform, NativePlatform)
     .in(file("zio-pubsub-test"))
-    .dependsOn(zioPubsub, zioPubsubSerdeCirce)
+    .dependsOn(zioPubsub, zioPubsubSerdeCirce, zioPubsubHttp)
     .settings(moduleName := "zio-pubsub-test")
     .settings(commonSettings)
     .settings(noPublishSettings)
@@ -297,18 +358,18 @@ lazy val zioPubsubTest =
     .jvmSettings(coverageEnabled := true)
     .nativeSettings(coverageEnabled := false)
 
-lazy val examples = (project in file("examples"))
-  .dependsOn(zioPubsubGoogle)
-  .settings(noPublishSettings)
-  .settings(
-    scalaVersion       := _scala3,
-    crossScalaVersions := Seq(_scala3),
-    coverageEnabled    := false,
-    fork               := true,
-    libraryDependencies ++= Seq(
-      "dev.zio" %% "zio-json" % "0.7.1"
-    ),
-  )
+//lazy val examples = (project in file("examples"))
+//  .dependsOn(zioPubsubGoogle)
+//  .settings(noPublishSettings)
+//  .settings(
+//    scalaVersion       := _scala3,
+//    crossScalaVersions := Seq(_scala3),
+//    coverageEnabled    := false,
+//    fork               := true,
+//    libraryDependencies ++= Seq(
+//      "dev.zio" %% "zio-json" % "0.7.1"
+//    ),
+//  )
 
 lazy val testDeps = Seq(
   libraryDependencies ++= Seq(
