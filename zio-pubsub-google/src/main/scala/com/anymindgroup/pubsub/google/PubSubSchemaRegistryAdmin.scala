@@ -2,8 +2,7 @@ package com.anymindgroup.pubsub.google
 
 import java.util.concurrent.TimeUnit
 
-import com.anymindgroup.pubsub.google.PubsubConnectionConfig.Emulator
-import com.anymindgroup.pubsub.model.{SchemaRegistry, SchemaType}
+import com.anymindgroup.pubsub.model.{PubsubConnectionConfig, SchemaRegistry, SchemaType}
 import com.google.api.gax.rpc.NotFoundException
 import com.google.cloud.pubsub.v1.{SchemaServiceClient, SchemaServiceSettings}
 import com.google.pubsub.v1.{ProjectName, Schema as GSchema, SchemaName}
@@ -15,9 +14,9 @@ object PubSubSchemaRegistryAdmin {
   private[pubsub] def makeClient(connection: PubsubConnectionConfig): RIO[Scope, SchemaServiceClient] =
     ZIO.acquireRelease(
       connection match {
-        case config: Emulator =>
+        case config: PubsubConnectionConfig.Emulator =>
           for {
-            (channelProvider, credentialsProvider) <- PubsubConnectionConfig.createEmulatorSettings(config)
+            (channelProvider, credentialsProvider) <- Emulator.createEmulatorSettings(config)
             s <- ZIO.attempt(
                    SchemaServiceClient.create(
                      SchemaServiceSettings
