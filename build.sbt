@@ -350,7 +350,7 @@ lazy val zioPubsubTestkit =
 lazy val zioPubsubTest =
   crossProject(JVMPlatform, NativePlatform)
     .in(file("zio-pubsub-test"))
-    .dependsOn(zioPubsub, zioPubsubSerdeCirce, zioPubsubHttp)
+    .dependsOn(zioPubsub, zioPubsubSerdeCirce, zioPubsubHttp, zioPubsubTestkit)
     .settings(moduleName := "zio-pubsub-test")
     .settings(commonSettings)
     .settings(noPublishSettings)

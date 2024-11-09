@@ -2,7 +2,7 @@ package com.anymindgroup.pubsub.http
 
 import java.util.Base64
 
-import com.anymindgroup.gcp.auth.{AccessToken, AuthedBackend, TokenProvider}
+import com.anymindgroup.gcp.auth.{AccessToken, AuthedBackend, Token, TokenProvider}
 import com.anymindgroup.pubsub.*
 import com.anymindgroup.pubsub.http.resources.projects as p
 import com.anymindgroup.pubsub.http.schemas as s
@@ -12,7 +12,7 @@ import sttp.client4.Backend
 import zio.{NonEmptyChunk, RIO, Task, ZIO}
 
 class HttpPublisher[R, E](
-  serde: Serializer[R, E],
+  serializer: Serializer[R, E],
   backend: Backend[Task],
   topic: TopicName,
 ) extends Publisher[R, E] {
@@ -21,12 +21,15 @@ class HttpPublisher[R, E](
     for {
       request  <- toRequestBody(events)
       response <- request.send(backend)
-      ids <- ZIO
-               .fromEither(response.body match {
-                 case Right(s.PublishResponse(Some(x :: xs))) => Right(NonEmptyChunk(x, xs*).map(MessageId(_)))
-                 case Right(_)                                => Left(new Throwable("Missing id in response"))
-                 case Left(err)                               => Left(new Throwable(err))
-               })
+      ids <- ZIO.fromEither {
+               if (response.isSuccess) {
+                 response.body match {
+                   case Right(s.PublishResponse(Some(x :: xs))) => Right(NonEmptyChunk(x, xs*).map(MessageId(_)))
+                   case Right(_)                                => Left(new Throwable("Missing id in response"))
+                   case Left(err)                               => Left(new Throwable(err))
+                 }
+               } else Left(new Throwable(s"Failed with ${response.code} ${response.statusText}"))
+             }
     } yield ids
 
   override def publish(event: PublishMessage[E]): ZIO[R, Throwable, MessageId] =
@@ -35,7 +38,7 @@ class HttpPublisher[R, E](
   private def toRequestBody(events: NonEmptyChunk[PublishMessage[E]]) = for {
     messages <- ZIO.foreach(events) { event =>
                   for {
-                    data <- serde.serialize(event.data).map(Base64.getEncoder.encodeToString)
+                    data <- serializer.serialize(event.data).map(Base64.getEncoder.encodeToString)
                   } yield s.PublishMessage(
                     data = data,
                     orderingKey = event.orderingKey.map(_.value),
@@ -53,20 +56,20 @@ object HttpPublisher {
   def make[R, E](
     connection: PubsubConnectionConfig,
     topic: String,
-    serde: Serializer[R, E],
+    serializer: Serializer[R, E],
     backend: Backend[Task],
-    tokenProvider: TokenProvider[AccessToken],
+    tokenProvider: TokenProvider[Token],
   ): HttpPublisher[R, E] =
     connection match {
       case PubsubConnectionConfig.Cloud(project) =>
         new HttpPublisher[R, E](
-          serde = serde,
+          serializer = serializer,
           topic = TopicName(projectId = project.name, topic = topic),
           backend = AuthedBackend(tokenProvider, backend),
         )
       case config @ PubsubConnectionConfig.Emulator(project, _, _) =>
         new HttpPublisher[R, E](
-          serde = serde,
+          serializer = serializer,
           topic = TopicName(projectId = project.name, topic = topic),
           backend = EmulatorBackend(backend, config),
         )

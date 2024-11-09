@@ -30,6 +30,11 @@ object PubsubTestSupport extends HttpClientBackendPlatformSpecific {
   def emulatorBackendLayer: ZLayer[PubsubConnectionConfig.Emulator, Throwable, Backend[Task]] =
     httpBackendLayer() >>> ZLayer.fromFunction(EmulatorBackend(_, _))
 
+  def emulatorBackendLayer(
+    config: PubsubConnectionConfig.Emulator
+  ): ZLayer[Any, Throwable, Backend[Task]] =
+    ZLayer.succeed(config) >>> emulatorBackendLayer
+
   def createTopicWithSubscription(
     topicName: TopicName,
     subscriptionName: SubscriptionName,
@@ -48,25 +53,33 @@ object PubsubTestSupport extends HttpClientBackendPlatformSpecific {
             subscriptionsId = subscriptionName.subscription,
             request = s.Subscription(
               name = subscriptionName.path,
-              topic = topicName.topic,
+              topic = topicName.path,
             ),
           )
-        )
+        ).flatMap { res =>
+          if (res.isSuccess) ZIO.unit else ZIO.fail(new Throwable(s"Failed to create subscription $res"))
+        }
       )
       .unit
 
-  def createTopic(topicName: TopicName): RIO[GenericBackend[Task, Any], Unit] =
+  def createTopic(topicName: TopicName): RIO[GenericBackend[Task, Any], Unit] = {
+    val req = p.Topics.create(
+      projectsId = topicName.projectId,
+      topicsId = topicName.topic,
+      request = s.Topic(name = topicName.path),
+    )
+
+    println(s"send topic req: ${req.body}")
+
     ZIO
       .serviceWithZIO[GenericBackend[Task, Any]](
-        _.send(
-          p.Topics.create(
-            projectsId = topicName.projectId,
-            topicsId = topicName.topic,
-            request = s.Topic(name = topicName.path),
-          )
-        )
+        _.send(req).flatMap { res =>
+          if (res.isSuccess) ZIO.unit
+          else ZIO.fail(new Throwable(s"Failed to create topic $res"))
+        }
       )
       .unit
+  }
 
   def topicExists(topicName: TopicName): RIO[GenericBackend[Task, Any], Boolean] = for {
     topicAdmin <- ZIO.service[GenericBackend[Task, Any]]
@@ -102,25 +115,6 @@ object PubsubTestSupport extends HttpClientBackendPlatformSpecific {
         }
       }
     )
-  // val messages = events.map { data =>
-  //   val dataArr = encode(data)
-  //   PubsubMessage.newBuilder
-  //     .setData(ByteString.copyFrom(dataArr))
-  //     .build
-  // }
-  // ZIO.foreach(messages)(e => ZIO.fromFutureJava(publisher.publish(e)))
-
-  // def publishBatches[E](
-  //   publisher: GPublisher,
-  //   amount: Int,
-  //   event: Int => E,
-  // ): ZStream[Any, Throwable, String] =
-  //   ZStream
-  //     .fromIterable((0 until amount).map(event))
-  //     .mapZIO { e =>
-  //       publishEvent(e, publisher)
-  //     }
-  //     .flatMap(ZStream.fromIterable(_))
 
   val topicNameGen: Gen[PubsubConnectionConfig.Emulator, TopicName] = for {
     connection <- Gen.fromZIO(ZIO.service[PubsubConnectionConfig.Emulator])
@@ -139,48 +133,6 @@ object PubsubTestSupport extends HttpClientBackendPlatformSpecific {
 
   def someTopicWithSubscriptionName: ZIO[PubsubConnectionConfig.Emulator, Nothing, (TopicName, SubscriptionName)] =
     topicWithSubscriptionGen.runHead.map(_.get)
-
-  // def createSomeSubscriptionRawStream(
-  //   topicName: String,
-  //   enableOrdering: Boolean = false,
-  // ): RIO[GenericBackend[Task, Any], ZStream[Any, Throwable, ReceivedMessage.Raw]] =
-  //   for {
-  //     // connection    <- ZIO.service[PubsubConnectionConfig.Emulator]
-  //     randomSubName <- Gen.alphaNumericChar.runCollectN(10).map(_.mkString)
-  //     backend       <- ZIO.service[GenericBackend[Task, Any]]
-  //     stream =
-  //       ZStream.repeatZIOChunk(
-  //         backend
-  //           .send(
-  //             p.Subscriptions.pull(projectsId = ???, subscriptionsId = ???, request = s.PullRequest(maxMessages = 100))
-  //           )
-  //           .flatMap { res =>
-  //             res.body match
-  //               case Left(value) => ZIO.fail(new Throwable(value))
-  //               case Right(value) =>
-  //                 ZIO.succeed(
-  //                   Chunk(
-  //                     value.receivedMessages.toList.flatten.collect {
-  //                       case s.ReceivedMessage(Some(ackId), Some(message), deliveryAttempt) =>
-  //                         ReceivedMessage(
-  //                           meta = Metadata(
-  //                             messageId = MessageId(message.messageId),
-  //                             ackId = AckId(ackId),
-  //                             publishTime = message.publishTime.toInstant(),
-  //                             orderingKey = message.orderingKey.flatMap(OrderingKey.fromString(_)),
-  //                             attributes = message.attributes.getOrElse(Map.empty),
-  //                             deliveryAttempt = deliveryAttempt.getOrElse(0),
-  //                           ),
-  //                           data = message.data match
-  //                             case None        => Array.empty[Byte]
-  //                             case Some(value) => Base64.getDecoder().decode(value),
-  //                         )
-  //                     }
-  //                   )
-  //                 )
-  //           }
-  //       )
-  //   } yield stream.via(Pipeline.autoAckPipeline)
 
   def findSubscription(
     subscription: SubscriptionName
