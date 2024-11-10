@@ -62,24 +62,21 @@ object PubsubTestSupport extends HttpClientBackendPlatformSpecific {
       )
       .unit
 
-  def createTopic(topicName: TopicName): RIO[GenericBackend[Task, Any], Unit] = {
-    val req = p.Topics.create(
-      projectsId = topicName.projectId,
-      topicsId = topicName.topic,
-      request = s.Topic(name = topicName.path),
-    )
-
-    println(s"send topic req: ${req.body}")
-
+  def createTopic(topicName: TopicName): RIO[GenericBackend[Task, Any], Unit] =
     ZIO
       .serviceWithZIO[GenericBackend[Task, Any]](
-        _.send(req).flatMap { res =>
+        _.send(
+          p.Topics.create(
+            projectsId = topicName.projectId,
+            topicsId = topicName.topic,
+            request = s.Topic(name = topicName.path),
+          )
+        ).flatMap { res =>
           if (res.isSuccess) ZIO.unit
           else ZIO.fail(new Throwable(s"Failed to create topic $res"))
         }
       )
       .unit
-  }
 
   def topicExists(topicName: TopicName): RIO[GenericBackend[Task, Any], Boolean] = for {
     topicAdmin <- ZIO.service[GenericBackend[Task, Any]]

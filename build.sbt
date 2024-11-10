@@ -225,10 +225,20 @@ lazy val zioPubsubHttp = crossProject(JVMPlatform, NativePlatform)
   .settings(
     Compile / sourceGenerators += codegenTask,
     libraryDependencies ++= Seq(
-      "com.anymindgroup"                      %%% "zio-gc-auth"           % "0.0.3+4-e43d3b96-SNAPSHOT",
+      "com.anymindgroup"                      %%% "zio-gc-auth"           % "0.0.3+13-3edbe025-SNAPSHOT",
       "com.softwaremill.sttp.client4"         %%% "core"                  % sttpClient4Version,
       "com.github.plokhotnyuk.jsoniter-scala" %%% "jsoniter-scala-core"   % "2.31.1",
       "com.github.plokhotnyuk.jsoniter-scala" %%% "jsoniter-scala-macros" % "2.31.1" % "compile-internal",
+    ),
+    // temprorary until zio-gc-auth is published
+    credentials += {
+      for {
+        username <- sys.env.get("ARTIFACT_REGISTRY_USERNAME")
+        apiKey   <- sys.env.get("ARTIFACT_REGISTRY_PASSWORD")
+      } yield Credentials("https://asia-maven.pkg.dev", "asia-maven.pkg.dev", username, apiKey)
+    }.getOrElse(Credentials(Path.userHome / ".ivy2" / ".credentials")),
+    resolvers ++= Seq(
+      "AnyChat Maven" at "https://asia-maven.pkg.dev/anychat-staging/maven"
     ),
   )
 
