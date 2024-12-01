@@ -3,7 +3,7 @@ package com.anymindgroup.pubsub.http
 import scala.util.Random
 
 import com.anymindgroup.gcp.auth.TokenProvider
-import com.anymindgroup.http.HttpClientBackendPlatformSpecific
+import com.anymindgroup.http.httpBackendScoped
 import com.anymindgroup.pubsub.PubsubTestSupport.*
 import com.anymindgroup.pubsub.model.PubsubConnectionConfig.GcpProject
 import com.anymindgroup.pubsub.model.{SubscriptionName, TopicName}
@@ -12,11 +12,10 @@ import com.anymindgroup.pubsub.{Publisher, PubsubConnectionConfig, Serde}
 import sttp.client4.Backend
 
 import zio.test.*
-import zio.{Task, ZIO, ZLayer}
 import zio.test.Assertion.*
-import zio.Chunk
+import zio.{Chunk, Task, ZIO, ZLayer}
 
-object PubAndSubSpec extends ZIOSpecDefault with HttpClientBackendPlatformSpecific {
+object PubAndSubSpec extends ZIOSpecDefault {
   val connection = PubsubConnectionConfig.Emulator(GcpProject("any"), "localhost", 8085)
   val testTopic  = TopicName("any", s"topic_${Random.alphanumeric.take(10).mkString}")
   val testSub    = SubscriptionName("any", s"sub_${Random.alphanumeric.take(10).mkString}")

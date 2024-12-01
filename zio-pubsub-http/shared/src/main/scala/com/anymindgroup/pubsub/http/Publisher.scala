@@ -3,13 +3,13 @@ package com.anymindgroup.pubsub.http
 import java.util.Base64
 
 import com.anymindgroup.gcp.auth.{AccessToken, AuthedBackend, Token, TokenProvider}
+import com.anymindgroup.gcp.pubsub.v1.resources.projects as p
+import com.anymindgroup.gcp.pubsub.v1.schemas as s
 import com.anymindgroup.pubsub.*
-import com.anymindgroup.pubsub.http.resources.projects as p
-import com.anymindgroup.pubsub.http.schemas as s
 import com.anymindgroup.pubsub.model.{MessageId, PubsubConnectionConfig, TopicName}
 import sttp.client4.Backend
 
-import zio.{NonEmptyChunk, RIO, Task, ZIO}
+import zio.{Chunk, NonEmptyChunk, RIO, Task, ZIO}
 
 class HttpPublisher[R, E](
   serializer: Serializer[R, E],
@@ -23,10 +23,10 @@ class HttpPublisher[R, E](
       response <- request.send(backend)
       ids <- ZIO.fromEither {
                if (response.isSuccess) {
-                 response.body match {
-                   case Right(s.PublishResponse(Some(x :: xs))) => Right(NonEmptyChunk(x, xs*).map(MessageId(_)))
-                   case Right(_)                                => Left(new Throwable("Missing id in response"))
-                   case Left(err)                               => Left(new Throwable(err))
+                 response.body.map(r => NonEmptyChunk.fromChunk(r.messageIds.getOrElse(Chunk.empty))) match {
+                   case Right(Some(msgIds)) => Right(msgIds.map(MessageId(_)))
+                   case Right(_)            => Left(new Throwable("Missing id in response"))
+                   case Left(err)           => Left(new Throwable(err))
                  }
                } else Left(new Throwable(s"Failed with ${response.code} ${response.statusText}"))
              }
@@ -39,8 +39,8 @@ class HttpPublisher[R, E](
     messages <- ZIO.foreach(events) { event =>
                   for {
                     data <- serializer.serialize(event.data).map(Base64.getEncoder.encodeToString)
-                  } yield s.PublishMessage(
-                    data = data,
+                  } yield s.PubsubMessage(
+                    data = Some(data),
                     orderingKey = event.orderingKey.map(_.value),
                     attributes = if (event.attributes.nonEmpty) Some(event.attributes) else None,
                   )
@@ -48,7 +48,7 @@ class HttpPublisher[R, E](
   } yield p.Topics.publish(
     projectsId = topic.projectId,
     topicsId = topic.topic,
-    request = s.PublishRequest(messages.toList),
+    request = s.PublishRequest(messages),
   )
 }
 

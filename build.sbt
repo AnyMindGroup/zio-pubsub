@@ -8,7 +8,7 @@ lazy val _scala2 = "2.13.15"
 
 lazy val _scala3 = "3.3.4"
 
-lazy val sttpClient4Version = "4.0.0-M19"
+lazy val zioGcpVersion = "0.0.3+9-e55f796a-SNAPSHOT"
 
 inThisBuild(
   List(
@@ -31,11 +31,11 @@ inThisBuild(
         url = url("https://github.com/qhquanghuy"),
       ),
     ),
-    zioVersion         := "2.1.11",
+    zioVersion         := "2.1.13",
     scala213           := _scala2,
     scala3             := _scala3,
-    scalaVersion       := _scala2,
-    crossScalaVersions := Seq(_scala2, _scala3),
+    scalaVersion       := _scala3,
+    crossScalaVersions := Seq(_scala3),
     versionScheme      := Some("early-semver"),
     ciEnabledBranches  := Seq("master"),
     ciJvmOptions ++= Seq("-Xms2G", "-Xmx2G", "-Xss4M", "-XX:+UseG1GC"),
@@ -120,9 +120,6 @@ inThisBuild(
     },
     scalafmt         := true,
     scalafmtSbtCheck := true,
-    scalafixDependencies ++= List(
-      "com.github.vovapolu" %% "scaluzzi" % "0.1.23"
-    ),
   )
 )
 
@@ -171,7 +168,9 @@ lazy val commonSettings = List(
   Compile / scalacOptions --= sys.env.get("CI").fold(Seq("-Xfatal-warnings"))(_ => Nil),
   Test / scalafixConfig := Some(new File(".scalafix_test.conf")),
   Test / scalacOptions --= Seq("-Xfatal-warnings"),
-) ++ scalafixSettings
+  semanticdbEnabled := true,
+  semanticdbVersion := scalafixSemanticdb.revision, // use Scalafix compatible version
+)
 
 val noPublishSettings = List(
   publish         := {},
@@ -223,14 +222,11 @@ lazy val zioPubsubHttp = crossProject(JVMPlatform, NativePlatform)
   .dependsOn(zioPubsub)
   .settings(commonSettings)
   .settings(
-    Compile / sourceGenerators += codegenTask,
     libraryDependencies ++= Seq(
-      "com.anymindgroup"                      %%% "zio-gc-auth"           % "0.0.3+13-3edbe025-SNAPSHOT",
-      "com.softwaremill.sttp.client4"         %%% "core"                  % sttpClient4Version,
-      "com.github.plokhotnyuk.jsoniter-scala" %%% "jsoniter-scala-core"   % "2.31.1",
-      "com.github.plokhotnyuk.jsoniter-scala" %%% "jsoniter-scala-macros" % "2.31.1" % "compile-internal",
+      "com.anymindgroup" %%% "zio-gcp-auth"      % zioGcpVersion,
+      "com.anymindgroup" %%% "zio-gcp-pubsub-v1" % zioGcpVersion,
     ),
-    // temprorary until zio-gc-auth is published
+    // temprorary until zio-gcp is published
     credentials += {
       for {
         username <- sys.env.get("ARTIFACT_REGISTRY_USERNAME")
@@ -280,56 +276,6 @@ lazy val zioPubsubGoogle = (project in file("zio-pubsub-google"))
       "com.google.cloud" % "google-cloud-pubsub" % googleCloudPubsubVersion
     ),
   )
-
-lazy val codegenTask = Def.task {
-  val logger        = streams.value.log
-  val outDir        = (Compile / sourceManaged).value
-  val targetBasePkg = "com.anymindgroup.pubsub.http"
-  val outPkgDir     = outDir / targetBasePkg.split('.').mkString(java.io.File.separator)
-
-  @tailrec
-  def listFilesRec(dir: List[File], res: List[File]): List[File] =
-    dir match {
-      case x :: xs =>
-        val (dirs, files) = IO.listFiles(x).toList.partition(_.isDirectory())
-        listFilesRec(dirs ::: xs, files ::: res)
-      case Nil => res
-    }
-
-  if (outPkgDir.exists()) {
-    logger.info(s"Skipping code generation. Google Pubsub client sources found in ${outPkgDir.getPath()}.")
-    listFilesRec(List(outPkgDir), Nil)
-  } else {
-    import sys.process.*
-
-    val dialect = if (scalaVersion.value.startsWith("2")) "Scala2" else "Scala3"
-
-    logger.info(s"Generating Google Pubsub client sources")
-
-    List(
-      "./project/codegen",
-      s"--out-dir=$outDir",
-      "--specs=project/pubsub_v1.json",
-      s"--resources-pkg=$targetBasePkg.resources",
-      s"--schemas-pkg=$targetBasePkg.schemas",
-      "--http-source=sttp4",
-      "--json-codec=jsoniter",
-      s"--dialect=$dialect",
-      "--include-resources=projects.*,!projects.snapshots,!projects.topics.snapshots",
-    ).mkString(" ") ! ProcessLogger(_ => ()) // add logs when needed
-
-    val files = listFilesRec(List(outPkgDir), Nil)
-    files.foreach(f => logger.success(s"Generated ${f.getPath}"))
-
-    // formatting (may need to find another way...)
-    logger.info(s"Formatting sources in $outDir...")
-    s"scala-cli fmt --scalafmt-conf=./.scalafmt.conf $outDir" ! ProcessLogger(_ => ()) // add logs when needed
-    s"rm -rf $outDir/.scala-build".!!
-    logger.success("Formatting done")
-
-    files
-  }
-}
 
 lazy val zioPubsubGoogleTest = project
   .in(file("zio-pubsub-google-test"))

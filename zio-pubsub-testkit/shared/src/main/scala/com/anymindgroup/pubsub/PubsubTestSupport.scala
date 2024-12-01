@@ -2,19 +2,19 @@ package com.anymindgroup.pubsub
 
 import java.util.Base64
 
-import com.anymindgroup.http.HttpClientBackendPlatformSpecific
-import com.anymindgroup.pubsub.http.resources.projects as p
-import com.anymindgroup.pubsub.http.schemas.PublishRequest
-import com.anymindgroup.pubsub.http.{EmulatorBackend, schemas as s}
+import com.anymindgroup.gcp.pubsub.v1.resources.projects as p
+import com.anymindgroup.gcp.pubsub.v1.schemas as s
+import com.anymindgroup.http.httpBackendLayer
+import com.anymindgroup.pubsub.http.EmulatorBackend
 import com.anymindgroup.pubsub.model.*
 import com.anymindgroup.pubsub.model.PubsubConnectionConfig.GcpProject
 import com.anymindgroup.pubsub.sub.*
 import sttp.client4.{Backend, GenericBackend}
 
 import zio.test.Gen
-import zio.{RIO, Task, ZIO, ZLayer, durationInt}
+import zio.{Chunk, RIO, Task, ZIO, ZLayer, durationInt}
 
-object PubsubTestSupport extends HttpClientBackendPlatformSpecific {
+object PubsubTestSupport {
   def emulatorConnectionConfig(
     project: GcpProject = sys.env.get("PUBSUB_EMULATOR_GCP_PROJECT").map(GcpProject(_)).getOrElse(GcpProject("any")),
     host: String = sys.env.get("PUBSUB_EMULATOR_HOST").getOrElse("localhost"),
@@ -101,8 +101,13 @@ object PubsubTestSupport extends HttpClientBackendPlatformSpecific {
           .publish(
             projectsId = topicName.projectId,
             topicsId = topicName.topic,
-            request = PublishRequest(
-              events.map(encode).map(Base64.getEncoder.encodeToString).map(data => s.PublishMessage(data = data)).toList
+            request = s.PublishRequest(
+              Chunk.fromIterable(
+                events
+                  .map(encode)
+                  .map(Base64.getEncoder.encodeToString)
+                  .map(data => s.PubsubMessage(data = Some(data)))
+              )
             ),
           )
       ).flatMap { res =>

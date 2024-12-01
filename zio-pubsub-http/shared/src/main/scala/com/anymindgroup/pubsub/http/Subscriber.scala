@@ -3,17 +3,16 @@ package com.anymindgroup.pubsub.http
 import java.util.Base64
 
 import com.anymindgroup.gcp.auth.{AuthedBackend, Token, TokenProvider}
-import com.anymindgroup.pubsub.http.resources.projects as p
-import com.anymindgroup.pubsub.http.schemas as s
+import com.anymindgroup.gcp.pubsub.v1.resources.projects as p
+import com.anymindgroup.gcp.pubsub.v1.schemas as s
+import com.anymindgroup.gcp.pubsub.v1.schemas.PubsubMessage
 import com.anymindgroup.pubsub.model.{MessageId, OrderingKey}
 import com.anymindgroup.pubsub.sub.{AckId, RawReceipt, ReceivedMessage, Subscriber}
 import com.anymindgroup.pubsub.{AckReply, PubsubConnectionConfig}
 import sttp.client4.Backend
 
 import zio.stream.ZStream
-import zio.{Cause, Chunk, Queue, Schedule, Task, UIO, ZIO}
-import zio.Scope
-import zio.NonEmptyChunk
+import zio.{Cause, Chunk, NonEmptyChunk, Queue, Schedule, Scope, Task, UIO, ZIO}
 
 class HttpSubscriber private[http] (
   backend: Backend[Task],
@@ -51,7 +50,7 @@ class HttpSubscriber private[http] (
       .modifyAckDeadline(
         projectsId = projectId,
         subscriptionsId = subscriptionId,
-        request = s.ModifyAckDeadlineRequest(nackIds.toList, ackDeadlineSeconds = 0),
+        request = s.ModifyAckDeadlineRequest(nackIds, ackDeadlineSeconds = 0),
       )
       .send(backend)
       .uninterruptible
@@ -63,7 +62,7 @@ class HttpSubscriber private[http] (
       .acknowledge(
         projectsId = projectId,
         subscriptionsId = subscriptionId,
-        request = s.AcknowledgeRequest(ackIds.toList),
+        request = s.AcknowledgeRequest(ackIds),
       )
       .send(backend)
       .uninterruptible
@@ -86,20 +85,25 @@ class HttpSubscriber private[http] (
           case Left(value) => ZIO.fail(new Throwable(value))
           case Right(value) =>
             ZIO.succeed(
-              Chunk.fromIterable(
-                value.receivedMessages.toList.flatten.collect {
-                  case s.ReceivedMessage(Some(ackId), Some(message), deliveryAttempt) =>
+              value.receivedMessages
+                .getOrElse(Chunk.empty)
+                .collect {
+                  case s.ReceivedMessage(
+                        Some(ackId),
+                        Some(PubsubMessage(data, attrs, Some(mId), Some(ts), orderingKey)),
+                        deliveryAttempt,
+                      ) =>
                     (
                       ReceivedMessage(
                         meta = ReceivedMessage.Metadata(
-                          messageId = MessageId(message.messageId),
+                          messageId = MessageId(mId),
                           ackId = AckId(ackId),
-                          publishTime = message.publishTime.toInstant(),
-                          orderingKey = message.orderingKey.flatMap(OrderingKey.fromString(_)),
-                          attributes = message.attributes.getOrElse(Map.empty),
+                          publishTime = ts.toInstant(),
+                          orderingKey = orderingKey.flatMap(OrderingKey.fromString(_)),
+                          attributes = attrs.getOrElse(Map.empty),
                           deliveryAttempt = deliveryAttempt.getOrElse(0),
                         ),
-                        data = message.data match {
+                        data = data match {
                           case None        => Array.empty[Byte]
                           case Some(value) => Base64.getDecoder().decode(value)
                         },
@@ -112,7 +116,6 @@ class HttpSubscriber private[http] (
                       },
                     )
                 }
-              )
             )
         }
       }
