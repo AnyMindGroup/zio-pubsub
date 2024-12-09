@@ -1,7 +1,7 @@
 package com.anymindgroup.pubsub.google
 
+import com.anymindgroup.pubsub.PubsubTestSupport.*
 import com.anymindgroup.pubsub.google
-import com.anymindgroup.pubsub.google.PubsubTestSupport.*
 import com.anymindgroup.pubsub.google.TestSupport.*
 import com.anymindgroup.pubsub.model.*
 import com.anymindgroup.pubsub.pub.*
@@ -39,7 +39,7 @@ object AvroPublisherSpec extends ZIOSpecDefault {
         SchemaSettings(
           schema = Some(
             SchemaRegistry(
-              id = s"${topicName.getTopic()}_v1",
+              id = s"${topicName.topic}_v1",
               schemaType = SchemaType.Avro,
               definition = ZIO.succeed(TestEvent.avroCodecSchema),
             )
@@ -47,14 +47,14 @@ object AvroPublisherSpec extends ZIOSpecDefault {
           encoding = encoding,
         )
       topic = Topic[Any, TestEvent](
-                topicName.getTopic(),
+                topicName.topic,
                 schema,
                 VulcanSerde.fromAvroCodec(TestEvent.avroCodec, encoding),
               )
       publisherConfig = PublisherConfig.forTopic(conn, topic, enableOrdering = true)
       subscription = Subscription(
                        topicName = topic.name,
-                       name = subscriptionName.getSubscription(),
+                       name = subscriptionName.subscription,
                        filter = None,
                        enableOrdering = true,
                        expiration = None,
@@ -91,6 +91,7 @@ object AvroPublisherSpec extends ZIOSpecDefault {
             )
         publishedOrderingKeys = testMessages.map(_.orderingKey)
         consumedOrderingKeys  = consumed.map(_.meta.orderingKey)
+        _                    <- assert(publishedOrderingKeys)(hasSameElements(consumedOrderingKeys))
         _                    <- assert(consumedAttr)(hasSameElements(publishedAttrs))
       } yield assert(publishedOrderingKeys)(hasSameElements(consumedOrderingKeys))
     }) ::
