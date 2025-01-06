@@ -4,9 +4,9 @@ import java.time.Instant
 
 import scala.jdk.CollectionConverters.*
 
-import com.anymindgroup.pubsub.google.PubsubConnectionConfig.GcpProject
-import com.anymindgroup.pubsub.google.PubsubTestSupport.*
+import com.anymindgroup.pubsub.PubsubTestSupport.*
 import com.anymindgroup.pubsub.model.*
+import com.anymindgroup.pubsub.model.PubsubConnectionConfig.GcpProject
 import com.anymindgroup.pubsub.serde.VulcanSerde
 import com.anymindgroup.pubsub.sub.{AckId, DeadLettersSettings, SubscriberFilter, Subscription}
 import com.google.api.gax.rpc.NotFoundException
@@ -192,7 +192,7 @@ object SubscriberSpec extends ZIOSpecDefault {
   def createRandomTopic: RIO[PubsubConnectionConfig.Emulator & Scope, Topic[Any, Int]] =
     topicNameGen.runHead
       .map(_.get)
-      .map(_.getTopic())
+      .map(_.topic)
       .map(topicName =>
         Topic(
           topicName,

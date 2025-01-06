@@ -1,8 +1,9 @@
 package com.anymindgroup.pubsub.google
 
+import scala.concurrent.duration.Duration
 import scala.util.Try
 
-import com.anymindgroup.pubsub.google.PubsubTestSupport.*
+import com.anymindgroup.pubsub.PubsubTestSupport.*
 import com.anymindgroup.pubsub.google.TestSupport.*
 import com.anymindgroup.pubsub.model.{SchemaRegistry, SchemaType, *}
 import com.anymindgroup.pubsub.serde.{CirceSerde, VulcanSerde}
@@ -31,7 +32,7 @@ object PubsubAdminSpec extends ZIOSpecDefault {
               case SchemaSettings(Encoding.Json, None) => CirceSerde.fromCirceCodec(TestEvent.jsonCodec)
             }
     topicName <- topicNameGen
-  } yield Topic(topicName.getTopic(), schemaSetting, serde)
+  } yield Topic(topicName.topic, schemaSetting, serde)
 
   override def spec: Spec[TestEnvironment & Scope, Any] = suite("PubsubAdminSpec")(
     test("crating a subscriptions for non existing topic fails") {
@@ -49,16 +50,17 @@ object PubsubAdminSpec extends ZIOSpecDefault {
         _             <- PubsubAdmin.setup(connection, topics.map(_._1), subscriptions.flatten)
         _ <- ZIO.foreachDiscard(subscriptions.flatten) { subscription =>
                for {
-                 maybePubsubSub <- findSubscription(subscription.name)
+                 maybePubsubSub <- findSubscription(SubscriptionName(connection.project.name, subscription.name))
                  _              <- assert(maybePubsubSub)(isSome)
                  pubsubSub       = maybePubsubSub.get
-                 pubsubSubName   = pubsubSub.getName().split("/").last
+                 pubsubSubName   = pubsubSub.name.split("/").last
                  _              <- assert(pubsubSubName)(equalTo(subscription.name))
-                 _              <- assert(pubsubSub.getEnableMessageOrdering())(equalTo(subscription.enableOrdering))
-                 _              <- assert(pubsubSub.getFilter())(equalTo(subscription.filter.map(_.value).getOrElse("")))
-                 _ <- assert(pubsubSub.getExpirationPolicy().getTtl().getSeconds())(
-                        equalTo(subscription.expiration.map(_.getSeconds()).getOrElse(0L))
-                      )
+                 _              <- assert(pubsubSub.enableMessageOrdering.getOrElse(false))(equalTo(subscription.enableOrdering))
+                 _              <- assert(pubsubSub.filter.getOrElse(""))(equalTo(subscription.filter.map(_.value).getOrElse("")))
+                 _ <-
+                   assert(pubsubSub.expirationPolicy.flatMap(_.ttl.map(Duration(_).toSeconds)))(
+                     equalTo(subscription.expiration.map(_.toSeconds()))
+                   )
                } yield assertTrue(true)
              }
         exit <- PubsubAdmin.setup(connection, topics.map(_._1), subscriptions.flatten).exit
@@ -90,6 +92,6 @@ object PubsubAdminSpec extends ZIOSpecDefault {
     },
   ).provideSomeShared[Scope](
     emulatorConnectionConfigLayer(),
-    SubscriptionAdmin.layer,
+    emulatorBackendLayer,
   ) @@ TestAspect.nondeterministic
 }
