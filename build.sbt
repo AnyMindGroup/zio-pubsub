@@ -182,6 +182,8 @@ lazy val root =
       zioPubsubTestkit,
       zioPubsubSerdeCirce.jvm,
       zioPubsubSerdeCirce.native,
+      zioPubsubSerdeZioSchema.jvm,
+      zioPubsubSerdeZioSchema.native,
       zioPubsubSerdeVulcan,
       zioPubsubTest.jvm,
       zioPubsubTest.native,
@@ -229,6 +231,18 @@ lazy val zioPubsubSerdeCirce = crossProject(JVMPlatform, NativePlatform)
       "io.circe" %%% "circe-core"    % circeVersion,
       "io.circe" %%% "circe-parser"  % circeVersion,
       "io.circe" %%% "circe-generic" % circeVersion,
+    )
+  )
+
+val zioSchemaVersion = "1.5.0"
+lazy val zioPubsubSerdeZioSchema = crossProject(JVMPlatform, NativePlatform)
+  .in(file("zio-pubsub-serde-zio-schema"))
+  .settings(moduleName := "zio-pubsub-serde-zio-schema")
+  .dependsOn(zioPubsub)
+  .settings(commonSettings)
+  .settings(
+    libraryDependencies ++= Seq(
+      "dev.zio" %%% "zio-schema" % zioSchemaVersion
     )
   )
 
