@@ -10,14 +10,14 @@ object SchemaType {
 }
 
 final case class SchemaRegistry(
-  id: String,
-  schemaType: SchemaType,
-  definition: Task[String],
+    id: String,
+    schemaType: SchemaType,
+    definition: Task[String],
 )
 
 final case class SchemaSettings(
-  encoding: Encoding,
-  schema: Option[SchemaRegistry],
+    encoding: Encoding,
+    schema: Option[SchemaRegistry],
 )
 
 sealed trait Encoding

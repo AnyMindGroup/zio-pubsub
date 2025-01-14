@@ -17,12 +17,12 @@ object ReceivedMessage {
   type Raw = ReceivedMessage[Array[Byte]]
 
   final case class Metadata(
-    messageId: MessageId,
-    ackId: AckId,
-    publishTime: Instant,
-    orderingKey: Option[OrderingKey],
-    attributes: Map[String, String],
-    deliveryAttempt: Int,
+      messageId: MessageId,
+      ackId: AckId,
+      publishTime: Instant,
+      orderingKey: Option[OrderingKey],
+      attributes: Map[String, String],
+      deliveryAttempt: Int,
   )
 
 }

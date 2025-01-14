@@ -14,9 +14,9 @@ object PubsubAdmin {
     ZIO.serviceWithZIO[PubsubConnectionConfig](setup(_, topics, subscriptions))
 
   def setup(
-    connection: PubsubConnectionConfig,
-    topics: Seq[Topic[?, ?]],
-    subscriptions: Seq[Subscription],
+      connection: PubsubConnectionConfig,
+      topics: Seq[Topic[?, ?]],
+      subscriptions: Seq[Subscription],
   ): Task[Unit] =
     ZIO.scoped(
       for {
@@ -34,9 +34,9 @@ object PubsubAdmin {
     )
 
   private def createSchema[T](
-    connection: PubsubConnectionConfig,
-    topicName: TopicName,
-    schemaIn: SchemaSettings,
+      connection: PubsubConnectionConfig,
+      topicName: TopicName,
+      schemaIn: SchemaSettings,
   ): ZIO[Any, Throwable, Option[GTopic]] =
     for {
       schemaSettings <- ZIO.foreach(schemaIn.schema)(sch =>
@@ -59,9 +59,9 @@ object PubsubAdmin {
     } yield topic
 
   private def setupTopicsWithSchema(
-    connection: PubsubConnectionConfig,
-    taClient: TopicAdminClient,
-    topics: Seq[Topic[?, ?]],
+      connection: PubsubConnectionConfig,
+      taClient: TopicAdminClient,
+      topics: Seq[Topic[?, ?]],
   ): RIO[Any, Unit] = {
     val list: Seq[(TopicName, SchemaSettings)] =
       topics.map(t => (TopicName.of(connection.project.name, t.name), t.schemaSetting))

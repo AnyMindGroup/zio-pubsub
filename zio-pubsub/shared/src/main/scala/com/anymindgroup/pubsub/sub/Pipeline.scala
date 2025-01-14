@@ -9,12 +9,12 @@ import zio.{RIO, ZIO}
 object Pipeline {
 
   private def decodedPipeline[R, E, B](
-    f: Receipt[E] => RIO[R, B]
+      f: Receipt[E] => RIO[R, B]
   ): ZPipeline[R, Throwable, Receipt[E], B] =
     ZPipeline.mapZIO[R, Throwable, Receipt[E], B](f)
 
   def processPipeline[R, E, T](
-    process: ReceivedMessage[E] => RIO[R, T]
+      process: ReceivedMessage[E] => RIO[R, T]
   ): ZPipeline[R, Throwable, Receipt[E], T] =
     decodedPipeline[R, E, T] { case (event, ackReply) =>
       process(event)

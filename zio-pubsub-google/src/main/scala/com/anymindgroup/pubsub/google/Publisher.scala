@@ -16,9 +16,9 @@ import zio.{RIO, Scope, ZIO}
 
 object Publisher {
   def make[R, E](
-    connection: PubsubConnectionConfig,
-    topic: Topic[R, E],
-    enableOrdering: Boolean,
+      connection: PubsubConnectionConfig,
+      topic: Topic[R, E],
+      enableOrdering: Boolean,
   ): RIO[Scope, Publisher[R, E]] =
     make(PublisherConfig.forTopic(connection, topic, enableOrdering), topic.serde)
 
@@ -55,9 +55,9 @@ object Publisher {
   )
 
   private[pubsub] def toPubsubMessage(
-    data: ByteString,
-    attributes: Map[String, String],
-    orderingKey: Option[OrderingKey],
+      data: ByteString,
+      attributes: Map[String, String],
+      orderingKey: Option[OrderingKey],
   ) = {
     val builder = GPubsubMessage.newBuilder.putAllAttributes(attributes.asJava).setData(data)
     orderingKey.map(v => builder.setOrderingKey(v.value)).getOrElse(builder).build()

@@ -16,10 +16,10 @@ import zio.{RIO, Ref, Scope, ZIO, durationInt}
 
 object AvroPublisherSpec extends ZIOSpecDefault {
   final case class TestConfig(
-    connection: PubsubConnectionConfig,
-    publisherConf: PublisherConfig,
-    subscription: Subscription,
-    topic: Topic[Any, TestEvent],
+      connection: PubsubConnectionConfig,
+      publisherConf: PublisherConfig,
+      subscription: Subscription,
+      topic: Topic[Any, TestEvent],
   ) {
     val subscriptionId: SubscriptionName = SubscriptionName.of(connection.project.name, subscription.name)
     val topicId: TopicName               = publisherConf.topicId

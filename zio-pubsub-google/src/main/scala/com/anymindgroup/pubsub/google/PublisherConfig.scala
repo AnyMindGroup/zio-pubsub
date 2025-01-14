@@ -4,10 +4,10 @@ import com.anymindgroup.pubsub.model.*
 import com.google.pubsub.v1.TopicName
 
 final case class PublisherConfig(
-  connection: PubsubConnectionConfig,
-  topicName: String,
-  encoding: Encoding,
-  enableOrdering: Boolean,
+    connection: PubsubConnectionConfig,
+    topicName: String,
+    encoding: Encoding,
+    enableOrdering: Boolean,
 ) {
   val topicId: TopicName = TopicName.of(connection.project.name, topicName)
 }

@@ -38,9 +38,9 @@ object PubSubSchemaRegistryAdmin {
     }
 
   def createIfNotExists(
-    connection: PubsubConnectionConfig,
-    schemaRegistry: SchemaRegistry,
-    schemaClient: Option[SchemaServiceClient] = None,
+      connection: PubsubConnectionConfig,
+      schemaRegistry: SchemaRegistry,
+      schemaClient: Option[SchemaServiceClient] = None,
   ): Task[GSchema] =
     ZIO.scoped(for {
       client <- ZIO.fromOption(schemaClient).orElse(makeClient(connection))
@@ -54,9 +54,9 @@ object PubSubSchemaRegistryAdmin {
     }
 
   private def createIfNotExists(
-    schemaClient: SchemaServiceClient,
-    connection: PubsubConnectionConfig,
-    schemaRegistry: SchemaRegistry,
+      schemaClient: SchemaServiceClient,
+      connection: PubsubConnectionConfig,
+      schemaRegistry: SchemaRegistry,
   ): Task[GSchema] =
     for {
       schemaName <- ZIO.succeed(SchemaName.format(connection.project.name, schemaRegistry.id))

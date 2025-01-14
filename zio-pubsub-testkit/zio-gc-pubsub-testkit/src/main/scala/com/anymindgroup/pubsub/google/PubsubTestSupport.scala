@@ -15,13 +15,13 @@ import zio.{Duration, RIO, RLayer, Scope, Task, ZIO, ZLayer, durationInt}
 
 object PubsubTestSupport {
   def emulatorConnectionConfig(
-    project: GcpProject = sys.env.get("PUBSUB_EMULATOR_GCP_PROJECT").map(GcpProject(_)).getOrElse(GcpProject("any")),
-    host: String = sys.env.get("PUBSUB_EMULATOR_HOST").getOrElse("localhost:8085"),
+      project: GcpProject = sys.env.get("PUBSUB_EMULATOR_GCP_PROJECT").map(GcpProject(_)).getOrElse(GcpProject("any")),
+      host: String = sys.env.get("PUBSUB_EMULATOR_HOST").getOrElse("localhost:8085"),
   ): PubsubConnectionConfig.Emulator =
     PubsubConnectionConfig.Emulator(project, host)
 
   def emulatorConnectionConfigLayer(
-    config: PubsubConnectionConfig.Emulator = emulatorConnectionConfig()
+      config: PubsubConnectionConfig.Emulator = emulatorConnectionConfig()
   ): ZLayer[Any, Nothing, PubsubConnectionConfig.Emulator & GcpProject] =
     ZLayer.succeed(config) ++ ZLayer.succeed(config.project)
 
@@ -45,14 +45,14 @@ object PubsubTestSupport {
     topicAdminClientLayer ++ subscriptionAdminClientLayer
 
   def createTopicWithSubscription(
-    topicName: TopicName,
-    subscriptionName: SubscriptionName,
+      topicName: TopicName,
+      subscriptionName: SubscriptionName,
   ): RIO[SubscriptionAdminClient & TopicAdminClient, Unit] =
     createTopic(topicName) *> createSubscription(topicName, subscriptionName)
 
   def createSubscription(
-    topicName: TopicName,
-    subscriptionName: SubscriptionName,
+      topicName: TopicName,
+      subscriptionName: SubscriptionName,
   ): RIO[SubscriptionAdminClient, Unit] = for {
     subAdminClient <- ZIO.service[SubscriptionAdminClient]
     subscription = GSubscription
@@ -76,16 +76,16 @@ object PubsubTestSupport {
   } yield res
 
   def publishEvent[E](
-    event: E,
-    publisher: GPublisher,
-    encode: E => Array[Byte] = (e: E) => e.toString.getBytes,
+      event: E,
+      publisher: GPublisher,
+      encode: E => Array[Byte] = (e: E) => e.toString.getBytes,
   ): Task[Seq[String]] =
     publishEvents(Seq(event), publisher, encode)
 
   def publishEvents[E](
-    events: Seq[E],
-    publisher: GPublisher,
-    encode: E => Array[Byte] = (e: E) => e.toString.getBytes,
+      events: Seq[E],
+      publisher: GPublisher,
+      encode: E => Array[Byte] = (e: E) => e.toString.getBytes,
   ): Task[Seq[String]] = {
     val messages = events.map { data =>
       val dataArr = encode(data)
@@ -97,9 +97,9 @@ object PubsubTestSupport {
   }
 
   def publishBatches[E](
-    publisher: GPublisher,
-    amount: Int,
-    event: Int => E,
+      publisher: GPublisher,
+      amount: Int,
+      event: Int => E,
   ): ZStream[Any, Throwable, String] =
     ZStream
       .fromIterable((0 until amount).map(event))
@@ -127,8 +127,8 @@ object PubsubTestSupport {
     topicWithSubscriptionGen.runHead.map(_.get)
 
   def createSomeSubscriptionRawStream(
-    topicName: String,
-    enableOrdering: Boolean = false,
+      topicName: String,
+      enableOrdering: Boolean = false,
   ): RIO[Scope & PubsubConnectionConfig.Emulator, ZStream[Any, Throwable, ReceivedMessage.Raw]] =
     for {
       connection    <- ZIO.service[PubsubConnectionConfig.Emulator]
@@ -145,7 +145,7 @@ object PubsubTestSupport {
     } yield stream.via(Pipeline.autoAckPipeline)
 
   def findSubscription(
-    subscriptionName: String
+      subscriptionName: String
   ): RIO[GcpProject & SubscriptionAdminClient, Option[GSubscription]] = for {
     client         <- ZIO.service[SubscriptionAdminClient]
     subscriptionId <- ZIO.serviceWith[GcpProject](g => SubscriptionName.of(g.name, subscriptionName))

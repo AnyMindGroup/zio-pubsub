@@ -33,7 +33,7 @@ object SubscriberSpec extends ZIOSpecDefault {
     ts              <- Gen.long(0L, Int.MaxValue.toLong).map(Instant.ofEpochSecond)
   } yield GReceivedMessage
     .newBuilder()
-    .setMessage({
+    .setMessage {
       val msgBuilder = PubsubMessage
         .newBuilder()
         .putAllAttributes(attrs.asJava)
@@ -41,15 +41,15 @@ object SubscriberSpec extends ZIOSpecDefault {
         .setMessageId(messageId)
 
       orderingKey.fold(msgBuilder)(k => msgBuilder.setOrderingKey(k)).build()
-    })
+    }
     .setAckId(ackId)
     .setDeliveryAttempt(deliveryAttempt)
     .build()
 
   private def deleteSubscription(
-    projectName: String,
-    subscriptionName: String,
-    subscriptionAdmin: SubscriptionAdminClient,
+      projectName: String,
+      subscriptionName: String,
+      subscriptionAdmin: SubscriptionAdminClient,
   ): Task[Unit] =
     ZIO.attempt {
       subscriptionAdmin.deleteSubscription(SubscriptionName.of(projectName, subscriptionName))
@@ -213,15 +213,15 @@ object SubscriberSpec extends ZIOSpecDefault {
     )
 
   private def initTopicWithSchema
-    : RIO[PubsubConnectionConfig.Emulator & Scope, (PubsubConnectionConfig.Emulator, String)] =
+      : RIO[PubsubConnectionConfig.Emulator & Scope, (PubsubConnectionConfig.Emulator, String)] =
     createRandomTopic.flatMap(t => initTopicsWithSchema(List(t)))
 
   private def initTopicWithSchemaAndDeadLetters
-    : RIO[PubsubConnectionConfig.Emulator & Scope, (PubsubConnectionConfig.Emulator, String)] =
+      : RIO[PubsubConnectionConfig.Emulator & Scope, (PubsubConnectionConfig.Emulator, String)] =
     createRandomTopicWithDeadLettersTopic.flatMap(initTopicsWithSchema)
 
   private def initTopicsWithSchema(
-    topics: List[Topic[Any, Int]]
+      topics: List[Topic[Any, Int]]
   ): RIO[PubsubConnectionConfig.Emulator & Scope, (PubsubConnectionConfig.Emulator, String)] = for {
     connection <- ZIO.service[PubsubConnectionConfig.Emulator]
     // init topic with schema settings

@@ -45,8 +45,8 @@ object SubscriptionAdmin {
   }
 
   def createOrUpdate(
-    connection: PubsubConnectionConfig,
-    subscription: Subscription,
+      connection: PubsubConnectionConfig,
+      subscription: Subscription,
   ): RIO[Scope, Unit] =
     for {
       subscriptionAdmin <- SubscriptionAdmin.makeClient(connection)
@@ -54,8 +54,8 @@ object SubscriptionAdmin {
     } yield ()
 
   private def createDeadLettersTopicIfNeeded(
-    connection: PubsubConnectionConfig,
-    subscription: Subscription,
+      connection: PubsubConnectionConfig,
+      subscription: Subscription,
   ): RIO[Scope, Unit] = subscription.deadLettersSettings
     .map(s =>
       TopicAdmin
@@ -116,12 +116,12 @@ object SubscriptionAdmin {
   }
 
   def fetchCurrentSubscription(
-    subscriptionAdmin: SubscriptionAdminClient,
-    projectName: String,
-    subscriptionName: String,
+      subscriptionAdmin: SubscriptionAdminClient,
+      projectName: String,
+      subscriptionName: String,
   ): ZIO[Any, Throwable, Option[Subscription]] =
     (ZIO
-      .attempt({ subscriptionAdmin.getSubscription(SubscriptionName.of(projectName, subscriptionName)) })
+      .attempt(subscriptionAdmin.getSubscription(SubscriptionName.of(projectName, subscriptionName)))
       .map { gSub =>
         Some(
           Subscription(
@@ -140,9 +140,9 @@ object SubscriptionAdmin {
       })
       .catchSome { case _: NotFoundException => ZIO.none }
   private def updateSubscriptionIfExist(
-    projectName: String,
-    subscriptionAdmin: SubscriptionAdminClient,
-    update: Subscription,
+      projectName: String,
+      subscriptionAdmin: SubscriptionAdminClient,
+      update: Subscription,
   ): ZIO[Any, Throwable, Unit] = {
 
     /*
@@ -174,9 +174,9 @@ object SubscriptionAdmin {
   }
 
   def createOrUpdate(
-    connection: PubsubConnectionConfig,
-    subscriptionAdmin: SubscriptionAdminClient,
-    subscription: Subscription,
+      connection: PubsubConnectionConfig,
+      subscriptionAdmin: SubscriptionAdminClient,
+      subscription: Subscription,
   ): RIO[Scope, Unit] =
     for {
       _            <- createDeadLettersTopicIfNeeded(connection, subscription)
@@ -193,12 +193,12 @@ object SubscriptionAdmin {
     } yield ()
 
   def createTempSubscription(
-    connection: PubsubConnectionConfig,
-    topicName: String,
-    subscriptionName: String,
-    subscriptionFilter: Option[SubscriberFilter],
-    maxTtl: Duration,
-    enableOrdering: Boolean,
+      connection: PubsubConnectionConfig,
+      topicName: String,
+      subscriptionName: String,
+      subscriptionFilter: Option[SubscriberFilter],
+      maxTtl: Duration,
+      enableOrdering: Boolean,
   ): RIO[Scope, Subscription] = for {
     subscriptionAdmin <- SubscriptionAdmin.makeClient(connection)
     subscriptionId     = SubscriptionName.of(connection.project.name, subscriptionName)

@@ -20,7 +20,7 @@ import zio.{Cause, Chunk, Promise, Queue, RIO, Schedule, Scope, UIO, ZIO}
 
 private[pubsub] object StreamingPullSubscriber {
   private def settingsFromConfig(
-    connection: PubsubConnectionConfig
+      connection: PubsubConnectionConfig
   ): RIO[Scope, SubscriberStubSettings] = for {
     builder <- connection match {
                  case _: PubsubConnectionConfig.Cloud =>
@@ -40,7 +40,7 @@ private[pubsub] object StreamingPullSubscriber {
   } yield builder.build()
 
   private[pubsub] def makeServerStream(
-    stream: ServerStream[StreamingPullResponse]
+      stream: ServerStream[StreamingPullResponse]
   ): ZStream[Any, Throwable, GReceivedMessage] =
     ZStream
       .unfoldChunkZIO(stream.iterator())(it =>
@@ -53,9 +53,9 @@ private[pubsub] object StreamingPullSubscriber {
       )
 
   private def processAckQueue(
-    ackQueue: Queue[(String, Boolean)],
-    clientStream: ClientStream[StreamingPullRequest],
-    chunkSizeLimit: Option[Int],
+      ackQueue: Queue[(String, Boolean)],
+      clientStream: ClientStream[StreamingPullRequest],
+      chunkSizeLimit: Option[Int],
   ): UIO[Option[Cause[Throwable]]] =
     chunkSizeLimit
       .fold(ackQueue.takeAll)(ackQueue.takeBetween(1, _))
@@ -84,9 +84,9 @@ private[pubsub] object StreamingPullSubscriber {
       }
 
   private[pubsub] def makeStream(
-    initBidiStream: ZStream[Any, Throwable, BidiStream[StreamingPullRequest, StreamingPullResponse]],
-    ackQueue: Queue[(String, Boolean)],
-    retrySchedule: Schedule[Any, Throwable, ?],
+      initBidiStream: ZStream[Any, Throwable, BidiStream[StreamingPullRequest, StreamingPullResponse]],
+      ackQueue: Queue[(String, Boolean)],
+      retrySchedule: Schedule[Any, Throwable, ?],
   ): ZStream[Any, Throwable, (GReceivedMessage, AckReply)] = (for {
     bidiStream <- initBidiStream
     stream = makeServerStream(bidiStream).map { message =>
@@ -122,9 +122,9 @@ private[pubsub] object StreamingPullSubscriber {
   } yield s).retry(retrySchedule)
 
   private[pubsub] def initGrpcBidiStream(
-    subscriber: GrpcSubscriberStub,
-    subscriptionId: SubscriptionName,
-    streamAckDeadlineSeconds: Int,
+      subscriber: GrpcSubscriberStub,
+      subscriptionId: SubscriptionName,
+      streamAckDeadlineSeconds: Int,
   ): ZStream[Any, Throwable, BidiStream[StreamingPullRequest, StreamingPullResponse]] = for {
     _ <- ZStream.logInfo(s"Initializing bidi stream...")
     bidiStream <- ZStream.fromZIO(ZIO.attempt {
@@ -150,10 +150,10 @@ private[pubsub] object StreamingPullSubscriber {
   } yield ()).orDie
 
   def makeRawStream(
-    connection: PubsubConnectionConfig,
-    subscriptionName: String,
-    streamAckDeadlineSeconds: Int,
-    retrySchedule: Schedule[Any, Throwable, ?],
+      connection: PubsubConnectionConfig,
+      subscriptionName: String,
+      streamAckDeadlineSeconds: Int,
+      retrySchedule: Schedule[Any, Throwable, ?],
   ): RIO[Scope, GoogleStream] = for {
     settings      <- settingsFromConfig(connection)
     subscriptionId = SubscriptionName.of(connection.project.name, subscriptionName)

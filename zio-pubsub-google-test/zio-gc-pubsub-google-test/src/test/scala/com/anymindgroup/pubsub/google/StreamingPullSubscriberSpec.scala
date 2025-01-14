@@ -207,10 +207,10 @@ object StreamingPullSubscriberSpec extends ZIOSpecDefault {
   ) @@ TestAspect.timeout(60.seconds)
 
   def testBidiStream(
-    failSend: Boolean = false,
-    failPull: Boolean = false,
-    ackedRef: AtomicReference[Vector[String]] = new AtomicReference[Vector[String]](Vector.empty),
-    nackedRef: AtomicReference[Vector[String]] = new AtomicReference[Vector[String]](Vector.empty),
+      failSend: Boolean = false,
+      failPull: Boolean = false,
+      ackedRef: AtomicReference[Vector[String]] = new AtomicReference[Vector[String]](Vector.empty),
+      nackedRef: AtomicReference[Vector[String]] = new AtomicReference[Vector[String]](Vector.empty),
   ): BidiStream[StreamingPullRequest, StreamingPullResponse] =
     new TestBidiStream[StreamingPullRequest, StreamingPullResponse] {
       override def send(r: StreamingPullRequest): Unit =
