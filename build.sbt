@@ -4,7 +4,7 @@ enablePlugins(ZioSbtEcosystemPlugin, ZioSbtCiPlugin)
 
 lazy val _scala2 = "2.13.16"
 
-lazy val _scala3 = "3.3.4"
+lazy val _scala3 = "3.3.5"
 
 inThisBuild(
   List(
