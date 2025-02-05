@@ -27,7 +27,7 @@ inThisBuild(
         url = url("https://github.com/qhquanghuy"),
       ),
     ),
-    zioVersion         := "2.1.14",
+    zioVersion         := "2.1.15",
     scala213           := _scala2,
     scala3             := _scala3,
     scalaVersion       := _scala2,
