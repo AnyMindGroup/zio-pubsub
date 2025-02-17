@@ -332,7 +332,7 @@ lazy val docs = project
          |People are expected to follow the [Code of Conduct](CODE_OF_CONDUCT.md) when discussing on the GitHub issues or PRs.""".stripMargin,
     readmeSupport       := "Open an issue or discussion on [GitHub](https://github.com/AnyMindGroup/zio-pubsub/issues)",
     readmeCodeOfConduct := "See the [Code of Conduct](CODE_OF_CONDUCT.md)",
-    readmeCredits := """|Inspired by libraries like [zio-kafka](https://github.com/zio/zio-kafka) 
+    readmeCredits := """|Inspired by libraries like [zio-kafka](https://github.com/zio/zio-kafka)
                         |and [fs2-pubsub](https://github.com/permutive-engineering/fs2-pubsub) to provide a similar experience.""".stripMargin,
     // docusaurusPublishGhpages := docusaurusPublishGhpages.value,
   )
