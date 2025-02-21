@@ -234,7 +234,7 @@ lazy val zioPubsubSerdeCirce = crossProject(JVMPlatform, NativePlatform)
     )
   )
 
-val zioSchemaVersion = "1.6.1"
+val zioSchemaVersion = "1.6.3"
 lazy val zioPubsubSerdeZioSchema = crossProject(JVMPlatform, NativePlatform)
   .in(file("zio-pubsub-serde-zio-schema"))
   .settings(moduleName := "zio-pubsub-serde-zio-schema")
