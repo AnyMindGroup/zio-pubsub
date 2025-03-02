@@ -1,4 +1,4 @@
-val zioSbtVersion = "0.4.0-alpha.28"
+val zioSbtVersion = "0.4.0-alpha.31"
 addSbtPlugin("dev.zio" % "zio-sbt-website" % zioSbtVersion)
 
 // need sbt-sonatype version which supports new Sonatype Central API added in v3.11.0 https://github.com/xerial/sbt-sonatype/releases/tag/v3.11.0
@@ -7,14 +7,14 @@ addSbtPlugin("dev.zio"        % "zio-sbt-ci"        % zioSbtVersion exclude ("or
 addSbtPlugin("org.xerial.sbt" % "sbt-sonatype"      % "3.12.2")
 addSbtPlugin("dev.zio"        % "zio-sbt-ecosystem" % zioSbtVersion)
 
-addSbtPlugin("org.scala-native" % "sbt-scala-native" % "0.5.6")
+addSbtPlugin("org.scala-native" % "sbt-scala-native" % "0.5.7")
 
 addSbtPlugin("org.typelevel" % "sbt-tpolecat" % "0.5.2")
 
-addSbtPlugin("org.scalameta" % "sbt-scalafmt" % "2.5.2")
+addSbtPlugin("org.scalameta" % "sbt-scalafmt" % "2.5.4")
 
-addSbtPlugin("ch.epfl.scala" % "sbt-scalafix" % "0.13.0")
+addSbtPlugin("ch.epfl.scala" % "sbt-scalafix" % "0.14.2")
 
-addSbtPlugin("org.scoverage" % "sbt-scoverage" % "2.2.2")
+addSbtPlugin("org.scoverage" % "sbt-scoverage" % "2.3.1")
 
 addSbtPlugin("org.portable-scala" % "sbt-scala-native-crossproject" % "1.3.2")

@@ -4,9 +4,9 @@ import _root_.io.circe.Json
 import scala.annotation.tailrec
 enablePlugins(ZioSbtEcosystemPlugin, ZioSbtCiPlugin)
 
-lazy val _scala2 = "2.13.15"
+lazy val _scala2 = "2.13.16"
 
-lazy val _scala3 = "3.3.4"
+lazy val _scala3 = "3.3.5"
 
 lazy val zioGcpVersion = "0.0.3+9-e55f796a-SNAPSHOT"
 
@@ -31,7 +31,7 @@ inThisBuild(
         url = url("https://github.com/qhquanghuy"),
       ),
     ),
-    zioVersion         := "2.1.13",
+    zioVersion         := "2.1.16",
     scala213           := _scala2,
     scala3             := _scala3,
     scalaVersion       := _scala3,
@@ -192,6 +192,8 @@ lazy val root =
       zioPubsubTestkit.native,
       zioPubsubSerdeCirce.jvm,
       zioPubsubSerdeCirce.native,
+      zioPubsubSerdeZioSchema.jvm,
+      zioPubsubSerdeZioSchema.native,
       zioPubsubSerdeVulcan,
       zioPubsubTest.jvm,
       zioPubsubTest.native,
@@ -264,7 +266,19 @@ lazy val zioPubsubSerdeCirce = crossProject(JVMPlatform, NativePlatform)
     )
   )
 
-val googleCloudPubsubVersion = "1.133.1"
+val zioSchemaVersion = "1.6.3"
+lazy val zioPubsubSerdeZioSchema = crossProject(JVMPlatform, NativePlatform)
+  .in(file("zio-pubsub-serde-zio-schema"))
+  .settings(moduleName := "zio-pubsub-serde-zio-schema")
+  .dependsOn(zioPubsub)
+  .settings(commonSettings)
+  .settings(
+    libraryDependencies ++= Seq(
+      "dev.zio" %%% "zio-schema" % zioSchemaVersion
+    )
+  )
+
+val googleCloudPubsubVersion = "1.137.1"
 lazy val zioPubsubGoogle = (project in file("zio-pubsub-google"))
   .settings(moduleName := "zio-pubsub-google")
   .dependsOn(zioPubsub.jvm)

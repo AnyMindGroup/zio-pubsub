@@ -122,7 +122,7 @@ object SubscriptionAdmin {
     subscriptionName: String,
   ): ZIO[Any, Throwable, Option[Subscription]] =
     (ZIO
-      .attempt({ subscriptionAdmin.getSubscription(SubscriptionName.of(projectName, subscriptionName)) })
+      .attempt(subscriptionAdmin.getSubscription(SubscriptionName.of(projectName, subscriptionName)))
       .map { gSub =>
         Some(
           Subscription(

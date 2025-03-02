@@ -33,7 +33,7 @@ object SubscriberSpec extends ZIOSpecDefault {
     ts              <- Gen.long(0L, Int.MaxValue.toLong).map(Instant.ofEpochSecond)
   } yield GReceivedMessage
     .newBuilder()
-    .setMessage({
+    .setMessage {
       val msgBuilder = PubsubMessage
         .newBuilder()
         .putAllAttributes(attrs.asJava)
@@ -41,7 +41,7 @@ object SubscriberSpec extends ZIOSpecDefault {
         .setMessageId(messageId)
 
       orderingKey.fold(msgBuilder)(k => msgBuilder.setOrderingKey(k)).build()
-    })
+    }
     .setAckId(ackId)
     .setDeliveryAttempt(deliveryAttempt)
     .build()
