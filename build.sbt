@@ -30,13 +30,12 @@ inThisBuild(
       ),
     ),
     zioVersion         := "2.1.16",
-    scala3             := _scala3,
     scalaVersion       := _scala3,
     crossScalaVersions := Seq(_scala3),
     versionScheme      := Some("early-semver"),
-    ciEnabledBranches  := Seq("master"),
+    ciEnabledBranches  := Seq("master", "series/0.2.x"),
     ciJvmOptions ++= Seq("-Xms2G", "-Xmx2G", "-Xss4M", "-XX:+UseG1GC"),
-    ciTargetJavaVersions := Seq("17", "21"),
+    ciTargetJavaVersions := Seq("21"),
     ciBuildJobs := ciBuildJobs.value.map { j =>
       j.copy(steps =
         j.steps.map {
@@ -145,23 +144,8 @@ lazy val ciGenerateGithubWorkflowV2 = Def.task {
 }
 
 lazy val commonSettings = List(
-  libraryDependencies ++= {
-    CrossVersion.partialVersion(scalaVersion.value) match {
-      case Some((2, _)) =>
-        Seq(
-          compilerPlugin("com.olegpy"    %% "better-monadic-for" % "0.3.1"),
-          compilerPlugin("org.typelevel" %% "kind-projector"     % "0.13.3" cross CrossVersion.full),
-        )
-      case _ => Seq()
-    }
-  },
-  javacOptions ++= Seq("-source", "17"),
-  Compile / scalacOptions ++= {
-    CrossVersion.partialVersion(scalaVersion.value) match {
-      case Some((2, _)) => Seq("-Ymacro-annotations", "-Xsource:3")
-      case _            => Seq("-source:future")
-    }
-  },
+  javacOptions ++= Seq("-source", "21"),
+  Compile / scalacOptions ++= Seq("-source:future"),
   Compile / scalacOptions --= sys.env.get("CI").fold(Seq("-Xfatal-warnings"))(_ => Nil),
   Test / scalafixConfig := Some(new File(".scalafix_test.conf")),
   Test / scalacOptions --= Seq("-Xfatal-warnings"),
@@ -308,10 +292,9 @@ lazy val zioPubsubTestkit =
     .settings(moduleName := "zio-pubsub-testkit")
     .settings(commonSettings)
     .settings(
-      scalafixConfig := Some(new File(".scalafix_test.conf")),
       libraryDependencies ++= Seq(
         "dev.zio" %% "zio-test" % zioVersion.value
-      ),
+      )
     )
 
 lazy val zioPubsubTest =

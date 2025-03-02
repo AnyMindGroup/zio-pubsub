@@ -12,6 +12,7 @@ env:
   push:
     branches:
     - master
+    - series/0.2.x
   pull_request:
     branches-ignore:
     - gh-pages
@@ -85,7 +86,6 @@ jobs:
       fail-fast: false
       matrix:
         java:
-        - '17'
         - '21'
     steps:
     - name: Install libuv
