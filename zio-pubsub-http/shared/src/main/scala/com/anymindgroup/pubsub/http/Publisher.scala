@@ -2,14 +2,14 @@ package com.anymindgroup.pubsub.http
 
 import java.util.Base64
 
-import com.anymindgroup.gcp.auth.{AccessToken, AuthedBackend, Token, TokenProvider}
+import com.anymindgroup.gcp.auth.{AccessToken, Token, TokenProvider, TokenProviderException, defaultAccessTokenBackend, toAuthedBackend}
 import com.anymindgroup.gcp.pubsub.v1.resources.projects as p
 import com.anymindgroup.gcp.pubsub.v1.schemas as s
 import com.anymindgroup.pubsub.*
 import com.anymindgroup.pubsub.model.{MessageId, PubsubConnectionConfig, TopicName}
 import sttp.client4.Backend
 
-import zio.{Chunk, NonEmptyChunk, RIO, Task, ZIO}
+import zio.{Chunk, NonEmptyChunk, RIO, Schedule, Scope, Task, ZIO}
 
 class HttpPublisher[R, E](
   serializer: Serializer[R, E],
@@ -65,7 +65,7 @@ object HttpPublisher {
         new HttpPublisher[R, E](
           serializer = serializer,
           topic = TopicName(projectId = project.name, topic = topic),
-          backend = AuthedBackend(tokenProvider, backend),
+          backend = toAuthedBackend(tokenProvider, backend),
         )
       case config @ PubsubConnectionConfig.Emulator(project, _, _) =>
         new HttpPublisher[R, E](
@@ -81,4 +81,36 @@ object HttpPublisher {
     backend: Backend[Task],
     tokenProvider: TokenProvider[AccessToken],
   ): HttpPublisher[R, E] = make(connection, topic.name, topic.serde, backend, tokenProvider)
+
+  def makeWithDefaultTokenProvider[R, E](
+    connection: PubsubConnectionConfig,
+    topic: Topic[R, E],
+    backend: Backend[Task],
+    lookupComputeMetadataFirst: Boolean = false,
+    refreshRetrySchedule: Schedule[Any, Any, Any] = TokenProvider.defaults.refreshRetrySchedule,
+    refreshAtExpirationPercent: Double = TokenProvider.defaults.refreshAtExpirationPercent,
+  ): ZIO[Scope, TokenProviderException, HttpPublisher[R, E]] =
+    TokenProvider
+      .defaultAccessTokenProvider(
+        backend = backend,
+        lookupComputeMetadataFirst = lookupComputeMetadataFirst,
+        refreshRetrySchedule = refreshRetrySchedule,
+        refreshAtExpirationPercent = refreshAtExpirationPercent,
+      )
+      .map: tokenProvider =>
+        make(connection, topic.name, topic.serde, backend, tokenProvider)
+
+  def makeWithDefaultAuthedBackend[R, E](
+    connection: PubsubConnectionConfig,
+    topic: Topic[R, E],
+    lookupComputeMetadataFirst: Boolean = false,
+    refreshRetrySchedule: Schedule[Any, Any, Any] = TokenProvider.defaults.refreshRetrySchedule,
+    refreshAtExpirationPercent: Double = TokenProvider.defaults.refreshAtExpirationPercent,
+  ): ZIO[Scope, Throwable, HttpPublisher[R, E]] =
+    defaultAccessTokenBackend(
+      lookupComputeMetadataFirst = lookupComputeMetadataFirst,
+      refreshRetrySchedule = refreshRetrySchedule,
+      refreshAtExpirationPercent = refreshAtExpirationPercent,
+    ).flatMap: backend =>
+      makeWithDefaultTokenProvider(connection, topic, backend)
 }

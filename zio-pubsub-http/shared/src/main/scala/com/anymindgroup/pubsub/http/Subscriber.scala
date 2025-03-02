@@ -2,7 +2,7 @@ package com.anymindgroup.pubsub.http
 
 import java.util.Base64
 
-import com.anymindgroup.gcp.auth.{AuthedBackend, Token, TokenProvider}
+import com.anymindgroup.gcp.auth.{Token, TokenProvider, TokenProviderException, defaultAccessTokenBackend, toAuthedBackend}
 import com.anymindgroup.gcp.pubsub.v1.resources.projects as p
 import com.anymindgroup.gcp.pubsub.v1.schemas as s
 import com.anymindgroup.gcp.pubsub.v1.schemas.PubsubMessage
@@ -136,10 +136,9 @@ class HttpSubscriber private[http] (
 }
 
 object HttpSubscriber {
-  def make[R, E](
+  private def makeWithBackend[R, E](
     connection: PubsubConnectionConfig,
-    backend: Backend[Task],
-    tokenProvider: TokenProvider[Token],
+    authedBackend: Backend[Task],
     maxMessagesPerPull: Int = 100,
     retrySchedule: Schedule[Any, Throwable, ?] = Schedule.recurs(5),
   ): ZIO[Scope, Nothing, HttpSubscriber] =
@@ -149,7 +148,7 @@ object HttpSubscriber {
       case PubsubConnectionConfig.Cloud(project) =>
         new HttpSubscriber(
           projectId = project.name,
-          backend = AuthedBackend(tokenProvider, backend),
+          backend = authedBackend,
           maxMessagesPerPull = maxMessagesPerPull,
           ackQueue = ackQueue,
           retrySchedule = retrySchedule,
@@ -157,10 +156,69 @@ object HttpSubscriber {
       case config @ PubsubConnectionConfig.Emulator(project, _, _) =>
         new HttpSubscriber(
           projectId = project.name,
-          backend = EmulatorBackend(backend, config),
+          backend = EmulatorBackend(authedBackend, config),
           maxMessagesPerPull = maxMessagesPerPull,
           ackQueue = ackQueue,
           retrySchedule = retrySchedule,
         )
     }
+
+  def make[R, E](
+    connection: PubsubConnectionConfig,
+    backend: Backend[Task],
+    tokenProvider: TokenProvider[Token],
+    maxMessagesPerPull: Int = 100,
+    retrySchedule: Schedule[Any, Throwable, ?] = Schedule.recurs(5),
+  ): ZIO[Scope, Nothing, HttpSubscriber] =
+    makeWithBackend(
+      connection = connection,
+      authedBackend = toAuthedBackend(tokenProvider, backend),
+      maxMessagesPerPull = maxMessagesPerPull,
+      retrySchedule = retrySchedule,
+    )
+
+  def makeWithDefaultTokenProvider[R, E](
+    connection: PubsubConnectionConfig,
+    backend: Backend[Task],
+    maxMessagesPerPull: Int = 100,
+    retrySchedule: Schedule[Any, Throwable, ?] = Schedule.recurs(5),
+    lookupComputeMetadataFirst: Boolean = false,
+    tokenRefreshRetrySchedule: Schedule[Any, Any, Any] = TokenProvider.defaults.refreshRetrySchedule,
+    tokenRefreshAtExpirationPercent: Double = TokenProvider.defaults.refreshAtExpirationPercent,
+  ): ZIO[Scope, TokenProviderException, HttpSubscriber] =
+    TokenProvider
+      .defaultAccessTokenProvider(
+        backend = backend,
+        lookupComputeMetadataFirst = lookupComputeMetadataFirst,
+        refreshRetrySchedule = tokenRefreshRetrySchedule,
+        refreshAtExpirationPercent = tokenRefreshAtExpirationPercent,
+      )
+      .flatMap: tokenProvider =>
+        make(
+          connection = connection,
+          backend = backend,
+          tokenProvider = tokenProvider,
+          maxMessagesPerPull = maxMessagesPerPull,
+          retrySchedule = retrySchedule,
+        )
+
+  def makeWithDefaultAuthedBackend[R, E](
+    connection: PubsubConnectionConfig,
+    maxMessagesPerPull: Int = 100,
+    retrySchedule: Schedule[Any, Throwable, ?] = Schedule.recurs(5),
+    lookupComputeMetadataFirst: Boolean = false,
+    tokenRefreshRetrySchedule: Schedule[Any, Any, Any] = TokenProvider.defaults.refreshRetrySchedule,
+    tokenRefreshAtExpirationPercent: Double = TokenProvider.defaults.refreshAtExpirationPercent,
+  ): ZIO[Scope, Throwable, HttpSubscriber] =
+    defaultAccessTokenBackend(
+      lookupComputeMetadataFirst = lookupComputeMetadataFirst,
+      refreshRetrySchedule = tokenRefreshRetrySchedule,
+      refreshAtExpirationPercent = tokenRefreshAtExpirationPercent,
+    ).flatMap: authedBackend =>
+      makeWithBackend(
+        connection = connection,
+        authedBackend = authedBackend,
+        maxMessagesPerPull = maxMessagesPerPull,
+        retrySchedule = retrySchedule,
+      )
 }

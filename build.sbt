@@ -4,11 +4,9 @@ import _root_.io.circe.Json
 import scala.annotation.tailrec
 enablePlugins(ZioSbtEcosystemPlugin, ZioSbtCiPlugin)
 
-lazy val _scala2 = "2.13.16"
-
 lazy val _scala3 = "3.3.5"
 
-lazy val zioGcpVersion = "0.0.3+9-e55f796a-SNAPSHOT"
+lazy val zioGcpVersion = "0.0.3+5-28ae12be-SNAPSHOT"
 
 inThisBuild(
   List(
@@ -32,7 +30,6 @@ inThisBuild(
       ),
     ),
     zioVersion         := "2.1.16",
-    scala213           := _scala2,
     scala3             := _scala3,
     scalaVersion       := _scala3,
     crossScalaVersions := Seq(_scala3),
