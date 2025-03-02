@@ -10,7 +10,8 @@ sidebar_label: "Getting Started"
 
 Released for Scala 3 targeting JVM and Native via [scala-native](https://scala-native.org) with exception of some modules due to Java dependencies.   
 [Scala.js](https://www.scala-js.org) support could be potentially added.  
-_Scala 2.13 support will be frozed and live in the `series/0.2.x` branch_.  
+
+_Scala 2.13 release will be kept in `v0.2.x` release series in the`series/0.2.x` branch, but not officially maintained. If you still rely on 2.13 release and require updates you may raise PRs targeting the `series/0.2.x` branch or create a fork_.    
 
 ## Modules
 
