@@ -8,13 +8,20 @@ sidebar_label: "Getting Started"
 
 [Google Cloud Pub/Sub](https://cloud.google.com/pubsub) client providing stream-based, declarative, high-level API with [zio](https://zio.dev) and [zio-streams](https://zio.dev/reference/stream) to help to concentrate on the business logic.
 
+Released for Scala 3 targeting JVM and Native via [scala-native](https://scala-native.org) with exception of some modules due to Java dependencies.   
+[Scala.js](https://www.scala-js.org) support could be potentially added.  
+_Scala 2.13 support will be frozed and live in the `series/0.2.x` branch_.  
+
 ## Modules
 
-- `zio-pubsub` Core components/interfaces/models
-- `zio-pubsub-google` Provides publisher, admin and [StreamingPull API](https://cloud.google.com/pubsub/docs/pull#streamingpull_api) based subscriber client implementations using [Google's Java](https://cloud.google.com/java/docs/reference/google-cloud-pubsub/latest/overview) library
-- `zio-pubsub-serde-circe` Provides Json Serializer/Deserializer using the [circe](https://circe.github.io/circe) codec
-- `zio-pubsub-serde-vulcan` Provides Avro schema Serializer/Deserializer using the [vulcan](https://fd4s.github.io/vulcan) codec
-- `zio-pubsub-serde-zio-schema` Provides Serializer/Deserializer using the [zio-schema](https://github.com/zio/zio-schema) binary codec
+| Name | Description | JVM | Native |
+| ---- | ----------- | --- | ------ |
+| `zio-pubsub` | Core components/interfaces/models | ✅ | ✅ |
+| `zio-pubsub-google` | Provides publisher, admin and [StreamingPull API](https://cloud.google.com/pubsub/docs/pull#streamingpull_api) based subscriber client implementations using [Google's Java](https://cloud.google.com/java/docs/reference/google-cloud-pubsub/latest/overview) library | ✅ | ❌ |
+| `zio-pubsub-serde-zio-schema` | Provides Serializer/Deserializer using the [zio-schema](https://github.com/zio/zio-schema) binary codec | ✅ | ✅ |
+| `zio-pubsub-serde-circe` | Provides Json Serializer/Deserializer using the [circe](https://circe.github.io/circe) codec | ✅ | ✅ |
+| `zio-pubsub-serde-vulcan` | Provides Avro schema Serializer/Deserializer using the [vulcan](https://fd4s.github.io/vulcan) codec | ✅ | ❌ |
+
 
 Alternative implementations and codecs may be added later.
 
