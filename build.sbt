@@ -6,7 +6,7 @@ enablePlugins(ZioSbtEcosystemPlugin, ZioSbtCiPlugin)
 
 lazy val _scala3 = "3.3.5"
 
-lazy val zioGcpVersion = "0.0.3+5-28ae12be-SNAPSHOT"
+lazy val zioGcpVersion = "0.1.1"
 
 inThisBuild(
   List(
