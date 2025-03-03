@@ -1,10 +1,12 @@
-import zio.sbt.githubactions.{Job, Step, Condition, ActionRef}
+import zio.sbt.githubactions.{ActionRef, Condition, Job, Step}
 import _root_.io.circe.Json
+
+import scala.annotation.tailrec
 enablePlugins(ZioSbtEcosystemPlugin, ZioSbtCiPlugin)
 
-lazy val _scala2 = "2.13.16"
-
 lazy val _scala3 = "3.3.5"
+
+lazy val zioGcpVersion = "0.1.1"
 
 inThisBuild(
   List(
@@ -28,14 +30,12 @@ inThisBuild(
       ),
     ),
     zioVersion         := "2.1.16",
-    scala213           := _scala2,
-    scala3             := _scala3,
-    scalaVersion       := _scala2,
-    crossScalaVersions := Seq(_scala2, _scala3),
+    scalaVersion       := _scala3,
+    crossScalaVersions := Seq(_scala3),
     versionScheme      := Some("early-semver"),
-    ciEnabledBranches  := Seq("master"),
+    ciEnabledBranches  := Seq("master", "series/0.2.x"),
     ciJvmOptions ++= Seq("-Xms2G", "-Xmx2G", "-Xss4M", "-XX:+UseG1GC"),
-    ciTargetJavaVersions := Seq("17", "21"),
+    ciTargetJavaVersions := Seq("21"),
     ciBuildJobs := ciBuildJobs.value.map { j =>
       j.copy(steps =
         j.steps.map {
@@ -116,9 +116,6 @@ inThisBuild(
     },
     scalafmt         := true,
     scalafmtSbtCheck := true,
-    scalafixDependencies ++= List(
-      "com.github.vovapolu" %% "scaluzzi" % "0.1.23"
-    ),
   )
 )
 
@@ -147,23 +144,14 @@ lazy val ciGenerateGithubWorkflowV2 = Def.task {
 }
 
 lazy val commonSettings = List(
-  libraryDependencies ++= {
-    CrossVersion.partialVersion(scalaVersion.value) match {
-      case Some((2, _)) => Seq(compilerPlugin("com.olegpy" %% "better-monadic-for" % "0.3.1"))
-      case _            => Seq()
-    }
-  },
-  javacOptions ++= Seq("-source", "17"),
-  Compile / scalacOptions ++= {
-    CrossVersion.partialVersion(scalaVersion.value) match {
-      case Some((2, _)) => Seq("-Ymacro-annotations", "-Xsource:3")
-      case _            => Seq("-source:future")
-    }
-  },
+  javacOptions ++= Seq("-source", "21"),
+  Compile / scalacOptions ++= Seq("-source:future"),
   Compile / scalacOptions --= sys.env.get("CI").fold(Seq("-Xfatal-warnings"))(_ => Nil),
   Test / scalafixConfig := Some(new File(".scalafix_test.conf")),
   Test / scalacOptions --= Seq("-Xfatal-warnings"),
-) ++ scalafixSettings
+  semanticdbEnabled := true,
+  semanticdbVersion := scalafixSemanticdb.revision, // use Scalafix compatible version
+)
 
 val noPublishSettings = List(
   publish         := {},
@@ -177,9 +165,12 @@ lazy val root =
     .aggregate(
       zioPubsub.jvm,
       zioPubsub.native,
+      zioPubsubHttp.jvm,
+      zioPubsubHttp.native,
       zioPubsubGoogle,
       zioPubsubGoogleTest,
-      zioPubsubTestkit,
+      zioPubsubTestkit.jvm,
+      zioPubsubTestkit.native,
       zioPubsubSerdeCirce.jvm,
       zioPubsubSerdeCirce.native,
       zioPubsubSerdeZioSchema.jvm,
@@ -206,6 +197,28 @@ lazy val zioPubsub = crossProject(JVMPlatform, NativePlatform)
       "dev.zio" %%% "zio"         % zioVersion.value,
       "dev.zio" %%% "zio-streams" % zioVersion.value,
     )
+  )
+
+lazy val zioPubsubHttp = crossProject(JVMPlatform, NativePlatform)
+  .in(file("zio-pubsub-http"))
+  .settings(moduleName := "zio-pubsub-http")
+  .dependsOn(zioPubsub)
+  .settings(commonSettings)
+  .settings(
+    libraryDependencies ++= Seq(
+      "com.anymindgroup" %%% "zio-gcp-auth"      % zioGcpVersion,
+      "com.anymindgroup" %%% "zio-gcp-pubsub-v1" % zioGcpVersion,
+    ),
+    // temprorary until zio-gcp is published
+    credentials += {
+      for {
+        username <- sys.env.get("ARTIFACT_REGISTRY_USERNAME")
+        apiKey   <- sys.env.get("ARTIFACT_REGISTRY_PASSWORD")
+      } yield Credentials("https://asia-maven.pkg.dev", "asia-maven.pkg.dev", username, apiKey)
+    }.getOrElse(Credentials(Path.userHome / ".ivy2" / ".credentials")),
+    resolvers ++= Seq(
+      "AnyChat Maven" at "https://asia-maven.pkg.dev/anychat-staging/maven"
+    ),
   )
 
 val vulcanVersion = "1.11.1"
@@ -261,7 +274,7 @@ lazy val zioPubsubGoogle = (project in file("zio-pubsub-google"))
 
 lazy val zioPubsubGoogleTest = project
   .in(file("zio-pubsub-google-test"))
-  .dependsOn(zioPubsub.jvm, zioPubsubGoogle, zioPubsubTestkit, zioPubsubSerdeCirce.jvm, zioPubsubSerdeVulcan)
+  .dependsOn(zioPubsub.jvm, zioPubsubGoogle, zioPubsubTestkit.jvm, zioPubsubSerdeCirce.jvm, zioPubsubSerdeVulcan)
   .settings(moduleName := "zio-pubsub-google-test")
   .settings(commonSettings)
   .settings(noPublishSettings)
@@ -272,23 +285,22 @@ lazy val zioPubsubGoogleTest = project
     (Test / fork)              := true,
   )
 
-// TODO remove dependency on zioPubsubGoogle
 lazy val zioPubsubTestkit =
-  (project in file("zio-pubsub-testkit"))
-    .dependsOn(zioPubsub.jvm, zioPubsubGoogle)
+  crossProject(JVMPlatform, NativePlatform)
+    .in(file("zio-pubsub-testkit"))
+    .dependsOn(zioPubsub, zioPubsubHttp)
     .settings(moduleName := "zio-pubsub-testkit")
     .settings(commonSettings)
     .settings(
-      scalafixConfig := Some(new File(".scalafix_test.conf")),
       libraryDependencies ++= Seq(
         "dev.zio" %% "zio-test" % zioVersion.value
-      ),
+      )
     )
 
 lazy val zioPubsubTest =
   crossProject(JVMPlatform, NativePlatform)
     .in(file("zio-pubsub-test"))
-    .dependsOn(zioPubsub, zioPubsubSerdeCirce)
+    .dependsOn(zioPubsub, zioPubsubSerdeCirce, zioPubsubHttp, zioPubsubTestkit)
     .settings(moduleName := "zio-pubsub-test")
     .settings(commonSettings)
     .settings(noPublishSettings)
@@ -296,18 +308,18 @@ lazy val zioPubsubTest =
     .jvmSettings(coverageEnabled := true)
     .nativeSettings(coverageEnabled := false)
 
-lazy val examples = (project in file("examples"))
-  .dependsOn(zioPubsubGoogle)
-  .settings(noPublishSettings)
-  .settings(
-    scalaVersion       := _scala3,
-    crossScalaVersions := Seq(_scala3),
-    coverageEnabled    := false,
-    fork               := true,
-    libraryDependencies ++= Seq(
-      "dev.zio" %% "zio-json" % "0.7.1"
-    ),
-  )
+//lazy val examples = (project in file("examples"))
+//  .dependsOn(zioPubsubGoogle)
+//  .settings(noPublishSettings)
+//  .settings(
+//    scalaVersion       := _scala3,
+//    crossScalaVersions := Seq(_scala3),
+//    coverageEnabled    := false,
+//    fork               := true,
+//    libraryDependencies ++= Seq(
+//      "dev.zio" %% "zio-json" % "0.7.1"
+//    ),
+//  )
 
 lazy val testDeps = Seq(
   libraryDependencies ++= Seq(

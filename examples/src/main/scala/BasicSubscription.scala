@@ -22,8 +22,8 @@ object BasicSubscription extends ZIOAppDefault:
 
     ZLayer.scoped(
       G.Subscriber.makeStreamingPullSubscriber(
-        connection = G.PubsubConnectionConfig.Emulator(
-          G.PubsubConnectionConfig.GcpProject("any"),
+        connection = PubsubConnectionConfig.Emulator(
+          PubsubConnectionConfig.GcpProject("any"),
           "localhost:8085",
         )
       )
