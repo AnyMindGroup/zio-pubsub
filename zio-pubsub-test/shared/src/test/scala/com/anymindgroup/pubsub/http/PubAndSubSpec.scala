@@ -46,7 +46,7 @@ object PubAndSubSpec extends ZIOSpecDefault {
   override def spec: Spec[Any, Any] = suite("PubAndSubSpec")(
     test("Publish and consume") {
       for {
-        _      <- createTopicWithSubscription(testTopic, testSub).provide(emulatorBackendLayer(connection))
+        _      <- createTopicWithSubscription(testTopic, testSub).provide(emulatorBackendLayer())
         p      <- ZIO.service[Publisher[Any, String]]
         s      <- ZIO.service[HttpSubscriber]
         samples = Chunk.fromIterable((1 to 200).map(i => s"message $i"))

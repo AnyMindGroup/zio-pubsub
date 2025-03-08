@@ -11,7 +11,7 @@ import com.google.pubsub.v1.{Schema, SchemaName as GSchemaName}
 
 import zio.test.*
 import zio.test.Assertion.*
-import zio.{Scope, ZIO}
+import zio.{Scope, ZIO, ZLayer}
 
 object PubsubAdminSpec extends ZIOSpecDefault {
   val schemaRegistryGen: Gen[Any, SchemaRegistry] =
@@ -95,6 +95,6 @@ object PubsubAdminSpec extends ZIOSpecDefault {
     },
   ).provideSomeShared[Scope](
     emulatorConnectionConfigLayer(),
-    emulatorBackendLayer,
+    emulatorBackendLayer(),
   ) @@ TestAspect.nondeterministic
 }

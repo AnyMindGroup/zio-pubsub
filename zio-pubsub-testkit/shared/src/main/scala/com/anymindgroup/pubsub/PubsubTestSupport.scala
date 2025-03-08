@@ -4,10 +4,9 @@ import java.util.Base64
 
 import com.anymindgroup.gcp.pubsub.v1.resources.projects as p
 import com.anymindgroup.gcp.pubsub.v1.schemas as s
-import com.anymindgroup.http.httpBackendLayer
 import com.anymindgroup.pubsub.http.EmulatorBackend
 import com.anymindgroup.pubsub.model.SubscriptionName
-import sttp.client4.{Backend, GenericBackend}
+import sttp.client4.Backend
 
 import zio.test.Gen
 import zio.{Chunk, RIO, Task, ZIO, ZLayer, durationInt}
@@ -24,26 +23,23 @@ object PubsubTestSupport {
   ): ZLayer[Any, Nothing, PubsubConnectionConfig.Emulator] =
     ZLayer.succeed(config)
 
-  def emulatorBackendLayer: ZLayer[PubsubConnectionConfig.Emulator, Throwable, Backend[Task]] =
-    httpBackendLayer() >>> ZLayer.fromFunction(EmulatorBackend(_, _))
-
   def emulatorBackendLayer(
-    config: PubsubConnectionConfig.Emulator
+    config: PubsubConnectionConfig.Emulator = emulatorConnectionConfig()
   ): ZLayer[Any, Throwable, Backend[Task]] =
-    ZLayer.succeed(config) >>> emulatorBackendLayer
+    ZLayer.scoped(EmulatorBackend.withDefaultBackend(config))
 
   def createTopicWithSubscription(
     topicName: TopicName,
     subscriptionName: SubscriptionName,
-  ): RIO[GenericBackend[Task, Any], Unit] =
+  ): RIO[Backend[Task], Unit] =
     createTopic(topicName) *> createSubscription(topicName, subscriptionName)
 
   def createSubscription(
     topicName: TopicName,
     subscriptionName: SubscriptionName,
-  ): RIO[GenericBackend[Task, Any], Unit] =
+  ): RIO[Backend[Task], Unit] =
     ZIO
-      .serviceWithZIO[GenericBackend[Task, Any]](
+      .serviceWithZIO[Backend[Task]](
         _.send(
           p.Subscriptions.create(
             projectsId = topicName.projectId,
@@ -59,9 +55,9 @@ object PubsubTestSupport {
       )
       .unit
 
-  def createTopic(topicName: TopicName): RIO[GenericBackend[Task, Any], Unit] =
+  def createTopic(topicName: TopicName): RIO[Backend[Task], Unit] =
     ZIO
-      .serviceWithZIO[GenericBackend[Task, Any]](
+      .serviceWithZIO[Backend[Task]](
         _.send(
           p.Topics.create(
             projectsId = topicName.projectId,
@@ -75,8 +71,8 @@ object PubsubTestSupport {
       )
       .unit
 
-  def topicExists(topicName: TopicName): RIO[GenericBackend[Task, Any], Boolean] = for {
-    topicAdmin <- ZIO.service[GenericBackend[Task, Any]]
+  def topicExists(topicName: TopicName): RIO[Backend[Task], Boolean] = for {
+    topicAdmin <- ZIO.service[Backend[Task]]
     res        <- topicAdmin.send(p.Topics.get(projectsId = topicName.projectId, topicsId = topicName.topic))
   } yield res.body.isRight
 
@@ -84,15 +80,15 @@ object PubsubTestSupport {
     event: E,
     topicName: TopicName,
     encode: E => Array[Byte] = (e: E) => e.toString.getBytes,
-  ): RIO[GenericBackend[Task, Any], Seq[String]] =
+  ): RIO[Backend[Task], Seq[String]] =
     publishEvents(Seq(event), topicName, encode)
 
   def publishEvents[E](
     events: Seq[E],
     topicName: TopicName,
     encode: E => Array[Byte] = (e: E) => e.toString.getBytes,
-  ): RIO[GenericBackend[Task, Any], Seq[String]] =
-    ZIO.serviceWithZIO[GenericBackend[Task, Any]](
+  ): RIO[Backend[Task], Seq[String]] =
+    ZIO.serviceWithZIO[Backend[Task]](
       _.send(
         p.Topics
           .publish(
@@ -134,8 +130,8 @@ object PubsubTestSupport {
 
   def findSubscription(
     subscription: SubscriptionName
-  ): RIO[GenericBackend[Task, Any], Option[s.Subscription]] = for {
-    client <- ZIO.service[GenericBackend[Task, Any]]
+  ): RIO[Backend[Task], Option[s.Subscription]] = for {
+    client <- ZIO.service[Backend[Task]]
     result <-
       client.send(p.Subscriptions.get(projectsId = subscription.projectId, subscriptionsId = subscription.subscription))
   } yield result.body.toOption
