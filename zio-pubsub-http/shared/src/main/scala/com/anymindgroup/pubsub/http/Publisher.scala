@@ -2,16 +2,23 @@ package com.anymindgroup.pubsub.http
 
 import java.util.Base64
 
-import com.anymindgroup.gcp.auth.{AccessToken, Token, TokenProvider, TokenProviderException, defaultAccessTokenBackend, toAuthedBackend}
+import com.anymindgroup.gcp.auth.{
+  Token,
+  TokenProvider,
+  TokenProviderException,
+  defaultAccessTokenBackend,
+  toAuthedBackend,
+}
 import com.anymindgroup.gcp.pubsub.v1.resources.projects as p
 import com.anymindgroup.gcp.pubsub.v1.schemas as s
-import com.anymindgroup.pubsub.*
 import com.anymindgroup.pubsub.model.{MessageId, PubsubConnectionConfig, TopicName}
+import com.anymindgroup.pubsub.pub.{PublishMessage, Publisher}
+import com.anymindgroup.pubsub.serde.Serializer
 import sttp.client4.Backend
 
 import zio.{Chunk, NonEmptyChunk, RIO, Schedule, Scope, Task, ZIO}
 
-class HttpPublisher[R, E](
+class HttpPublisher[R, E] private[http] (
   serializer: Serializer[R, E],
   backend: Backend[Task],
   topic: TopicName,
@@ -53,38 +60,40 @@ class HttpPublisher[R, E](
 }
 
 object HttpPublisher {
-  def make[R, E](
+  private def makeFromAuthedBackend[R, E](
     connection: PubsubConnectionConfig,
-    topic: String,
+    topicName: TopicName,
     serializer: Serializer[R, E],
-    backend: Backend[Task],
-    tokenProvider: TokenProvider[Token],
+    authedBackend: Backend[Task],
   ): HttpPublisher[R, E] =
     connection match {
-      case PubsubConnectionConfig.Cloud(project) =>
+      case PubsubConnectionConfig.Cloud =>
         new HttpPublisher[R, E](
           serializer = serializer,
-          topic = TopicName(projectId = project.name, topic = topic),
-          backend = toAuthedBackend(tokenProvider, backend),
+          topic = topicName,
+          backend = authedBackend,
         )
-      case config @ PubsubConnectionConfig.Emulator(project, _, _) =>
+      case emulator: PubsubConnectionConfig.Emulator =>
         new HttpPublisher[R, E](
           serializer = serializer,
-          topic = TopicName(projectId = project.name, topic = topic),
-          backend = EmulatorBackend(backend, config),
+          topic = topicName,
+          backend = EmulatorBackend(authedBackend, emulator),
         )
     }
 
   def make[R, E](
     connection: PubsubConnectionConfig,
-    topic: Topic[R, E],
+    topicName: TopicName,
+    serializer: Serializer[R, E],
     backend: Backend[Task],
-    tokenProvider: TokenProvider[AccessToken],
-  ): HttpPublisher[R, E] = make(connection, topic.name, topic.serde, backend, tokenProvider)
+    tokenProvider: TokenProvider[Token],
+  ): HttpPublisher[R, E] =
+    makeFromAuthedBackend(connection, topicName, serializer, toAuthedBackend(tokenProvider, backend))
 
   def makeWithDefaultTokenProvider[R, E](
     connection: PubsubConnectionConfig,
-    topic: Topic[R, E],
+    topicName: TopicName,
+    serializer: Serializer[R, E],
     backend: Backend[Task],
     lookupComputeMetadataFirst: Boolean = false,
     refreshRetrySchedule: Schedule[Any, Any, Any] = TokenProvider.defaults.refreshRetrySchedule,
@@ -98,11 +107,12 @@ object HttpPublisher {
         refreshAtExpirationPercent = refreshAtExpirationPercent,
       )
       .map: tokenProvider =>
-        make(connection, topic.name, topic.serde, backend, tokenProvider)
+        make(connection, topicName, serializer, backend, tokenProvider)
 
-  def makeWithDefaultAuthedBackend[R, E](
+  def makeWithDefaultBackend[R, E](
     connection: PubsubConnectionConfig,
-    topic: Topic[R, E],
+    topicName: TopicName,
+    serializer: Serializer[R, E],
     lookupComputeMetadataFirst: Boolean = false,
     refreshRetrySchedule: Schedule[Any, Any, Any] = TokenProvider.defaults.refreshRetrySchedule,
     refreshAtExpirationPercent: Double = TokenProvider.defaults.refreshAtExpirationPercent,
@@ -111,6 +121,6 @@ object HttpPublisher {
       lookupComputeMetadataFirst = lookupComputeMetadataFirst,
       refreshRetrySchedule = refreshRetrySchedule,
       refreshAtExpirationPercent = refreshAtExpirationPercent,
-    ).flatMap: backend =>
-      makeWithDefaultTokenProvider(connection, topic, backend)
+    ).map: backend =>
+      makeFromAuthedBackend(connection, topicName, serializer, backend)
 }

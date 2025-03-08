@@ -1,31 +1,22 @@
-import com.anymindgroup.pubsub.*, zio.*, zio.ZIO.*
+import com.anymindgroup.pubsub.*, http.*
+import zio.*, zio.ZIO.*
 
 object BasicSubscription extends ZIOAppDefault:
-  def run = Subscriber
-    .subscribe(subscriptionName = "basic_example", des = Serde.int)
-    .mapZIO { (message, ackReply) =>
-      for {
-        _ <- logInfo(
-               s"Received message" +
-                 s" with id ${message.meta.messageId.value}" +
-                 s" and data ${message.data}"
-             )
-        _ <- ackReply.ack()
-      } yield ()
-    }
-    .runDrain
-    .provide(googleSubscriber)
-
-  // subscriber implementation
-  private val googleSubscriber: TaskLayer[Subscriber] = {
-    import com.anymindgroup.pubsub.google as G
-
-    ZLayer.scoped(
-      G.Subscriber.makeStreamingPullSubscriber(
-        connection = PubsubConnectionConfig.Emulator(
-          PubsubConnectionConfig.GcpProject("any"),
-          "localhost:8085",
-        )
-      )
+  def run = HttpSubscriber
+    .makeWithDefaultBackend(
+      connection = PubsubConnectionConfig.Emulator("localhost", 8085)
     )
-  }
+    .flatMap:
+      _.subscribe(
+        subscriptionName = SubscriptionName("any", "basic_example"),
+        deserializer = Serde.int,
+      ).mapZIO { (message, ackReply) =>
+        for
+          _ <- logInfo(
+                 s"Received message" +
+                   s" with id ${message.meta.messageId.value}" +
+                   s" and data ${message.data}"
+               )
+          _ <- ackReply.ack()
+        yield ()
+      }.runDrain

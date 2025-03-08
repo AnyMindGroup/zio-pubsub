@@ -2,15 +2,13 @@ package com.anymindgroup.pubsub.model
 
 import zio.Task
 
-sealed trait SchemaType
+enum SchemaType:
+  case ProtocolBuffer, Avro
 
-object SchemaType {
-  case object ProtocolBuffer extends SchemaType
-  case object Avro           extends SchemaType
-}
+final case class SchemaName(projectId: String, schemaId: String)
 
 final case class SchemaRegistry(
-  id: String,
+  name: SchemaName,
   schemaType: SchemaType,
   definition: Task[String],
 )

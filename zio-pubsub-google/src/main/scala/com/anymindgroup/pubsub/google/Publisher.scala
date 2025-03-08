@@ -15,24 +15,28 @@ import zio.{NonEmptyChunk, RIO, Scope, ZIO}
 
 object Publisher {
   def make[R, E](
-    connection: PubsubConnectionConfig,
-    topic: Topic[R, E],
+    topicName: TopicName,
+    encoding: Encoding,
+    serialzer: Serializer[R, E],
     enableOrdering: Boolean,
+    connection: PubsubConnectionConfig,
   ): RIO[Scope, Publisher[R, E]] =
-    make(PublisherConfig.forTopic(connection, topic, enableOrdering), topic.serde)
+    make(PublisherConfig(topicName, encoding, enableOrdering), serialzer, connection)
 
-  def make[R, E](config: PublisherConfig, ser: Serializer[R, E]): RIO[Scope, Publisher[R, E]] =
-    makeUnderlyingPublisher(config).map(p => new GooglePublisher(p, ser))
+  def make[R, E](
+    config: PublisherConfig,
+    serialzer: Serializer[R, E],
+    connection: PubsubConnectionConfig,
+  ): RIO[Scope, Publisher[R, E]] =
+    makeUnderlyingPublisher(config, connection).map(p => new GooglePublisher(p, serialzer))
 
-  private[pubsub] def makeUnderlyingPublisher: RIO[Scope & PublisherConfig, GPublisher] = for {
-    config    <- ZIO.service[PublisherConfig]
-    publisher <- makeUnderlyingPublisher(config)
-  } yield publisher
-
-  private[pubsub] def makeUnderlyingPublisher(config: PublisherConfig): RIO[Scope, GPublisher] = ZIO.acquireRelease {
+  private[pubsub] def makeUnderlyingPublisher(
+    config: PublisherConfig,
+    connection: PubsubConnectionConfig,
+  ): RIO[Scope, GPublisher] = ZIO.acquireRelease {
     for {
-      builder <- config.connection match {
-                   case _: PubsubConnectionConfig.Cloud => ZIO.attempt(GPublisher.newBuilder(config.topicId))
+      builder <- connection match {
+                   case PubsubConnectionConfig.Cloud => ZIO.attempt(GPublisher.newBuilder(config.topicId))
                    case emulator: PubsubConnectionConfig.Emulator =>
                      for {
                        (channelProvider, credentialsProvider) <- Emulator.createEmulatorSettings(emulator)

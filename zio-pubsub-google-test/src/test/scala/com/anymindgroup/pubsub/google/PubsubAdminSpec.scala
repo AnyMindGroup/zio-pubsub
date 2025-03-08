@@ -7,7 +7,7 @@ import com.anymindgroup.pubsub.PubsubTestSupport.*
 import com.anymindgroup.pubsub.google.TestSupport.*
 import com.anymindgroup.pubsub.model.{SchemaRegistry, SchemaType, *}
 import com.anymindgroup.pubsub.serde.{CirceSerde, VulcanSerde}
-import com.google.pubsub.v1.{Schema, SchemaName}
+import com.google.pubsub.v1.{Schema, SchemaName as GSchemaName}
 
 import zio.test.*
 import zio.test.Assertion.*
@@ -17,7 +17,7 @@ object PubsubAdminSpec extends ZIOSpecDefault {
   val schemaRegistryGen: Gen[Any, SchemaRegistry] =
     (Gen.alphaNumericStringBounded(5, 20) <*> Gen.elements((SchemaType.Avro, TestEvent.avroCodecSchema))).map {
       case (id, (schemaType, schemaDefinition)) =>
-        SchemaRegistry("schema_" + id, schemaType, ZIO.succeed(schemaDefinition))
+        SchemaRegistry(SchemaName("any", "schema_" + id), schemaType, ZIO.succeed(schemaDefinition))
     }
   val schemaSettingsGen: Gen[Any, SchemaSettings] = (encodingGen <*> Gen.option(schemaRegistryGen))
     .map(setting => SchemaSettings(setting._1, setting._2))
@@ -31,15 +31,15 @@ object PubsubAdminSpec extends ZIOSpecDefault {
                 VulcanSerde.fromAvroCodec(TestEvent.avroCodec, Encoding.Json)
               case SchemaSettings(Encoding.Json, None) => CirceSerde.fromCirceCodec(TestEvent.jsonCodec)
             }
-    topicName <- topicNameGen
-  } yield Topic(topicName.topic, schemaSetting, serde)
+    topicName <- topicNameGen("any")
+  } yield Topic(topicName, schemaSetting, serde)
 
   override def spec: Spec[TestEnvironment & Scope, Any] = suite("PubsubAdminSpec")(
     test("crating a subscriptions for non existing topic fails") {
       for {
         connection   <- ZIO.service[PubsubConnectionConfig]
-        subscription <- subscriptionsConfigsGen("no_topic").runHead.map(_.get)
-        exit         <- PubsubAdmin.setup(connection, Nil, List(subscription)).exit
+        subscription <- subscriptionsConfigsGen(TopicName("any", "no_topic")).runHead.map(_.get)
+        exit         <- PubsubAdmin.setup(topics = Nil, subscriptions = List(subscription), connection = connection).exit
       } yield assert(exit)(fails(anything))
     },
     test("create topics and subscriptions if not exist") {
@@ -47,10 +47,11 @@ object PubsubAdminSpec extends ZIOSpecDefault {
         connection    <- ZIO.service[PubsubConnectionConfig]
         topics        <- (topicConfigsGen <*> Gen.int(1, 100)).runCollectN(20)
         subscriptions <- ZIO.foreach(topics)(topic => subscriptionsConfigsGen(topic._1.name).runCollectN(1))
-        _             <- PubsubAdmin.setup(connection, topics.map(_._1), subscriptions.flatten)
+        _ <-
+          PubsubAdmin.setup(topics = topics.map(_._1), subscriptions = subscriptions.flatten, connection = connection)
         _ <- ZIO.foreachDiscard(subscriptions.flatten) { subscription =>
                for {
-                 maybePubsubSub <- findSubscription(SubscriptionName(connection.project.name, subscription.name))
+                 maybePubsubSub <- findSubscription(subscription.name)
                  _              <- assert(maybePubsubSub)(isSome)
                  pubsubSub       = maybePubsubSub.get
                  pubsubSubName   = pubsubSub.name.split("/").last
@@ -63,7 +64,9 @@ object PubsubAdminSpec extends ZIOSpecDefault {
                    )
                } yield assertTrue(true)
              }
-        exit <- PubsubAdmin.setup(connection, topics.map(_._1), subscriptions.flatten).exit
+        exit <- PubsubAdmin
+                  .setup(topics = topics.map(_._1), subscriptions = subscriptions.flatten, connection = connection)
+                  .exit
       } yield assert(exit)(succeeds(anything)).label("re-running same setup succeeds")
     },
     test("schema registry test") {
@@ -73,14 +76,14 @@ object PubsubAdminSpec extends ZIOSpecDefault {
         _ <- PubSubSchemaRegistryAdmin.createIfNotExists(
                connection = connection,
                schemaRegistry = SchemaRegistry(
-                 "topic_schema",
+                 SchemaName("any", "topic_schema"),
                  SchemaType.Avro,
                  ZIO.succeed(TestEvent.avroCodecSchema),
                ),
              )
-        result = Try(client.getSchema(SchemaName.format(connection.project.name, "topic_schema"))).toEither
+        result = Try(client.getSchema(GSchemaName.format("any", "topic_schema"))).toEither
         _ <-
-          assert(result.map(_.getName))(isRight(equalTo(s"projects/${connection.project.name}/schemas/topic_schema")))
+          assert(result.map(_.getName))(isRight(equalTo(s"projects/any/schemas/topic_schema")))
         _ <- assert(result.map(_.getType))(isRight(equalTo(Schema.Type.AVRO)))
         _ <-
           assert(result.map(_.getDefinition))(

@@ -22,19 +22,19 @@ object Subscriber {
   val defaultStreamAckDeadlineSeconds: StreamAckDeadlineSeconds = 60
 
   def makeStreamingPullSubscriber(
-    connection: PubsubConnectionConfig,
+    connection: PubsubConnectionConfig = PubsubConnectionConfig.Cloud,
     streamAckDeadlineSeconds: StreamAckDeadlineSeconds = defaultStreamAckDeadlineSeconds,
     retrySchedule: Schedule[Any, Throwable, ?] = defaultRetrySchedule,
   ): RIO[Scope, Subscriber] = ZIO.serviceWith[Scope](scope =>
     new Subscriber {
-      override def subscribeRaw(subscriptionName: String): ZStream[Any, Throwable, RawReceipt] =
+      override def subscribeRaw(subscriptionName: SubscriptionName): ZStream[Any, Throwable, RawReceipt] =
         ZStream
           .fromZIO(
             makeRawStreamingPullSubscription(
-              connection,
-              subscriptionName,
-              streamAckDeadlineSeconds,
-              retrySchedule,
+              connection = connection,
+              subscriptionName = subscriptionName,
+              streamAckDeadlineSeconds = streamAckDeadlineSeconds,
+              retrySchedule = retrySchedule,
             ).provide(ZLayer.succeed(scope))
           )
           .flatten
@@ -42,12 +42,17 @@ object Subscriber {
   )
 
   private[pubsub] def makeRawStreamingPullSubscription(
-    connection: PubsubConnectionConfig,
-    subscriptionName: String,
+    subscriptionName: SubscriptionName,
+    connection: PubsubConnectionConfig = PubsubConnectionConfig.Cloud,
     streamAckDeadlineSeconds: StreamAckDeadlineSeconds = defaultStreamAckDeadlineSeconds,
     retrySchedule: Schedule[Any, Throwable, ?] = defaultRetrySchedule,
   ): RIO[Scope, ZStream[Any, Throwable, RawReceipt]] =
-    makeGoogleStreamingPullSubscription(connection, subscriptionName, streamAckDeadlineSeconds, retrySchedule).map {
+    makeGoogleStreamingPullSubscription(
+      connection = connection,
+      subscriptionName = subscriptionName,
+      streamAckDeadlineSeconds = streamAckDeadlineSeconds,
+      retrySchedule = retrySchedule,
+    ).map {
       _.map { case (gMessage, ackReply) =>
         (toRawReceivedMessage(gMessage), ackReply)
       }
@@ -55,8 +60,8 @@ object Subscriber {
 
   private[pubsub] def makeTempRawStreamingPullSubscription(
     connection: PubsubConnectionConfig,
-    topicName: String,
-    subscriptionName: String,
+    topicName: TopicName,
+    subscriptionName: SubscriptionName,
     subscriptionFilter: Option[SubscriberFilter],
     maxTtl: Duration,
     enableOrdering: Boolean,
@@ -70,10 +75,10 @@ object Subscriber {
                       enableOrdering = enableOrdering,
                     )
     stream <- makeRawStreamingPullSubscription(
-                connection,
-                subscription.name,
-                defaultStreamAckDeadlineSeconds,
-                defaultRetrySchedule,
+                connection = connection,
+                subscriptionName = subscription.name,
+                streamAckDeadlineSeconds = defaultStreamAckDeadlineSeconds,
+                retrySchedule = defaultRetrySchedule,
               )
   } yield stream
 
@@ -97,10 +102,15 @@ object Subscriber {
   }
 
   private[pubsub] def makeGoogleStreamingPullSubscription(
-    connection: PubsubConnectionConfig,
-    subscriptionName: String,
+    subscriptionName: SubscriptionName,
     streamAckDeadlineSeconds: StreamAckDeadlineSeconds,
     retrySchedule: Schedule[Any, Throwable, ?],
+    connection: PubsubConnectionConfig,
   ): RIO[Scope, GoogleStream] =
-    StreamingPullSubscriber.makeRawStream(connection, subscriptionName, streamAckDeadlineSeconds, retrySchedule)
+    StreamingPullSubscriber.makeRawStream(
+      connection = connection,
+      subscriptionName = subscriptionName,
+      streamAckDeadlineSeconds = streamAckDeadlineSeconds,
+      retrySchedule = retrySchedule,
+    )
 }

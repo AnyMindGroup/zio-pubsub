@@ -1,3 +1,6 @@
 package com.anymindgroup.pubsub.model
 
-final case class MessageId(value: String) extends AnyVal
+opaque type MessageId = String
+object MessageId:
+  def apply(value: String): MessageId        = value
+  extension (a: MessageId) def value: String = a

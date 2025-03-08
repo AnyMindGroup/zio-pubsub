@@ -23,9 +23,10 @@ object CustomDataTypeSerdeExampleB:
     ZIO.succeed(String(message.data).fromJson[MyData])
 
   // result can be handled in the subscription process e.g. like
-  val subStream =
-    Subscriber.subscribe("my_sub_name", myDataDes).mapZIO { (message, reply) =>
-      message.data match
-        case Left(err)   => reply.nack() *> ZIO.logError(s"Failed to deserialize: $err")
-        case Right(data) => reply.ack() *> ZIO.logInfo(s"Data ok $data")
-    }
+  def subStream(subscriber: Subscriber) =
+    subscriber
+      .subscribe(SubscriptionName("any", "my_sub_name"), myDataDes)
+      .mapZIO: (message, reply) =>
+        message.data match
+          case Left(err)   => reply.nack() *> ZIO.logError(s"Failed to deserialize: $err")
+          case Right(data) => reply.ack() *> ZIO.logInfo(s"Data ok $data")

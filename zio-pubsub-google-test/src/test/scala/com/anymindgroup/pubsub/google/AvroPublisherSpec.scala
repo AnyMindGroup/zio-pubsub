@@ -21,8 +21,9 @@ object AvroPublisherSpec extends ZIOSpecDefault {
     subscription: Subscription,
     topic: Topic[Any, TestEvent],
   ) {
-    val subscriptionId: SubscriptionName = SubscriptionName.of(connection.project.name, subscription.name)
-    val topicId: TopicName               = publisherConf.topicId
+    val subscriptionId: SubscriptionName =
+      SubscriptionName.of(subscription.name.projectId, subscription.name.subscription)
+    val topicId: TopicName = publisherConf.topicId
   }
 
   val testPublishMessageGen: Gen[Any, PublishMessage[TestEvent]] = for {
@@ -33,13 +34,13 @@ object AvroPublisherSpec extends ZIOSpecDefault {
 
   def randomTestConfig(encoding: Encoding): RIO[SubscriptionAdminClient & PubsubConnectionConfig.Emulator, TestConfig] =
     for {
-      (topicName, subscriptionName) <- someTopicWithSubscriptionName
+      (topicName, subscriptionName) <- someTopicWithSubscriptionName("any")
       conn                          <- ZIO.service[PubsubConnectionConfig.Emulator]
       schema =
         SchemaSettings(
           schema = Some(
             SchemaRegistry(
-              id = s"${topicName.topic}_v1",
+              name = SchemaName(projectId = topicName.projectId, schemaId = s"${topicName.topic}_v1"),
               schemaType = SchemaType.Avro,
               definition = ZIO.succeed(TestEvent.avroCodecSchema),
             )
@@ -47,14 +48,14 @@ object AvroPublisherSpec extends ZIOSpecDefault {
           encoding = encoding,
         )
       topic = Topic[Any, TestEvent](
-                topicName.topic,
+                topicName,
                 schema,
                 VulcanSerde.fromAvroCodec(TestEvent.avroCodec, encoding),
               )
-      publisherConfig = PublisherConfig.forTopic(conn, topic, enableOrdering = true)
+      publisherConfig = PublisherConfig(topicName = topicName, encoding = encoding, enableOrdering = true)
       subscription = Subscription(
                        topicName = topic.name,
-                       name = subscriptionName.subscription,
+                       name = subscriptionName,
                        filter = None,
                        enableOrdering = true,
                        expiration = None,
@@ -71,13 +72,14 @@ object AvroPublisherSpec extends ZIOSpecDefault {
         p <- google.Publisher.make[Any, TestEvent](
                testConf.publisherConf,
                VulcanSerde.fromAvroCodec(TestEvent.avroCodec, Encoding.Binary),
+               testConf.connection,
              )
         consumedRef <- Ref.make(Vector.empty[ReceivedMessage.Raw])
         rawStream <- google.Subscriber.makeRawStreamingPullSubscription(
-                       testConf.connection,
-                       testConf.subscription.name,
-                       google.Subscriber.defaultStreamAckDeadlineSeconds,
-                       google.Subscriber.defaultRetrySchedule,
+                       connection = testConf.connection,
+                       subscriptionName = testConf.subscription.name,
+                       streamAckDeadlineSeconds = google.Subscriber.defaultStreamAckDeadlineSeconds,
+                       retrySchedule = google.Subscriber.defaultRetrySchedule,
                      )
         _             <- rawStream.map(_._1).mapZIO(e => consumedRef.getAndUpdate(_ :+ e)).runDrain.forkScoped
         _             <- ZIO.foreachDiscard(testMessages)(p.publish) *> ZIO.sleep(200.millis)
@@ -107,6 +109,7 @@ object AvroPublisherSpec extends ZIOSpecDefault {
             p <- google.Publisher.make[Any, TestEvent](
                    testConf.publisherConf,
                    VulcanSerde.fromAvroCodec(TestEvent.avroCodec, encoding),
+                   testConf.connection,
                  )
             consumedRef <- Ref.make(Vector.empty[TestEvent])
             stream <-

@@ -208,17 +208,7 @@ lazy val zioPubsubHttp = crossProject(JVMPlatform, NativePlatform)
     libraryDependencies ++= Seq(
       "com.anymindgroup" %%% "zio-gcp-auth"      % zioGcpVersion,
       "com.anymindgroup" %%% "zio-gcp-pubsub-v1" % zioGcpVersion,
-    ),
-    // temprorary until zio-gcp is published
-    credentials += {
-      for {
-        username <- sys.env.get("ARTIFACT_REGISTRY_USERNAME")
-        apiKey   <- sys.env.get("ARTIFACT_REGISTRY_PASSWORD")
-      } yield Credentials("https://asia-maven.pkg.dev", "asia-maven.pkg.dev", username, apiKey)
-    }.getOrElse(Credentials(Path.userHome / ".ivy2" / ".credentials")),
-    resolvers ++= Seq(
-      "AnyChat Maven" at "https://asia-maven.pkg.dev/anychat-staging/maven"
-    ),
+    )
   )
 
 val vulcanVersion = "1.11.1"
@@ -308,18 +298,16 @@ lazy val zioPubsubTest =
     .jvmSettings(coverageEnabled := true)
     .nativeSettings(coverageEnabled := false)
 
-//lazy val examples = (project in file("examples"))
-//  .dependsOn(zioPubsubGoogle)
-//  .settings(noPublishSettings)
-//  .settings(
-//    scalaVersion       := _scala3,
-//    crossScalaVersions := Seq(_scala3),
-//    coverageEnabled    := false,
-//    fork               := true,
-//    libraryDependencies ++= Seq(
-//      "dev.zio" %% "zio-json" % "0.7.1"
-//    ),
-//  )
+lazy val examples = (project in file("examples"))
+  .dependsOn(zioPubsubHttp.jvm)
+  .settings(noPublishSettings)
+  .settings(
+    coverageEnabled := false,
+    fork            := true,
+    libraryDependencies ++= Seq(
+      "dev.zio" %% "zio-json" % "0.7.39"
+    ),
+  )
 
 lazy val testDeps = Seq(
   libraryDependencies ++= Seq(

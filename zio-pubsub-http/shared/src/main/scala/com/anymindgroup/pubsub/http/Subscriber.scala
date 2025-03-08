@@ -2,13 +2,18 @@ package com.anymindgroup.pubsub.http
 
 import java.util.Base64
 
-import com.anymindgroup.gcp.auth.{Token, TokenProvider, TokenProviderException, defaultAccessTokenBackend, toAuthedBackend}
+import com.anymindgroup.gcp.auth.{
+  Token,
+  TokenProvider,
+  TokenProviderException,
+  defaultAccessTokenBackend,
+  toAuthedBackend,
+}
 import com.anymindgroup.gcp.pubsub.v1.resources.projects as p
 import com.anymindgroup.gcp.pubsub.v1.schemas as s
 import com.anymindgroup.gcp.pubsub.v1.schemas.PubsubMessage
-import com.anymindgroup.pubsub.model.{MessageId, OrderingKey}
-import com.anymindgroup.pubsub.sub.{AckId, RawReceipt, ReceivedMessage, Subscriber}
-import com.anymindgroup.pubsub.{AckReply, PubsubConnectionConfig}
+import com.anymindgroup.pubsub.model.{MessageId, OrderingKey, PubsubConnectionConfig, SubscriptionName}
+import com.anymindgroup.pubsub.sub.{AckId, AckReply, RawReceipt, ReceivedMessage, Subscriber}
 import sttp.client4.Backend
 
 import zio.stream.ZStream
@@ -16,12 +21,11 @@ import zio.{Cause, Chunk, NonEmptyChunk, Queue, Schedule, Scope, Task, UIO, ZIO}
 
 class HttpSubscriber private[http] (
   backend: Backend[Task],
-  projectId: String,
   maxMessagesPerPull: Int,
   ackQueue: Queue[(String, Boolean)],
   retrySchedule: Schedule[Any, Throwable, ?],
 ) extends Subscriber {
-  private def processAckQueue(chunkSizeLimit: Option[Int], subscriptionId: String): UIO[Option[Cause[Throwable]]] =
+  private def processAckQueue(chunkSizeLimit: Option[Int], subName: SubscriptionName): UIO[Option[Cause[Throwable]]] =
     chunkSizeLimit
       .fold(ackQueue.takeAll)(ackQueue.takeBetween(1, _))
       .flatMap { c =>
@@ -31,8 +35,8 @@ class HttpSubscriber private[http] (
         }
 
         (
-          NonEmptyChunk.fromChunk(ackIds).map(sendAck(_, subscriptionId)),
-          NonEmptyChunk.fromChunk(nackIds).map(sendNack(_, subscriptionId)),
+          NonEmptyChunk.fromChunk(ackIds).map(sendAck(_, subName)),
+          NonEmptyChunk.fromChunk(nackIds).map(sendNack(_, subName)),
         ) match {
           case (Some(sendAckReq), Some(sendNackReq)) =>
             (sendAckReq <&> sendNackReq).map {
@@ -45,11 +49,11 @@ class HttpSubscriber private[http] (
         }
       }
 
-  private def sendNack(nackIds: NonEmptyChunk[String], subscriptionId: String) =
+  private def sendNack(nackIds: NonEmptyChunk[String], subName: SubscriptionName) =
     p.Subscriptions
       .modifyAckDeadline(
-        projectsId = projectId,
-        subscriptionsId = subscriptionId,
+        projectsId = subName.projectId,
+        subscriptionsId = subName.subscription,
         request = s.ModifyAckDeadlineRequest(nackIds, ackDeadlineSeconds = 0),
       )
       .send(backend)
@@ -57,11 +61,11 @@ class HttpSubscriber private[http] (
       .as(None)
       .catchAllCause(c => ackQueue.offerAll(nackIds.map((_, false))).as(Some(c)))
 
-  private def sendAck(ackIds: NonEmptyChunk[String], subscriptionId: String) =
+  private def sendAck(ackIds: NonEmptyChunk[String], subName: SubscriptionName) =
     p.Subscriptions
       .acknowledge(
-        projectsId = projectId,
-        subscriptionsId = subscriptionId,
+        projectsId = subName.projectId,
+        subscriptionsId = subName.subscription,
         request = s.AcknowledgeRequest(ackIds),
       )
       .send(backend)
@@ -70,13 +74,13 @@ class HttpSubscriber private[http] (
       .catchAllCause(c => ackQueue.offerAll(ackIds.map((_, true))).as(Some(c)))
 
   private[http] def pull(
-    subscriptionName: String,
+    subscriptionName: SubscriptionName,
     returnImmediately: Option[Boolean] = None,
   ): ZIO[Any, Throwable, Chunk[(ReceivedMessage[Array[Byte]], AckReply)]] =
     p.Subscriptions
       .pull(
-        projectsId = projectId,
-        subscriptionsId = subscriptionName,
+        projectsId = subscriptionName.projectId,
+        subscriptionsId = subscriptionName.subscription,
         request = s.PullRequest(maxMessages = maxMessagesPerPull, returnImmediately),
       )
       .send(backend)
@@ -120,7 +124,7 @@ class HttpSubscriber private[http] (
         }
       }
 
-  override def subscribeRaw(subscriptionName: String): ZStream[Any, Throwable, RawReceipt] = {
+  override def subscribeRaw(subscriptionName: SubscriptionName): ZStream[Any, Throwable, RawReceipt] = {
     val pullStream = ZStream.repeatZIOChunk(pull(subscriptionName))
 
     val ackStream: ZStream[Any, Throwable, Unit] = ZStream
@@ -136,26 +140,28 @@ class HttpSubscriber private[http] (
 }
 
 object HttpSubscriber {
-  private def makeWithBackend[R, E](
+  object defaults:
+    val maxMessagesPerPull: Int                      = 100
+    val retrySchedule: Schedule[Any, Throwable, Any] = Schedule.recurs(5)
+
+  private[pubsub] def makeFromAuthedBackend(
     connection: PubsubConnectionConfig,
     authedBackend: Backend[Task],
-    maxMessagesPerPull: Int = 100,
-    retrySchedule: Schedule[Any, Throwable, ?] = Schedule.recurs(5),
+    maxMessagesPerPull: Int = defaults.maxMessagesPerPull,
+    retrySchedule: Schedule[Any, Throwable, ?] = defaults.retrySchedule,
   ): ZIO[Scope, Nothing, HttpSubscriber] =
     for {
       ackQueue <- ZIO.acquireRelease(Queue.unbounded[(String, Boolean)])(_.shutdown)
     } yield connection match {
-      case PubsubConnectionConfig.Cloud(project) =>
+      case PubsubConnectionConfig.Cloud =>
         new HttpSubscriber(
-          projectId = project.name,
           backend = authedBackend,
           maxMessagesPerPull = maxMessagesPerPull,
           ackQueue = ackQueue,
           retrySchedule = retrySchedule,
         )
-      case config @ PubsubConnectionConfig.Emulator(project, _, _) =>
+      case config: PubsubConnectionConfig.Emulator =>
         new HttpSubscriber(
-          projectId = project.name,
           backend = EmulatorBackend(authedBackend, config),
           maxMessagesPerPull = maxMessagesPerPull,
           ackQueue = ackQueue,
@@ -163,25 +169,25 @@ object HttpSubscriber {
         )
     }
 
-  def make[R, E](
+  def make(
     connection: PubsubConnectionConfig,
     backend: Backend[Task],
     tokenProvider: TokenProvider[Token],
-    maxMessagesPerPull: Int = 100,
-    retrySchedule: Schedule[Any, Throwable, ?] = Schedule.recurs(5),
+    maxMessagesPerPull: Int = defaults.maxMessagesPerPull,
+    retrySchedule: Schedule[Any, Throwable, ?] = defaults.retrySchedule,
   ): ZIO[Scope, Nothing, HttpSubscriber] =
-    makeWithBackend(
+    makeFromAuthedBackend(
       connection = connection,
       authedBackend = toAuthedBackend(tokenProvider, backend),
       maxMessagesPerPull = maxMessagesPerPull,
       retrySchedule = retrySchedule,
     )
 
-  def makeWithDefaultTokenProvider[R, E](
+  def makeWithDefaultTokenProvider(
     connection: PubsubConnectionConfig,
     backend: Backend[Task],
-    maxMessagesPerPull: Int = 100,
-    retrySchedule: Schedule[Any, Throwable, ?] = Schedule.recurs(5),
+    maxMessagesPerPull: Int = defaults.maxMessagesPerPull,
+    retrySchedule: Schedule[Any, Throwable, ?] = defaults.retrySchedule,
     lookupComputeMetadataFirst: Boolean = false,
     tokenRefreshRetrySchedule: Schedule[Any, Any, Any] = TokenProvider.defaults.refreshRetrySchedule,
     tokenRefreshAtExpirationPercent: Double = TokenProvider.defaults.refreshAtExpirationPercent,
@@ -202,10 +208,10 @@ object HttpSubscriber {
           retrySchedule = retrySchedule,
         )
 
-  def makeWithDefaultAuthedBackend[R, E](
+  def makeWithDefaultBackend(
     connection: PubsubConnectionConfig,
-    maxMessagesPerPull: Int = 100,
-    retrySchedule: Schedule[Any, Throwable, ?] = Schedule.recurs(5),
+    maxMessagesPerPull: Int = defaults.maxMessagesPerPull,
+    retrySchedule: Schedule[Any, Throwable, ?] = defaults.retrySchedule,
     lookupComputeMetadataFirst: Boolean = false,
     tokenRefreshRetrySchedule: Schedule[Any, Any, Any] = TokenProvider.defaults.refreshRetrySchedule,
     tokenRefreshAtExpirationPercent: Double = TokenProvider.defaults.refreshAtExpirationPercent,
@@ -215,7 +221,7 @@ object HttpSubscriber {
       refreshRetrySchedule = tokenRefreshRetrySchedule,
       refreshAtExpirationPercent = tokenRefreshAtExpirationPercent,
     ).flatMap: authedBackend =>
-      makeWithBackend(
+      makeFromAuthedBackend(
         connection = connection,
         authedBackend = authedBackend,
         maxMessagesPerPull = maxMessagesPerPull,

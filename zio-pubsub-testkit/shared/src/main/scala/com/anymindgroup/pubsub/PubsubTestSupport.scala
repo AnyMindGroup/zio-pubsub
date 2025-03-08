@@ -6,9 +6,7 @@ import com.anymindgroup.gcp.pubsub.v1.resources.projects as p
 import com.anymindgroup.gcp.pubsub.v1.schemas as s
 import com.anymindgroup.http.httpBackendLayer
 import com.anymindgroup.pubsub.http.EmulatorBackend
-import com.anymindgroup.pubsub.model.*
-import com.anymindgroup.pubsub.model.PubsubConnectionConfig.GcpProject
-import com.anymindgroup.pubsub.sub.*
+import com.anymindgroup.pubsub.model.SubscriptionName
 import sttp.client4.{Backend, GenericBackend}
 
 import zio.test.Gen
@@ -16,16 +14,15 @@ import zio.{Chunk, RIO, Task, ZIO, ZLayer, durationInt}
 
 object PubsubTestSupport {
   def emulatorConnectionConfig(
-    project: GcpProject = sys.env.get("PUBSUB_EMULATOR_GCP_PROJECT").map(GcpProject(_)).getOrElse(GcpProject("any")),
     host: String = sys.env.get("PUBSUB_EMULATOR_HOST").getOrElse("localhost"),
     port: Int = sys.env.get("PUBSUB_EMULATOR_PORT").flatMap(_.toIntOption).getOrElse(8085),
   ): PubsubConnectionConfig.Emulator =
-    PubsubConnectionConfig.Emulator(project, host, port)
+    PubsubConnectionConfig.Emulator(host, port)
 
   def emulatorConnectionConfigLayer(
     config: PubsubConnectionConfig.Emulator = emulatorConnectionConfig()
-  ): ZLayer[Any, Nothing, PubsubConnectionConfig.Emulator & GcpProject] =
-    ZLayer.succeed(config) ++ ZLayer.succeed(config.project)
+  ): ZLayer[Any, Nothing, PubsubConnectionConfig.Emulator] =
+    ZLayer.succeed(config)
 
   def emulatorBackendLayer: ZLayer[PubsubConnectionConfig.Emulator, Throwable, Backend[Task]] =
     httpBackendLayer() >>> ZLayer.fromFunction(EmulatorBackend(_, _))
@@ -52,8 +49,8 @@ object PubsubTestSupport {
             projectsId = topicName.projectId,
             subscriptionsId = subscriptionName.subscription,
             request = s.Subscription(
-              name = subscriptionName.path,
-              topic = topicName.path,
+              name = subscriptionName.fullName,
+              topic = topicName.fullName,
             ),
           )
         ).flatMap { res =>
@@ -69,7 +66,7 @@ object PubsubTestSupport {
           p.Topics.create(
             projectsId = topicName.projectId,
             topicsId = topicName.topic,
-            request = s.Topic(name = topicName.path),
+            request = s.Topic(name = topicName.fullName),
           )
         ).flatMap { res =>
           if (res.isSuccess) ZIO.unit
@@ -118,23 +115,22 @@ object PubsubTestSupport {
       }
     )
 
-  val topicNameGen: Gen[PubsubConnectionConfig.Emulator, TopicName] = for {
-    connection <- Gen.fromZIO(ZIO.service[PubsubConnectionConfig.Emulator])
-    topic      <- Gen.alphaNumericStringBounded(10, 10).map("topic_" + _)
-  } yield TopicName(projectId = connection.project.name, topic = topic)
+  def topicNameGen(projectId: String): Gen[Any, TopicName] = for {
+    topic <- Gen.alphaNumericStringBounded(10, 10).map("topic_" + _)
+  } yield TopicName(projectId = projectId, topic = topic)
 
-  val subscriptionNameGen: Gen[PubsubConnectionConfig.Emulator, SubscriptionName] = for {
-    connection     <- Gen.fromZIO(ZIO.service[PubsubConnectionConfig.Emulator])
+  val subscriptionNameGen: Gen[Any, SubscriptionName] = for {
+    projectId      <- Gen.alphaNumericString
     subscriptionId <- Gen.alphaNumericStringBounded(10, 10).map("sub_" + _)
-  } yield SubscriptionName(connection.project.name, subscriptionId)
+  } yield SubscriptionName(projectId = projectId, subscription = subscriptionId)
 
-  val topicWithSubscriptionGen: Gen[PubsubConnectionConfig.Emulator, (TopicName, SubscriptionName)] = for {
-    topicName        <- topicNameGen
+  def topicWithSubscriptionGen(projectId: String): Gen[Any, (TopicName, SubscriptionName)] = for {
+    topicName        <- topicNameGen(projectId)
     subscriptionName <- subscriptionNameGen
   } yield (topicName, subscriptionName)
 
-  def someTopicWithSubscriptionName: ZIO[PubsubConnectionConfig.Emulator, Nothing, (TopicName, SubscriptionName)] =
-    topicWithSubscriptionGen.runHead.map(_.get)
+  def someTopicWithSubscriptionName(projectId: String): ZIO[Any, Nothing, (TopicName, SubscriptionName)] =
+    topicWithSubscriptionGen(projectId).runHead.map(_.get)
 
   def findSubscription(
     subscription: SubscriptionName
@@ -146,17 +142,17 @@ object PubsubTestSupport {
 
   val encodingGen: Gen[Any, Encoding] = Gen.fromIterable(List(Encoding.Binary, Encoding.Json))
 
-  def subscriptionsConfigsGen(topicName: String): Gen[PubsubConnectionConfig.Emulator, Subscription] = (for {
+  def subscriptionsConfigsGen(topicName: TopicName): Gen[PubsubConnectionConfig.Emulator, Subscription] = (for {
     filter <- Gen
-                .option(
-                  Gen.mapOf(Gen.alphaNumericString, Gen.alphaNumericString).map(SubscriberFilter.matchingAttributes)
+                .option[Any, SubscriberFilter](
+                  Gen.mapOf(Gen.alphaNumericString, Gen.alphaNumericString).map(SubscriberFilter.matchingAttributes(_))
                 )
     enableOrdering <- Gen.boolean
     expiration     <- Gen.option(Gen.finiteDuration(24.hours, 30.days))
     name           <- subscriptionNameGen
   } yield Subscription(
     topicName = topicName,
-    name = name.subscription,
+    name = name,
     filter = filter,
     enableOrdering = enableOrdering,
     expiration = expiration,

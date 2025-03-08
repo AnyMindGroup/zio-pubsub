@@ -1,10 +1,12 @@
 package com.anymindgroup.pubsub.sub
 
+import com.anymindgroup.pubsub.model.{SubscriptionName, TopicName}
+
 import zio.Duration
 
 final case class Subscription(
-  topicName: String,
-  name: String,
+  topicName: TopicName,
+  name: SubscriptionName,
   filter: Option[SubscriberFilter],
   enableOrdering: Boolean,
   expiration: Option[Duration],
@@ -12,6 +14,6 @@ final case class Subscription(
 )
 
 final case class DeadLettersSettings(
-  deadLetterTopicName: String,
+  deadLetterTopicName: TopicName,
   maxRetryNum: Int,
 )

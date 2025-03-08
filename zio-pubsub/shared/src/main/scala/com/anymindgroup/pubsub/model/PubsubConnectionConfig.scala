@@ -1,14 +1,10 @@
 package com.anymindgroup.pubsub.model
 
-sealed trait PubsubConnectionConfig {
-  def project: PubsubConnectionConfig.GcpProject
-}
+enum PubsubConnectionConfig:
+  case Cloud
+  case Emulator(host: String, port: Int = 8085)
 
-object PubsubConnectionConfig {
-  final case class Cloud(project: GcpProject)                                    extends PubsubConnectionConfig
-  final case class Emulator(project: GcpProject, host: String, port: Int = 8085) extends PubsubConnectionConfig
-
-  final case class GcpProject(name: String) extends AnyVal {
-    override def toString: String = name
-  }
-}
+opaque type GcpProject = String
+object GcpProject:
+  def apply(name: String): GcpProject        = name
+  extension (a: GcpProject) def name: String = a

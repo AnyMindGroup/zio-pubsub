@@ -1,39 +1,27 @@
-import com.anymindgroup.pubsub.*, zio.stream.*, zio.*, zio.ZIO.*
+import com.anymindgroup.pubsub.*, http.*
+import zio.stream.*, zio.*, zio.ZIO.*
 
 object SamplesPublisher extends ZIOAppDefault:
-  def run = ZStream
-    .repeatZIOWithSchedule(Random.nextInt, Schedule.fixed(2.seconds))
-    .mapZIO { sample =>
-      for {
-        mId <- Publisher.publish[Any, Int](
-                 PublishMessage(
-                   data = sample,
-                   attributes = Map.empty,
-                   orderingKey = None,
-                 )
-               )
-        _ <- logInfo(s"Published data $sample with message id ${mId.value}")
-      } yield ()
-    }
-    .runDrain
-    .provide(intPublisher)
-
-  // int publisher implementation
-  private val intPublisher: TaskLayer[Publisher[Any, Int]] = {
-    import com.anymindgroup.pubsub.google as G
-
-    ZLayer.scoped(
-      G.Publisher.make(
-        config = G.PublisherConfig(
-          connection = PubsubConnectionConfig.Emulator(
-            PubsubConnectionConfig.GcpProject("any"),
-            "localhost:8085",
-          ),
-          topicName = "basic_example",
-          encoding = Encoding.Binary,
-          enableOrdering = false,
-        ),
-        ser = Serde.int,
+  def run =
+    HttpPublisher
+      .makeWithDefaultBackend(
+        connection = PubsubConnectionConfig.Emulator("localhost", 8085),
+        topicName = TopicName(projectId = "any", topic = "basic_example"),
+        serializer = Serde.int,
       )
-    )
-  }
+      .flatMap: publisher =>
+        ZStream
+          .repeatZIOWithSchedule(Random.nextInt, Schedule.fixed(2.seconds))
+          .mapZIO { sample =>
+            for {
+              mId <- publisher.publish(
+                       PublishMessage(
+                         data = sample,
+                         attributes = Map.empty,
+                         orderingKey = None,
+                       )
+                     )
+              _ <- logInfo(s"Published data $sample with message id ${mId.value}")
+            } yield ()
+          }
+          .runDrain

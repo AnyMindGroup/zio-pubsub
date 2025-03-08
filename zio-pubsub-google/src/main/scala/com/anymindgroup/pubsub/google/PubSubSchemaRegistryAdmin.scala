@@ -37,14 +37,15 @@ object PubSubSchemaRegistryAdmin {
     }
 
   def createIfNotExists(
-    connection: PubsubConnectionConfig,
     schemaRegistry: SchemaRegistry,
     schemaClient: Option[SchemaServiceClient] = None,
+    connection: PubsubConnectionConfig = PubsubConnectionConfig.Cloud,
   ): Task[GSchema] =
-    ZIO.scoped(for {
-      client <- ZIO.fromOption(schemaClient).orElse(makeClient(connection))
-      result <- createIfNotExists(client, connection, schemaRegistry)
-    } yield result)
+    ZIO.scoped:
+      for {
+        client <- ZIO.fromOption(schemaClient).orElse(makeClient(connection))
+        result <- createIfNotExists(client, schemaRegistry)
+      } yield result
 
   private def mapSchemaType(domainType: SchemaType): GSchema.Type =
     domainType match {
@@ -54,25 +55,24 @@ object PubSubSchemaRegistryAdmin {
 
   private def createIfNotExists(
     schemaClient: SchemaServiceClient,
-    connection: PubsubConnectionConfig,
     schemaRegistry: SchemaRegistry,
   ): Task[GSchema] =
     for {
-      schemaName <- ZIO.succeed(SchemaName.format(connection.project.name, schemaRegistry.id))
+      schemaName <- ZIO.succeed(SchemaName.format(schemaRegistry.name.projectId, schemaRegistry.name.schemaId))
       definition <- schemaRegistry.definition
       schema <- ZIO.attempt(schemaClient.getSchema(schemaName)).catchSome { case _: NotFoundException =>
                   for {
                     _ <- ZIO.logInfo(s"Creating avro schema ${schemaName}")
                     schema <- ZIO.attempt(
                                 schemaClient.createSchema(
-                                  ProjectName.format(connection.project.name),
+                                  ProjectName.format(schemaRegistry.name.projectId),
                                   GSchema
                                     .newBuilder()
                                     .setName(schemaName)
                                     .setType(mapSchemaType(schemaRegistry.schemaType))
                                     .setDefinition(definition)
                                     .build(),
-                                  schemaRegistry.id,
+                                  schemaRegistry.name.schemaId,
                                 )
                               )
                     _ <- ZIO.logInfo(s"${schemaRegistry.schemaType} schema ${schemaName} created")
