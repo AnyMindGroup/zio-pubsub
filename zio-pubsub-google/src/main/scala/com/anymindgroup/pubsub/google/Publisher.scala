@@ -87,7 +87,7 @@ class GooglePublisher[R, E](publisher: GPublisher, serde: Serializer[R, E]) exte
     serde
       .serialize(e.data)
       .map(serializedData =>
-        Publisher.toPubsubMessage(ByteString.copyFrom(serializedData), e.attributes, e.orderingKey)
+        Publisher.toPubsubMessage(ByteString.copyFrom(serializedData.toArray), e.attributes, e.orderingKey)
       )
 
 }

@@ -7,14 +7,14 @@ Other meta information under `ReceivedMessage` can be included into building typ
 Defined as follows:
 ```scala
 trait Deserializer[-R, +T] {
-  def deserialize(message: ReceivedMessage[Array[Byte]]): RIO[R, T]
+  def deserialize(message: ReceivedMessage[Chunk[Byte]]): RIO[R, T]
 }
 ```
 
 `Serializer` works the other way around, given input of type `T`, return an array of bytes using environmet `R`:
 ```scala
 trait Serializer[-R, -T] {
-  def serialize(data: T): RIO[R, Array[Byte]]
+  def serialize(data: T): RIO[R, Chunk[Byte]]
 }
 ```
 

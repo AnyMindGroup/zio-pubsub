@@ -8,7 +8,7 @@ import com.anymindgroup.pubsub.*
 import com.google.pubsub.v1.ReceivedMessage as GReceivedMessage
 
 import zio.stream.ZStream
-import zio.{Duration, RIO, Schedule, Scope, ZIO, ZLayer, durationInt}
+import zio.{Chunk, Duration, RIO, Schedule, Scope, ZIO, ZLayer, durationInt}
 
 object Subscriber {
   type StreamAckDeadlineSeconds = Int
@@ -86,7 +86,7 @@ object Subscriber {
     val ts  = msg.getPublishTime()
 
     ReceivedMessage(
-      data = msg.getData.toByteArray(),
+      data = Chunk.fromArray(msg.getData.toByteArray()),
       meta = ReceivedMessage.Metadata(
         messageId = MessageId(msg.getMessageId()),
         ackId = AckId(rm.getAckId()),

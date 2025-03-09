@@ -25,7 +25,7 @@ object SerdesSpec extends ZIOSpecDefault {
       }
     },
     test("Serialize/deserialize array of bytes") {
-      check(Gen.chunkOf(Gen.byte).map(_.toArray)) { data =>
+      check(Gen.chunkOf(Gen.byte)) { data =>
         for {
           serialized   <- Serde.byteArray.serialize(data)
           deserialized <- Serde.byteArray.deserialize(ReceivedMessage(data = serialized, meta = null))

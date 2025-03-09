@@ -72,7 +72,7 @@ import com.anymindgroup.pubsub.*, zio.*, zio.stream.ZStream
 
 // deserialize an array of bytes to an UTF8 string
 // the output type of the deserializer is also represented by the type: Deserializer[?, String]
-val utf8StringDes: Deserializer[Any, String] = (message: ReceivedMessage[Array[Byte]]) =>
+val utf8StringDes: Deserializer[Any, String] = (message: ReceivedMessage[Chunk[Byte]]) =>
   ZIO.attempt(String(message.data, java.nio.charset.StandardCharsets.UTF_8))
 
 // deserializer output will be reflected in the message type that is emitted by the stream: ReceivedMessage[String]
@@ -85,12 +85,12 @@ For custom data types see the [Serializer/Deserializer for custom data types](./
 ## Subscription without deserializer
 
 It's also possible to create a stream without a deserializer which is going 
-to emit `ReceivedMessage[Array[Byte]]` containing data as array of bytes.
+to emit `ReceivedMessage[Chunk[Byte]]` containing data as array of bytes.
 
 ```scala
 import com.anymindgroup.pubsub.*, zio.stream.ZStream
 
-val subStream: ZStream[Subscriber, Throwable, (ReceivedMessage[Array[Byte]], AckReply)] =
+val subStream: ZStream[Subscriber, Throwable, (ReceivedMessage[Chunk[Byte]], AckReply)] =
   Subscriber.subscribeRaw(subscriptionName = "basic_example")
 ```
 

@@ -43,7 +43,7 @@ class HttpPublisher[R, E] private[http] (
   private def toRequestBody(events: NonEmptyChunk[PublishMessage[E]]) = for {
     messages <- ZIO.foreach(events) { event =>
                   for {
-                    data <- serializer.serialize(event.data).map(Base64.getEncoder.encodeToString)
+                    data <- serializer.serialize(event.data).map(c => Base64.getEncoder.encodeToString(c.toArray))
                   } yield s.PubsubMessage(
                     data = Some(data),
                     orderingKey = event.orderingKey.map(_.value),

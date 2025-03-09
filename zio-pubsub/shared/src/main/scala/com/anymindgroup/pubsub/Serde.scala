@@ -1,13 +1,13 @@
 package com.anymindgroup.pubsub
 
-import zio.RIO
+import zio.{Chunk, RIO}
 
 trait Deserializer[-R, +T] {
-  def deserialize(message: ReceivedMessage[Array[Byte]]): RIO[R, T]
+  def deserialize(message: ReceivedMessage[Chunk[Byte]]): RIO[R, T]
 }
 
 trait Serializer[-R, -T] {
-  def serialize(data: T): RIO[R, Array[Byte]]
+  def serialize(data: T): RIO[R, Chunk[Byte]]
 }
 
 trait Serde[-R, T] extends Serializer[R, T] with Deserializer[R, T] {}

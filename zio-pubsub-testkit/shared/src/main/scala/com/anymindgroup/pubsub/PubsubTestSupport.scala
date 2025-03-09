@@ -78,14 +78,14 @@ object PubsubTestSupport {
   def publishEvent[E](
     event: E,
     topicName: TopicName,
-    encode: E => Array[Byte] = (e: E) => e.toString.getBytes,
+    encode: E => Chunk[Byte] = (e: E) => Chunk.fromArray(e.toString.getBytes),
   ): RIO[Backend[Task], Seq[String]] =
     publishEvents(Seq(event), topicName, encode)
 
   def publishEvents[E](
     events: Seq[E],
     topicName: TopicName,
-    encode: E => Array[Byte] = (e: E) => e.toString.getBytes,
+    encode: E => Chunk[Byte] = (e: E) => Chunk.fromArray(e.toString.getBytes),
   ): RIO[Backend[Task], Seq[String]] =
     ZIO.serviceWithZIO[Backend[Task]](
       _.send(
@@ -97,7 +97,7 @@ object PubsubTestSupport {
               Chunk.fromIterable(
                 events
                   .map(encode)
-                  .map(Base64.getEncoder.encodeToString)
+                  .map(c => Base64.getEncoder.encodeToString(c.toArray))
                   .map(data => s.PubsubMessage(data = Some(data)))
               )
             ),

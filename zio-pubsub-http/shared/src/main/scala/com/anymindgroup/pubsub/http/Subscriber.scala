@@ -1,6 +1,7 @@
 package com.anymindgroup.pubsub.http
 
 import java.util.Base64
+import java.util.Base64.Decoder
 
 import com.anymindgroup.gcp.auth.{
   Token,
@@ -23,6 +24,7 @@ class HttpSubscriber private[http] (
   maxMessagesPerPull: Int,
   ackQueue: Queue[(String, Boolean)],
   retrySchedule: Schedule[Any, Throwable, ?],
+  base64Decoder: Decoder,
 ) extends Subscriber {
   private def processAckQueue(chunkSizeLimit: Option[Int], subName: SubscriptionName): UIO[Option[Cause[Throwable]]] =
     chunkSizeLimit
@@ -75,7 +77,7 @@ class HttpSubscriber private[http] (
   private[http] def pull(
     subscriptionName: SubscriptionName,
     returnImmediately: Option[Boolean] = None,
-  ): ZIO[Any, Throwable, Chunk[(ReceivedMessage[Array[Byte]], AckReply)]] =
+  ): ZIO[Any, Throwable, Chunk[(ReceivedMessage[Chunk[Byte]], AckReply)]] =
     p.Subscriptions
       .pull(
         projectsId = subscriptionName.projectId,
@@ -107,8 +109,8 @@ class HttpSubscriber private[http] (
                           deliveryAttempt = deliveryAttempt.getOrElse(0),
                         ),
                         data = data match {
-                          case None        => Array.empty[Byte]
-                          case Some(value) => Base64.getDecoder().decode(value)
+                          case None        => Chunk.empty[Byte]
+                          case Some(value) => Chunk.fromArray(base64Decoder.decode(value))
                         },
                       ),
                       new AckReply {
@@ -158,6 +160,7 @@ object HttpSubscriber {
           maxMessagesPerPull = maxMessagesPerPull,
           ackQueue = ackQueue,
           retrySchedule = retrySchedule,
+          base64Decoder = Base64.getDecoder(),
         )
       case config: PubsubConnectionConfig.Emulator =>
         new HttpSubscriber(
@@ -165,6 +168,7 @@ object HttpSubscriber {
           maxMessagesPerPull = maxMessagesPerPull,
           ackQueue = ackQueue,
           retrySchedule = retrySchedule,
+          base64Decoder = Base64.getDecoder(),
         )
     }
 

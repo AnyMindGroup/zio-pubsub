@@ -2,6 +2,8 @@ package com.anymindgroup.pubsub
 
 import java.time.Instant
 
+import zio.Chunk
+
 final case class ReceivedMessage[T](meta: ReceivedMessage.Metadata, data: T) {
   def orderingKey: Option[OrderingKey] = meta.orderingKey
   def messageId: MessageId             = meta.messageId
@@ -12,7 +14,7 @@ final case class ReceivedMessage[T](meta: ReceivedMessage.Metadata, data: T) {
 }
 
 object ReceivedMessage {
-  type Raw = ReceivedMessage[Array[Byte]]
+  type Raw = ReceivedMessage[Chunk[Byte]]
 
   final case class Metadata(
     messageId: MessageId,
