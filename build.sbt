@@ -6,6 +6,8 @@ enablePlugins(ZioSbtEcosystemPlugin, ZioSbtCiPlugin)
 
 lazy val _scala3 = "3.3.5"
 
+lazy val defaultJavaVersion = "21"
+
 lazy val zioGcpVersion = "0.1.1"
 
 inThisBuild(
@@ -35,7 +37,8 @@ inThisBuild(
     versionScheme      := Some("early-semver"),
     ciEnabledBranches  := Seq("master", "series/0.2.x"),
     ciJvmOptions ++= Seq("-Xms2G", "-Xmx2G", "-Xss4M", "-XX:+UseG1GC"),
-    ciTargetJavaVersions := Seq("21"),
+    ciTargetJavaVersions := Seq(defaultJavaVersion),
+    ciDefaultJavaVersion := defaultJavaVersion,
     ciBuildJobs := ciBuildJobs.value.map { j =>
       j.copy(steps =
         j.steps.map {
@@ -144,8 +147,8 @@ lazy val ciGenerateGithubWorkflowV2 = Def.task {
 }
 
 lazy val commonSettings = List(
-  javacOptions ++= Seq("-source", "21"),
-  Compile / scalacOptions ++= Seq("-source:future"),
+  javacOptions ++= Seq("-source", defaultJavaVersion),
+  Compile / scalacOptions ++= Seq("-source:future", s"-release:$defaultJavaVersion"),
   Compile / scalacOptions --= sys.env.get("CI").fold(Seq("-Xfatal-warnings"))(_ => Nil),
   Test / scalafixConfig := Some(new File(".scalafix_test.conf")),
   Test / scalacOptions --= Seq("-Xfatal-warnings"),
@@ -237,7 +240,7 @@ lazy val zioPubsubSerdeCirce = crossProject(JVMPlatform, NativePlatform)
     )
   )
 
-val zioSchemaVersion = "1.6.3"
+val zioSchemaVersion = "1.6.4"
 lazy val zioPubsubSerdeZioSchema = crossProject(JVMPlatform, NativePlatform)
   .in(file("zio-pubsub-serde-zio-schema"))
   .settings(moduleName := "zio-pubsub-serde-zio-schema")
