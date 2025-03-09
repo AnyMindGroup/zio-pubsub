@@ -4,10 +4,10 @@ import java.time.Instant
 
 import scala.jdk.CollectionConverters.*
 
+import com.anymindgroup.pubsub.*
 import com.anymindgroup.pubsub.PubsubTestSupport.*
-import com.anymindgroup.pubsub.model.{TopicName, *}
+import com.anymindgroup.pubsub.google.Subscriber as GSubscriber
 import com.anymindgroup.pubsub.serde.VulcanSerde
-import com.anymindgroup.pubsub.sub.{AckId, DeadLettersSettings, SubscriberFilter, Subscription}
 import com.google.api.gax.rpc.NotFoundException
 import com.google.cloud.pubsub.v1.SubscriptionAdminClient
 import com.google.protobuf.Timestamp
@@ -74,7 +74,7 @@ object SubscriberSpec extends ZIOSpecDefault {
         client <- SubscriptionAdmin.makeClient(connection)
         (_, testResultA) <- ZIO.scoped {
                               for {
-                                subscription <- Subscriber
+                                subscription <- GSubscriber
                                                   .makeTempRawStreamingPullSubscription(
                                                     connection = connection,
                                                     topicName = topicName,
@@ -91,7 +91,7 @@ object SubscriberSpec extends ZIOSpecDefault {
     } @@ TestAspect.nondeterministic,
     test("get meta data from ReceivedMessage") {
       check(receivedMessageGen) { sample =>
-        val res = Subscriber.toRawReceivedMessage(sample)
+        val res = GSubscriber.toRawReceivedMessage(sample)
         for {
           _ <- assertTrue(res.meta.ackId == AckId(sample.getAckId()))
           _ <- assertTrue(res.meta.messageId == MessageId(sample.getMessage.getMessageId()))

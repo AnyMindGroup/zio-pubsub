@@ -1,8 +1,6 @@
-package com.anymindgroup.pubsub.sub
+package com.anymindgroup.pubsub
 
 import java.time.Instant
-
-import com.anymindgroup.pubsub.model.{MessageId, OrderingKey}
 
 final case class ReceivedMessage[T](meta: ReceivedMessage.Metadata, data: T) {
   def orderingKey: Option[OrderingKey] = meta.orderingKey

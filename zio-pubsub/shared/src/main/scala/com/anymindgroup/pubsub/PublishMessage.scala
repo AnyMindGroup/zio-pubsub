@@ -1,5 +1,3 @@
-package com.anymindgroup.pubsub.pub
-
-import com.anymindgroup.pubsub.model.OrderingKey
+package com.anymindgroup.pubsub
 
 final case class PublishMessage[E](data: E, orderingKey: Option[OrderingKey], attributes: Map[String, String])

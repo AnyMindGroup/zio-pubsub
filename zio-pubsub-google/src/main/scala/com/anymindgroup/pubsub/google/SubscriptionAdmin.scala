@@ -2,8 +2,7 @@ package com.anymindgroup.pubsub.google
 
 import java.util.concurrent.TimeUnit
 
-import com.anymindgroup.pubsub.model.{PubsubConnectionConfig, SubscriptionName, TopicName}
-import com.anymindgroup.pubsub.sub.{DeadLettersSettings, SubscriberFilter, Subscription}
+import com.anymindgroup.pubsub.*
 import com.google.api.gax.rpc.{AlreadyExistsException, NotFoundException}
 import com.google.cloud.pubsub.v1.{SubscriptionAdminClient, SubscriptionAdminSettings}
 import com.google.protobuf.{Duration as ProtoDuration, FieldMask}

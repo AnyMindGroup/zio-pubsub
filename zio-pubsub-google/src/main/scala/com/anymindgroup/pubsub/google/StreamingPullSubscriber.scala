@@ -5,8 +5,7 @@ import java.util.concurrent.TimeUnit
 
 import scala.jdk.CollectionConverters.*
 
-import com.anymindgroup.pubsub.model.{PubsubConnectionConfig, SubscriptionName}
-import com.anymindgroup.pubsub.sub.*
+import com.anymindgroup.pubsub.{AckReply, PubsubConnectionConfig, SubscriptionName}
 import com.google.api.gax.rpc.{BidiStream as GBidiStream, ClientStream}
 import com.google.cloud.pubsub.v1.stub.{GrpcSubscriberStub, SubscriberStubSettings}
 import com.google.pubsub.v1.{

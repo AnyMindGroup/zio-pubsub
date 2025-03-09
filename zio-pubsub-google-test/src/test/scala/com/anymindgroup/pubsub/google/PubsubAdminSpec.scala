@@ -3,9 +3,9 @@ package com.anymindgroup.pubsub.google
 import scala.concurrent.duration.Duration
 import scala.util.Try
 
+import com.anymindgroup.pubsub.*
 import com.anymindgroup.pubsub.PubsubTestSupport.*
 import com.anymindgroup.pubsub.google.TestSupport.*
-import com.anymindgroup.pubsub.model.{SchemaRegistry, SchemaType, *}
 import com.anymindgroup.pubsub.serde.{CirceSerde, VulcanSerde}
 import com.google.pubsub.v1.{Schema, SchemaName as GSchemaName}
 

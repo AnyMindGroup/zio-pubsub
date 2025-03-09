@@ -12,8 +12,7 @@ import com.anymindgroup.gcp.auth.{
 import com.anymindgroup.gcp.pubsub.v1.resources.projects as p
 import com.anymindgroup.gcp.pubsub.v1.schemas as s
 import com.anymindgroup.gcp.pubsub.v1.schemas.PubsubMessage
-import com.anymindgroup.pubsub.model.{MessageId, OrderingKey, PubsubConnectionConfig, SubscriptionName}
-import com.anymindgroup.pubsub.sub.{AckId, AckReply, RawReceipt, ReceivedMessage, Subscriber}
+import com.anymindgroup.pubsub.*
 import sttp.client4.Backend
 
 import zio.stream.ZStream

@@ -1,6 +1,4 @@
-package com.anymindgroup.pubsub.sub
-
-import com.anymindgroup.pubsub.model.{SubscriptionName, TopicName}
+package com.anymindgroup.pubsub
 
 import zio.Duration
 

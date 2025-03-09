@@ -1,7 +1,7 @@
 package com.anymindgroup.pubsub.http
 
 import com.anymindgroup.http.httpBackendScoped
-import com.anymindgroup.pubsub.model.PubsubConnectionConfig
+import com.anymindgroup.pubsub.PubsubConnectionConfig
 import sttp.capabilities.Effect
 import sttp.client4.{Backend, GenericRequest, Response}
 import sttp.monad.MonadError

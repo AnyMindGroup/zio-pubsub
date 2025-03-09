@@ -2,7 +2,7 @@ package com.anymindgroup.pubsub.google
 
 import java.util.concurrent.TimeUnit
 
-import com.anymindgroup.pubsub.model.PubsubConnectionConfig
+import com.anymindgroup.pubsub.PubsubConnectionConfig
 import com.google.cloud.pubsub.v1.{TopicAdminClient, TopicAdminSettings}
 
 import zio.{RIO, RLayer, Scope, ZIO, ZLayer}

@@ -1,7 +1,7 @@
 package com.anymindgroup.pubsub.http
 
 import com.anymindgroup.gcp.auth.*
-import com.anymindgroup.pubsub.model.PubsubConnectionConfig
+import com.anymindgroup.pubsub.PubsubConnectionConfig
 
 import zio.Schedule
 

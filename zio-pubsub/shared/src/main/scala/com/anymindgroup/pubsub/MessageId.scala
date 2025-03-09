@@ -1,4 +1,4 @@
-package com.anymindgroup.pubsub.model
+package com.anymindgroup.pubsub
 
 opaque type MessageId = String
 object MessageId:

@@ -1,4 +1,4 @@
-package com.anymindgroup.pubsub.sub
+package com.anymindgroup.pubsub
 
 import zio.Scope
 import zio.test.*

@@ -4,8 +4,7 @@ import java.time.Instant
 
 import scala.jdk.CollectionConverters.*
 
-import com.anymindgroup.pubsub.model.*
-import com.anymindgroup.pubsub.sub.*
+import com.anymindgroup.pubsub.*
 import com.google.pubsub.v1.ReceivedMessage as GReceivedMessage
 
 import zio.stream.ZStream

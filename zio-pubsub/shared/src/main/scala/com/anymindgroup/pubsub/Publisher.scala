@@ -1,6 +1,4 @@
-package com.anymindgroup.pubsub.pub
-
-import com.anymindgroup.pubsub.model.MessageId
+package com.anymindgroup.pubsub
 
 import zio.{NonEmptyChunk, RIO, Tag, ZIO}
 

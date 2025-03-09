@@ -4,9 +4,7 @@ import java.util.concurrent.TimeUnit
 
 import scala.jdk.CollectionConverters.*
 
-import com.anymindgroup.pubsub.model.*
-import com.anymindgroup.pubsub.pub.*
-import com.anymindgroup.pubsub.serde.Serializer
+import com.anymindgroup.pubsub.*
 import com.google.cloud.pubsub.v1.Publisher as GPublisher
 import com.google.protobuf.ByteString
 import com.google.pubsub.v1.PubsubMessage as GPubsubMessage

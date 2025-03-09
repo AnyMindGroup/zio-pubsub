@@ -1,7 +1,4 @@
-package com.anymindgroup.pubsub.sub
-
-import com.anymindgroup.pubsub.serde.Deserializer
-import com.anymindgroup.pubsub.sub.*
+package com.anymindgroup.pubsub
 
 import zio.stream.ZPipeline
 import zio.{RIO, ZIO}

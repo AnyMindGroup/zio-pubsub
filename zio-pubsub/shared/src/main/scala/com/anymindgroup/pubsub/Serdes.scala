@@ -1,8 +1,6 @@
-package com.anymindgroup.pubsub.serde
+package com.anymindgroup.pubsub
 
 import java.nio.charset.StandardCharsets
-
-import com.anymindgroup.pubsub.sub.ReceivedMessage
 
 import zio.{RIO, ZIO}
 

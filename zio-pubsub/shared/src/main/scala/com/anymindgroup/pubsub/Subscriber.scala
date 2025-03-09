@@ -1,7 +1,4 @@
-package com.anymindgroup.pubsub.sub
-
-import com.anymindgroup.pubsub.model.SubscriptionName
-import com.anymindgroup.pubsub.serde.Deserializer
+package com.anymindgroup.pubsub
 
 import zio.stream.ZStream
 

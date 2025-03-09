@@ -11,9 +11,7 @@ import com.anymindgroup.gcp.auth.{
 }
 import com.anymindgroup.gcp.pubsub.v1.resources.projects as p
 import com.anymindgroup.gcp.pubsub.v1.schemas as s
-import com.anymindgroup.pubsub.model.{MessageId, PubsubConnectionConfig, TopicName}
-import com.anymindgroup.pubsub.pub.{PublishMessage, Publisher}
-import com.anymindgroup.pubsub.serde.Serializer
+import com.anymindgroup.pubsub.*
 import sttp.client4.Backend
 
 import zio.{Chunk, NonEmptyChunk, RIO, Schedule, Scope, Task, ZIO}

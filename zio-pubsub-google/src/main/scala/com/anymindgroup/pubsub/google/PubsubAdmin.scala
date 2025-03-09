@@ -1,7 +1,6 @@
 package com.anymindgroup.pubsub.google
 
-import com.anymindgroup.pubsub.model.*
-import com.anymindgroup.pubsub.sub.*
+import com.anymindgroup.pubsub.*
 import com.google.api.gax.rpc.AlreadyExistsException
 import com.google.cloud.pubsub.v1.TopicAdminClient
 import com.google.pubsub.v1.{

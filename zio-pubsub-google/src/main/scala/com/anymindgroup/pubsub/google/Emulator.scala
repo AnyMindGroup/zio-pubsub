@@ -2,7 +2,7 @@ package com.anymindgroup.pubsub.google
 
 import java.util.concurrent.TimeUnit
 
-import com.anymindgroup.pubsub.model.PubsubConnectionConfig
+import com.anymindgroup.pubsub.PubsubConnectionConfig
 import com.google.api.gax.core.{CredentialsProvider, NoCredentialsProvider}
 import com.google.api.gax.grpc.GrpcTransportChannel
 import com.google.api.gax.rpc.{FixedTransportChannelProvider, TransportChannelProvider}

@@ -2,7 +2,7 @@ package com.anymindgroup.pubsub.google
 
 import java.util.concurrent.TimeUnit
 
-import com.anymindgroup.pubsub.model.{PubsubConnectionConfig, SchemaRegistry, SchemaType}
+import com.anymindgroup.pubsub.{PubsubConnectionConfig, SchemaRegistry, SchemaType}
 import com.google.api.gax.rpc.NotFoundException
 import com.google.cloud.pubsub.v1.{SchemaServiceClient, SchemaServiceSettings}
 import com.google.pubsub.v1.{ProjectName, Schema as GSchema, SchemaName}
