@@ -2,9 +2,9 @@ import zio.sbt.githubactions.{Job, Step, Condition, ActionRef}
 import _root_.io.circe.Json
 enablePlugins(ZioSbtEcosystemPlugin, ZioSbtCiPlugin)
 
-lazy val _scala2 = "2.13.16"
-
 lazy val _scala3 = "3.3.5"
+
+lazy val defaultJavaVersion = "21"
 
 inThisBuild(
   List(
@@ -28,21 +28,20 @@ inThisBuild(
       ),
     ),
     zioVersion         := "2.1.16",
-    scala213           := _scala2,
-    scala3             := _scala3,
-    scalaVersion       := _scala2,
-    crossScalaVersions := Seq(_scala2, _scala3),
+    scalaVersion       := _scala3,
+    crossScalaVersions := Seq(_scala3),
     versionScheme      := Some("early-semver"),
-    ciEnabledBranches  := Seq("master"),
+    ciEnabledBranches  := Seq("master", "series/0.2.x"),
     ciJvmOptions ++= Seq("-Xms2G", "-Xmx2G", "-Xss4M", "-XX:+UseG1GC"),
-    ciTargetJavaVersions := Seq("17", "21"),
+    ciTargetJavaVersions := Seq(defaultJavaVersion),
+    ciDefaultJavaVersion := defaultJavaVersion,
     ciBuildJobs := ciBuildJobs.value.map { j =>
       j.copy(steps =
         j.steps.map {
           case s @ Step.SingleStep("Check all code compiles", _, _, _, _, _, _) =>
             Step.SingleStep(
               name = s.name,
-              run = Some("sbt '+Test/compile; +examples/compile'"),
+              run = Some("sbt 'Test/compile; examples/compile'"),
             )
           case s @ Step.SingleStep("Check website build process", _, _, _, _, _, _) =>
             Step.StepSequence(
@@ -89,7 +88,7 @@ inThisBuild(
                 """|echo "$PGP_SECRET" | base64 -d -i - > /tmp/signing-key.gpg
                    |echo "$PGP_PASSPHRASE" | gpg --pinentry-mode loopback --passphrase-fd 0 --import /tmp/signing-key.gpg
                    |(echo "$PGP_PASSPHRASE"; echo; echo) | gpg --command-fd 0 --pinentry-mode loopback --change-passphrase $(gpg --list-secret-keys --with-colons 2> /dev/null | grep '^sec:' | cut --delimiter ':' --fields 5 | tail -n 1)
-                   |sbt '+publishSigned; sonatypeCentralRelease'""".stripMargin
+                   |sbt 'publishSigned; sonatypeCentralRelease'""".stripMargin
               ),
               env = env,
             )
@@ -116,9 +115,6 @@ inThisBuild(
     },
     scalafmt         := true,
     scalafmtSbtCheck := true,
-    scalafixDependencies ++= List(
-      "com.github.vovapolu" %% "scaluzzi" % "0.1.23"
-    ),
   )
 )
 
@@ -147,23 +143,14 @@ lazy val ciGenerateGithubWorkflowV2 = Def.task {
 }
 
 lazy val commonSettings = List(
-  libraryDependencies ++= {
-    CrossVersion.partialVersion(scalaVersion.value) match {
-      case Some((2, _)) => Seq(compilerPlugin("com.olegpy" %% "better-monadic-for" % "0.3.1"))
-      case _            => Seq()
-    }
-  },
-  javacOptions ++= Seq("-source", "17"),
-  Compile / scalacOptions ++= {
-    CrossVersion.partialVersion(scalaVersion.value) match {
-      case Some((2, _)) => Seq("-Ymacro-annotations", "-Xsource:3")
-      case _            => Seq("-source:future")
-    }
-  },
+  javacOptions ++= Seq("-source", defaultJavaVersion),
+  Compile / scalacOptions ++= Seq("-source:future", s"-release:$defaultJavaVersion"),
   Compile / scalacOptions --= sys.env.get("CI").fold(Seq("-Xfatal-warnings"))(_ => Nil),
   Test / scalafixConfig := Some(new File(".scalafix_test.conf")),
   Test / scalacOptions --= Seq("-Xfatal-warnings"),
-) ++ scalafixSettings
+  semanticdbEnabled := true,
+  semanticdbVersion := scalafixSemanticdb.revision, // use Scalafix compatible version
+)
 
 val noPublishSettings = List(
   publish         := {},
@@ -279,10 +266,9 @@ lazy val zioPubsubTestkit =
     .settings(moduleName := "zio-pubsub-testkit")
     .settings(commonSettings)
     .settings(
-      scalafixConfig := Some(new File(".scalafix_test.conf")),
       libraryDependencies ++= Seq(
         "dev.zio" %% "zio-test" % zioVersion.value
-      ),
+      )
     )
 
 lazy val zioPubsubTest =
@@ -300,10 +286,8 @@ lazy val examples = (project in file("examples"))
   .dependsOn(zioPubsubGoogle)
   .settings(noPublishSettings)
   .settings(
-    scalaVersion       := _scala3,
-    crossScalaVersions := Seq(_scala3),
-    coverageEnabled    := false,
-    fork               := true,
+    coverageEnabled := false,
+    fork            := true,
     libraryDependencies ++= Seq(
       "dev.zio" %% "zio-json" % "0.7.1"
     ),
