@@ -37,27 +37,28 @@ object PubsubAdminSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment & Scope, Any] = suite("PubsubAdminSpec")(
     test("crating a subscriptions for non existing topic fails") {
       for {
-        connection   <- ZIO.service[PubsubConnectionConfig]
+        connection   <- ZIO.service[PubsubConnectionConfig.Emulator]
         subscription <- subscriptionsConfigsGen(TopicName("any", "no_topic")).runHead.map(_.get)
         exit         <- PubsubAdmin.setup(topics = Nil, subscriptions = List(subscription), connection = connection).exit
       } yield assert(exit)(fails(anything))
     },
     test("create topics and subscriptions if not exist") {
       for {
-        connection    <- ZIO.service[PubsubConnectionConfig]
-        topics        <- (topicConfigsGen <*> Gen.int(1, 100)).runCollectN(20)
-        subscriptions <- ZIO.foreach(topics)(topic => subscriptionsConfigsGen(topic._1.name).runCollectN(1))
+        connection <- ZIO.service[PubsubConnectionConfig.Emulator]
+        topics     <- (topicConfigsGen <*> Gen.int(1, 100)).runCollectN(20)
+        subscriptions <-
+          ZIO.foreach(topics)(topic => subscriptionsConfigsGen(topic._1.name).runCollectN(1)).map(_.flatten)
         _ <-
-          PubsubAdmin.setup(topics = topics.map(_._1), subscriptions = subscriptions.flatten, connection = connection)
-        _ <- ZIO.foreachDiscard(subscriptions.flatten) { subscription =>
+          PubsubAdmin.setup(topics = topics.map(_._1), subscriptions = subscriptions, connection = connection)
+        _ <- ZIO.foreachDiscard(subscriptions) { subscription =>
                for {
                  maybePubsubSub <- findSubscription(subscription.name)
                  _              <- assert(maybePubsubSub)(isSome)
                  pubsubSub       = maybePubsubSub.get
                  pubsubSubName   = pubsubSub.name.split("/").last
-                 _              <- assert(pubsubSubName)(equalTo(subscription.name))
-                 _              <- assert(pubsubSub.enableMessageOrdering.getOrElse(false))(equalTo(subscription.enableOrdering))
-                 _              <- assert(pubsubSub.filter.getOrElse(""))(equalTo(subscription.filter.map(_.value).getOrElse("")))
+                 _              <- assertTrue(pubsubSubName == subscription.name.subscription)
+                 _              <- assertTrue(pubsubSub.enableMessageOrdering.getOrElse(false) == subscription.enableOrdering)
+                 _              <- assertTrue(pubsubSub.filter.getOrElse("") == subscription.filter.map(_.value).getOrElse(""))
                  _ <-
                    assert(pubsubSub.expirationPolicy.flatMap(_.ttl.map(Duration(_).toSeconds)))(
                      equalTo(subscription.expiration.map(_.toSeconds()))
@@ -65,13 +66,13 @@ object PubsubAdminSpec extends ZIOSpecDefault {
                } yield assertTrue(true)
              }
         exit <- PubsubAdmin
-                  .setup(topics = topics.map(_._1), subscriptions = subscriptions.flatten, connection = connection)
+                  .setup(topics = topics.map(_._1), subscriptions = subscriptions, connection = connection)
                   .exit
       } yield assert(exit)(succeeds(anything)).label("re-running same setup succeeds")
     },
     test("schema registry test") {
       for {
-        connection <- ZIO.service[PubsubConnectionConfig]
+        connection <- ZIO.service[PubsubConnectionConfig.Emulator]
         client     <- PubSubSchemaRegistryAdmin.makeClient(connection)
         _ <- PubSubSchemaRegistryAdmin.createIfNotExists(
                connection = connection,

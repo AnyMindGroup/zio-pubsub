@@ -67,7 +67,7 @@ object AvroPublisherSpec extends ZIOSpecDefault {
     (test("publish with custom attributes and ordering keys") {
       for {
         testConf     <- randomTestConfig(Encoding.Binary)
-        _            <- PubsubAdmin.setup(List(testConf.topic), List(testConf.subscription))
+        _            <- PubsubAdmin.setup(List(testConf.topic), List(testConf.subscription), testConf.connection)
         testMessages <- testPublishMessageGen.runCollectN(50).map(_.toVector)
         p <- google.Publisher.make[Any, TestEvent](
                testConf.publisherConf,
@@ -104,7 +104,7 @@ object AvroPublisherSpec extends ZIOSpecDefault {
         test(s"publish and consume with $encoding encoding") {
           for {
             testConf       <- randomTestConfig(encoding)
-            _              <- PubsubAdmin.setup(List(testConf.topic), List(testConf.subscription))
+            _              <- PubsubAdmin.setup(List(testConf.topic), List(testConf.subscription), testConf.connection)
             testEventsData <- testEventGen.runCollectN(10)
             p <- google.Publisher.make[Any, TestEvent](
                    testConf.publisherConf,

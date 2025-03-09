@@ -63,7 +63,7 @@ object SubscriberSpec extends ZIOSpecDefault {
     test("create a subscription and remove after usage") {
       for {
         connection <- ZIO.service[PubsubConnectionConfig.Emulator]
-        topicName  <- initTopicWithSchema
+        topicName  <- initTopicWithSchema(connection)
         tempSubName <- Gen
                          .alphaNumericStringBounded(10, 10)
                          .map("sub_" + _)
@@ -71,6 +71,7 @@ object SubscriberSpec extends ZIOSpecDefault {
                          .map(_.get)
                          .map: s =>
                            SubscriptionName("any", s)
+        client <- SubscriptionAdmin.makeClient(connection)
         (_, testResultA) <- ZIO.scoped {
                               for {
                                 subscription <- Subscriber
@@ -82,15 +83,12 @@ object SubscriberSpec extends ZIOSpecDefault {
                                                     maxTtl = Duration.Infinity,
                                                     enableOrdering = enableOrdering,
                                                   )
-                                existsOnCreation <- subscriptionExists(tempSubName)
+                                existsOnCreation <- subscriptionExists(tempSubName, client)
                               } yield (subscription, assertTrue(existsOnCreation))
                             }
-        existsAfterUsage <- subscriptionExists(tempSubName)
+        existsAfterUsage <- subscriptionExists(tempSubName, client)
       } yield testResultA && assertTrue(!existsAfterUsage)
-    }.provideSome[Scope](
-      emulatorConnectionConfigLayer(),
-      SubscriptionAdmin.layer,
-    ) @@ TestAspect.nondeterministic,
+    } @@ TestAspect.nondeterministic,
     test("get meta data from ReceivedMessage") {
       check(receivedMessageGen) { sample =>
         val res = Subscriber.toRawReceivedMessage(sample)
@@ -111,7 +109,7 @@ object SubscriberSpec extends ZIOSpecDefault {
     test("Dead letters topic should be created if subscription has dead letters policy") {
       for {
         connection          <- ZIO.service[PubsubConnectionConfig.Emulator]
-        topicName           <- initTopicWithSchema
+        topicName           <- initTopicWithSchema(connection)
         tempSubName         <- Gen.alphaNumericStringBounded(10, 10).map("sub_" + _).runHead.map(_.get)
         deadLetterTopicName <- Live.live(Gen.alphaNumericStringBounded(10, 10).map("dlt_" + _).runHead.map(_.get))
         topicAdmin          <- TopicAdmin.makeClient(connection)
@@ -134,13 +132,11 @@ object SubscriberSpec extends ZIOSpecDefault {
         _ <-
           assertTrue(dltExists.isSuccess).label("Dead letter topic should exist after creating a subscription")
       } yield assertCompletes
-    }.provideSome[Scope](
-      emulatorConnectionConfigLayer()
-    ),
+    },
     test("Subscription with dead letters policy should be successfully created with dead letter topic") {
       for {
         connection         <- ZIO.service[PubsubConnectionConfig.Emulator]
-        topicName          <- initTopicWithSchemaAndDeadLetters
+        topicName          <- initTopicWithSchemaAndDeadLetters(connection)
         tempSubName        <- Gen.alphaNumericStringBounded(10, 10).map("sub_" + _).runHead.map(_.get)
         deadLettersSettings = DeadLettersSettings(topicName.copy(topic = s"${topicName.topic}__dead_letters"), 5)
         subscription = Subscription(
@@ -153,11 +149,11 @@ object SubscriberSpec extends ZIOSpecDefault {
                        )
         _ <- SubscriptionAdmin.createOrUpdate(connection = connection, subscription = subscription)
       } yield assertCompletes
-    }.provideSome[Scope](emulatorConnectionConfigLayer()),
+    },
     test("Subscription without dead letters policy should be updated when already exist") {
       for {
         connection <- ZIO.service[PubsubConnectionConfig.Emulator]
-        topicName  <- initTopicWithSchemaAndDeadLetters
+        topicName  <- initTopicWithSchemaAndDeadLetters(connection)
         client     <- SubscriptionAdmin.makeClient(connection)
         tempSubName <- Gen
                          .alphaNumericStringBounded(10, 10)
@@ -189,7 +185,7 @@ object SubscriberSpec extends ZIOSpecDefault {
         afterUpdateToEmpty        <- SubscriptionAdmin.fetchCurrentSubscription(client, tempSubName)
         _                         <- assertTrue(afterUpdateToEmpty.is(_.some).deadLettersSettings.isEmpty)
       } yield assertCompletes
-    }.provideSome[Scope](emulatorConnectionConfigLayer()),
+    },
     test("Fetch Not Found Subscription should be handled properly") {
       for {
         connection <- ZIO.service[PubsubConnectionConfig.Emulator]
@@ -205,16 +201,18 @@ object SubscriberSpec extends ZIOSpecDefault {
         result <- SubscriptionAdmin.fetchCurrentSubscription(client, tempSubName).either
         _      <- assertTrue(result.is(_.right).isEmpty)
       } yield assertCompletes
-    }.provideSome[Scope](emulatorConnectionConfigLayer()) @@ TestAspect.nondeterministic,
-  )
+    } @@ TestAspect.nondeterministic,
+  ).provideSomeShared[Scope](emulatorConnectionConfigLayer())
 
-  private def subscriptionExists(subscriptionName: SubscriptionName): RIO[SubscriptionAdminClient, Boolean] = for {
-    client        <- ZIO.service[SubscriptionAdminClient]
-    subscriptionId = GSubscriptionName.of(subscriptionName.projectId, subscriptionName.subscription)
-    result <- ZIO.attempt(client.getSubscription(subscriptionId)).as(true).catchSome { case _: NotFoundException =>
-                ZIO.succeed(false)
-              }
-  } yield result
+  private def subscriptionExists(subscriptionName: SubscriptionName, client: SubscriptionAdminClient): Task[Boolean] =
+    ZIO
+      .attempt(
+        client.getSubscription(GSubscriptionName.of(subscriptionName.projectId, subscriptionName.subscription))
+      )
+      .as(true)
+      .catchSome { case _: NotFoundException =>
+        ZIO.succeed(false)
+      }
 
   def createRandomTopic: ZIO[Any, Nothing, Topic[Any, Int]] =
     topicNameGen("any").runHead
@@ -234,21 +232,18 @@ object SubscriberSpec extends ZIOSpecDefault {
     createRandomTopic.map(topic =>
       List(
         topic,
-        topic.copy(name = topic.name.copy(topic = s"${topic.name}__dead_letters")),
+        topic.copy(name = topic.name.copy(topic = s"${topic.name.topic}__dead_letters")),
       )
     )
 
-  private def initTopicWithSchema =
-    createRandomTopic.flatMap(t => initTopicsWithSchema(List(t)))
+  private def initTopicWithSchema(connection: PubsubConnectionConfig.Emulator) =
+    createRandomTopic.flatMap(t => initTopicsWithSchema(List(t), connection))
 
-  private def initTopicWithSchemaAndDeadLetters: RIO[PubsubConnectionConfig.Emulator & Scope, TopicName] =
-    createRandomTopicWithDeadLettersTopic.flatMap(initTopicsWithSchema)
+  private def initTopicWithSchemaAndDeadLetters(connection: PubsubConnectionConfig.Emulator): RIO[Scope, TopicName] =
+    createRandomTopicWithDeadLettersTopic.flatMap(initTopicsWithSchema(_, connection))
 
   private def initTopicsWithSchema(
-    topics: List[Topic[Any, Int]]
-  ): RIO[PubsubConnectionConfig.Emulator & Scope, TopicName] = for {
-    connection <- ZIO.service[PubsubConnectionConfig.Emulator]
-    // init topic with schema settings
-    _ <- PubsubAdmin.setup(connection = connection, topics = topics, subscriptions = Nil)
-  } yield topics.head.name
+    topics: List[Topic[Any, Int]],
+    connection: PubsubConnectionConfig.Emulator,
+  ) = PubsubAdmin.setup(connection = connection, topics = topics, subscriptions = Nil).as(topics.head.name)
 }

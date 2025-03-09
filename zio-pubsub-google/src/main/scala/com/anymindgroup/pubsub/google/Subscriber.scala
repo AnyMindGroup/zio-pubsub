@@ -22,7 +22,7 @@ object Subscriber {
   val defaultStreamAckDeadlineSeconds: StreamAckDeadlineSeconds = 60
 
   def makeStreamingPullSubscriber(
-    connection: PubsubConnectionConfig = PubsubConnectionConfig.Cloud,
+    connection: PubsubConnectionConfig,
     streamAckDeadlineSeconds: StreamAckDeadlineSeconds = defaultStreamAckDeadlineSeconds,
     retrySchedule: Schedule[Any, Throwable, ?] = defaultRetrySchedule,
   ): RIO[Scope, Subscriber] = ZIO.serviceWith[Scope](scope =>
@@ -43,7 +43,7 @@ object Subscriber {
 
   private[pubsub] def makeRawStreamingPullSubscription(
     subscriptionName: SubscriptionName,
-    connection: PubsubConnectionConfig = PubsubConnectionConfig.Cloud,
+    connection: PubsubConnectionConfig,
     streamAckDeadlineSeconds: StreamAckDeadlineSeconds = defaultStreamAckDeadlineSeconds,
     retrySchedule: Schedule[Any, Throwable, ?] = defaultRetrySchedule,
   ): RIO[Scope, ZStream[Any, Throwable, RawReceipt]] =

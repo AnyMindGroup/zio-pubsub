@@ -7,13 +7,20 @@ import com.anymindgroup.pubsub.sub.{DeadLettersSettings, SubscriberFilter, Subsc
 import com.google.api.gax.rpc.{AlreadyExistsException, NotFoundException}
 import com.google.cloud.pubsub.v1.{SubscriptionAdminClient, SubscriptionAdminSettings}
 import com.google.protobuf.{Duration as ProtoDuration, FieldMask}
-import com.google.pubsub.v1.{DeadLetterPolicy as GDeadLetterPolicy, ExpirationPolicy as GExpirationPolicy, Subscription as GSubscription, SubscriptionName as GSubscriptionName, TopicName as GTopicName, UpdateSubscriptionRequest}
+import com.google.pubsub.v1.{
+  DeadLetterPolicy as GDeadLetterPolicy,
+  ExpirationPolicy as GExpirationPolicy,
+  Subscription as GSubscription,
+  SubscriptionName as GSubscriptionName,
+  TopicName as GTopicName,
+  UpdateSubscriptionRequest,
+}
 
 import zio.{Duration, RIO, RLayer, Scope, ZIO, ZLayer, durationLong}
 
 object SubscriptionAdmin {
   def makeClient(
-    connection: PubsubConnectionConfig = PubsubConnectionConfig.Cloud
+    connection: PubsubConnectionConfig
   ): RIO[Scope, SubscriptionAdminClient] =
     ZIO.acquireRelease(
       connection match {
@@ -48,7 +55,7 @@ object SubscriptionAdmin {
 
   def createOrUpdate(
     subscription: Subscription,
-    connection: PubsubConnectionConfig = PubsubConnectionConfig.Cloud,
+    connection: PubsubConnectionConfig,
   ): RIO[Scope, Unit] =
     for {
       subscriptionAdmin <- SubscriptionAdmin.makeClient(connection)
@@ -62,30 +69,27 @@ object SubscriptionAdmin {
     .map(s =>
       TopicAdmin
         .makeClient(connection)
-        .flatMap(admin =>
+        .flatMap { admin =>
+          val tn = GTopicName.format(s.deadLetterTopicName.projectId, s.deadLetterTopicName.topic)
           ZIO
-            .attempt(
-              admin.getTopic(s.deadLetterTopicName.fullName)
-            )
+            .attempt(admin.getTopic(tn))
             .unit
             .catchSome { case _: NotFoundException =>
               for {
                 _ <- ZIO.logInfo(s"Dead letter topic for subscription ${subscription.name} not found! Creating...")
                 _ <-
-                  ZIO.attempt(
-                    admin.createTopic(GTopicName.format(s.deadLetterTopicName.projectId, s.deadLetterTopicName.topic))
-                  )
+                  ZIO.attempt(admin.createTopic(tn))
                 _ <- ZIO.logInfo(
                        s"Created dead letter topic for subscription ${subscription.name}: ${s.deadLetterTopicName}"
                      )
               } yield ()
             }
-        )
+        }
     )
     .getOrElse(ZIO.unit)
 
   private def buildGSubscription(subscription: Subscription): GSubscription = {
-    val topicId        = GTopicName.of(subscription.name.projectId, subscription.topicName.topic)
+    val topicId        = GTopicName.of(subscription.topicName.projectId, subscription.topicName.topic)
     val subscriptionId = GSubscriptionName.of(subscription.name.projectId, subscription.name.subscription)
     val expirationPolicy = subscription.expiration.map { t =>
       GExpirationPolicy
@@ -180,7 +184,7 @@ object SubscriptionAdmin {
   def createOrUpdateWithClient(
     subscriptionAdmin: SubscriptionAdminClient,
     subscription: Subscription,
-    connection: PubsubConnectionConfig = PubsubConnectionConfig.Cloud,
+    connection: PubsubConnectionConfig,
   ): RIO[Scope, Unit] =
     for {
       _            <- createDeadLettersTopicIfNeeded(connection, subscription)
@@ -201,7 +205,7 @@ object SubscriptionAdmin {
     subscriptionFilter: Option[SubscriberFilter],
     maxTtl: Duration,
     enableOrdering: Boolean,
-    connection: PubsubConnectionConfig = PubsubConnectionConfig.Cloud,
+    connection: PubsubConnectionConfig,
   ): RIO[Scope, Subscription] = for {
     subscriptionAdmin <- SubscriptionAdmin.makeClient(connection)
     subscriptionId     = GSubscriptionName.of(subscriptionName.projectId, subscriptionName.subscription)

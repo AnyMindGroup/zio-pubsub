@@ -154,7 +154,7 @@ private[pubsub] object StreamingPullSubscriber {
     subscriptionName: SubscriptionName,
     streamAckDeadlineSeconds: Int,
     retrySchedule: Schedule[Any, Throwable, ?],
-    connection: PubsubConnectionConfig = PubsubConnectionConfig.Cloud,
+    connection: PubsubConnectionConfig,
   ): RIO[Scope, GoogleStream] = for {
     settings      <- settingsFromConfig(connection)
     subscriptionId = GSubscriptionName.of(subscriptionName.projectId, subscriptionName.subscription)

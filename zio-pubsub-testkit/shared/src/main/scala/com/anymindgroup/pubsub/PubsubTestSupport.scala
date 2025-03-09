@@ -5,7 +5,7 @@ import java.util.Base64
 import com.anymindgroup.gcp.pubsub.v1.resources.projects as p
 import com.anymindgroup.gcp.pubsub.v1.schemas as s
 import com.anymindgroup.pubsub.http.EmulatorBackend
-import com.anymindgroup.pubsub.model.SubscriptionName
+import com.anymindgroup.pubsub.model.{PubsubConnectionConfig, SubscriptionName}
 import sttp.client4.Backend
 
 import zio.test.Gen

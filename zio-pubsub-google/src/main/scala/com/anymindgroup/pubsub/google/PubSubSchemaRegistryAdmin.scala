@@ -39,7 +39,7 @@ object PubSubSchemaRegistryAdmin {
   def createIfNotExists(
     schemaRegistry: SchemaRegistry,
     schemaClient: Option[SchemaServiceClient] = None,
-    connection: PubsubConnectionConfig = PubsubConnectionConfig.Cloud,
+    connection: PubsubConnectionConfig,
   ): Task[GSchema] =
     ZIO.scoped:
       for {
