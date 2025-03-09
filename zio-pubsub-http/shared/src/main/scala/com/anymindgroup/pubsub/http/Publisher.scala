@@ -1,6 +1,7 @@
 package com.anymindgroup.pubsub.http
 
 import java.util.Base64
+import java.util.Base64.Encoder
 
 import com.anymindgroup.gcp.auth.{
   Token,
@@ -20,6 +21,7 @@ class HttpPublisher[R, E] private[http] (
   serializer: Serializer[R, E],
   backend: Backend[Task],
   topic: TopicName,
+  base64Encoder: Encoder,
 ) extends Publisher[R, E] {
 
   override def publish(events: NonEmptyChunk[PublishMessage[E]]): RIO[R, NonEmptyChunk[MessageId]] =
@@ -43,7 +45,7 @@ class HttpPublisher[R, E] private[http] (
   private def toRequestBody(events: NonEmptyChunk[PublishMessage[E]]) = for {
     messages <- ZIO.foreach(events) { event =>
                   for {
-                    data <- serializer.serialize(event.data).map(c => Base64.getEncoder.encodeToString(c.toArray))
+                    data <- serializer.serialize(event.data).map(c => base64Encoder.encodeToString(c.toArray))
                   } yield s.PubsubMessage(
                     data = Some(data),
                     orderingKey = event.orderingKey.map(_.value),
@@ -70,12 +72,14 @@ object HttpPublisher {
           serializer = serializer,
           topic = topicName,
           backend = authedBackend,
+          base64Encoder = Base64.getEncoder(),
         )
       case emulator: PubsubConnectionConfig.Emulator =>
         new HttpPublisher[R, E](
           serializer = serializer,
           topic = topicName,
           backend = EmulatorBackend(authedBackend, emulator),
+          base64Encoder = Base64.getEncoder(),
         )
     }
 
