@@ -4,6 +4,8 @@ enablePlugins(ZioSbtEcosystemPlugin, ZioSbtCiPlugin)
 
 lazy val _scala3 = "3.3.5"
 
+lazy val defaultJavaVersion = "21"
+
 inThisBuild(
   List(
     name         := "ZIO Google Cloud Pub/Sub",
@@ -31,14 +33,15 @@ inThisBuild(
     versionScheme      := Some("early-semver"),
     ciEnabledBranches  := Seq("master", "series/0.2.x"),
     ciJvmOptions ++= Seq("-Xms2G", "-Xmx2G", "-Xss4M", "-XX:+UseG1GC"),
-    ciTargetJavaVersions := Seq("21"),
+    ciTargetJavaVersions := Seq(defaultJavaVersion),
+    ciDefaultJavaVersion := defaultJavaVersion,
     ciBuildJobs := ciBuildJobs.value.map { j =>
       j.copy(steps =
         j.steps.map {
           case s @ Step.SingleStep("Check all code compiles", _, _, _, _, _, _) =>
             Step.SingleStep(
               name = s.name,
-              run = Some("sbt '+Test/compile; +examples/compile'"),
+              run = Some("sbt 'Test/compile; examples/compile'"),
             )
           case s @ Step.SingleStep("Check website build process", _, _, _, _, _, _) =>
             Step.StepSequence(
@@ -85,7 +88,7 @@ inThisBuild(
                 """|echo "$PGP_SECRET" | base64 -d -i - > /tmp/signing-key.gpg
                    |echo "$PGP_PASSPHRASE" | gpg --pinentry-mode loopback --passphrase-fd 0 --import /tmp/signing-key.gpg
                    |(echo "$PGP_PASSPHRASE"; echo; echo) | gpg --command-fd 0 --pinentry-mode loopback --change-passphrase $(gpg --list-secret-keys --with-colons 2> /dev/null | grep '^sec:' | cut --delimiter ':' --fields 5 | tail -n 1)
-                   |sbt '+publishSigned; sonatypeCentralRelease'""".stripMargin
+                   |sbt 'publishSigned; sonatypeCentralRelease'""".stripMargin
               ),
               env = env,
             )
@@ -140,8 +143,8 @@ lazy val ciGenerateGithubWorkflowV2 = Def.task {
 }
 
 lazy val commonSettings = List(
-  javacOptions ++= Seq("-source", "21"),
-  Compile / scalacOptions ++= Seq("-source:future"),
+  javacOptions ++= Seq("-source", defaultJavaVersion),
+  Compile / scalacOptions ++= Seq("-source:future", s"-release:$defaultJavaVersion"),
   Compile / scalacOptions --= sys.env.get("CI").fold(Seq("-Xfatal-warnings"))(_ => Nil),
   Test / scalafixConfig := Some(new File(".scalafix_test.conf")),
   Test / scalacOptions --= Seq("-Xfatal-warnings"),
