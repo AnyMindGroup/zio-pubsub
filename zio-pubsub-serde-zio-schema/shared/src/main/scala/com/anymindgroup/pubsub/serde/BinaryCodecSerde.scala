@@ -1,6 +1,4 @@
-package com.anymindgroup.pubsub.serde
-
-import com.anymindgroup.pubsub.sub.ReceivedMessage
+package com.anymindgroup.pubsub
 
 import zio.schema.codec.BinaryCodec
 import zio.{Chunk, RIO, ZIO}

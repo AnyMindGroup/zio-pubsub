@@ -5,14 +5,14 @@ import java.util.concurrent.TimeUnit
 
 import scala.jdk.CollectionConverters.*
 
-import com.anymindgroup.pubsub.sub.*
+import com.anymindgroup.pubsub.{AckReply, PubsubConnectionConfig, SubscriptionName}
 import com.google.api.gax.rpc.{BidiStream as GBidiStream, ClientStream}
 import com.google.cloud.pubsub.v1.stub.{GrpcSubscriberStub, SubscriberStubSettings}
 import com.google.pubsub.v1.{
   ReceivedMessage as GReceivedMessage,
   StreamingPullRequest,
   StreamingPullResponse,
-  SubscriptionName,
+  SubscriptionName as GSubscriptionName,
 }
 
 import zio.stream.{ZStream, ZStreamAspect}
@@ -23,7 +23,7 @@ private[pubsub] object StreamingPullSubscriber {
     connection: PubsubConnectionConfig
   ): RIO[Scope, SubscriberStubSettings] = for {
     builder <- connection match {
-                 case _: PubsubConnectionConfig.Cloud =>
+                 case PubsubConnectionConfig.Cloud =>
                    ZIO.attempt(
                      SubscriberStubSettings.newBuilder
                        .setTransportChannelProvider(
@@ -31,7 +31,7 @@ private[pubsub] object StreamingPullSubscriber {
                        )
                    )
                  case c: PubsubConnectionConfig.Emulator =>
-                   PubsubConnectionConfig.createEmulatorSettings(c).map { case (channelProvider, credentialsProvider) =>
+                   Emulator.createEmulatorSettings(c).map { case (channelProvider, credentialsProvider) =>
                      SubscriberStubSettings.newBuilder
                        .setTransportChannelProvider(channelProvider)
                        .setCredentialsProvider(credentialsProvider)
@@ -123,7 +123,7 @@ private[pubsub] object StreamingPullSubscriber {
 
   private[pubsub] def initGrpcBidiStream(
     subscriber: GrpcSubscriberStub,
-    subscriptionId: SubscriptionName,
+    subscriptionId: GSubscriptionName,
     streamAckDeadlineSeconds: Int,
   ): ZStream[Any, Throwable, BidiStream[StreamingPullRequest, StreamingPullResponse]] = for {
     _ <- ZStream.logInfo(s"Initializing bidi stream...")
@@ -150,13 +150,13 @@ private[pubsub] object StreamingPullSubscriber {
   } yield ()).orDie
 
   def makeRawStream(
-    connection: PubsubConnectionConfig,
-    subscriptionName: String,
+    subscriptionName: SubscriptionName,
     streamAckDeadlineSeconds: Int,
     retrySchedule: Schedule[Any, Throwable, ?],
+    connection: PubsubConnectionConfig,
   ): RIO[Scope, GoogleStream] = for {
     settings      <- settingsFromConfig(connection)
-    subscriptionId = SubscriptionName.of(connection.project.name, subscriptionName)
+    subscriptionId = GSubscriptionName.of(subscriptionName.projectId, subscriptionName.subscription)
     subscriber <-
       ZIO.acquireRelease(ZIO.attempt(GrpcSubscriberStub.create(settings)))(shutdownSubscriber)
     ackQueue <- ZIO.acquireRelease(Queue.unbounded[(String, Boolean)])(_.shutdown)
@@ -165,7 +165,7 @@ private[pubsub] object StreamingPullSubscriber {
         initGrpcBidiStream(subscriber, subscriptionId, streamAckDeadlineSeconds),
         ackQueue,
         retrySchedule,
-      ) @@ ZStreamAspect.annotated("subscription_name", subscriptionName)
+      ) @@ ZStreamAspect.annotated("subscription_name", subscriptionName.fullName)
   } yield stream
 }
 
