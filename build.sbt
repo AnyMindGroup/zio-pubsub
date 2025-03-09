@@ -10,6 +10,21 @@ lazy val defaultJavaVersion = "21"
 
 lazy val zioGcpVersion = "0.1.1"
 
+def withTestSetupUpdate(j: Job) = if (j.id == "test") {
+  val startPubsub = Step.SingleStep(
+    name = "Start up pubsub emulator",
+    run = Some(
+      "docker compose up -d && until curl -s http://localhost:8085; do printf 'waiting for pubsub...'; sleep 1; done && echo \"pubsub ready\""
+    ),
+  )
+  j.copy(steps = j.steps.flatMap {
+    case s: Step.SingleStep if s.name.contains("Git Checkout") => Seq(s, startPubsub)
+    case s: Step.SingleStep if s.name.contains("Install libuv") =>
+      Seq(s.copy(run = Some("sudo apt-get update && sudo apt-get install -y libuv1-dev libidn2-dev libcurl3-dev")))
+    case s => Seq(s)
+  })
+} else j
+
 inThisBuild(
   List(
     name         := "ZIO Google Cloud Pub/Sub",
@@ -67,20 +82,7 @@ inThisBuild(
         )
       )
     },
-    ciTestJobs := ciTestJobs.value.map {
-      case j if j.id == "test" =>
-        val startPubsub = Step.SingleStep(
-          name = "Start up pubsub",
-          run = Some(
-            "docker compose up -d && until curl -s http://localhost:8085; do printf 'waiting for pubsub...'; sleep 1; done && echo \"pubsub ready\""
-          ),
-        )
-        j.copy(steps = j.steps.flatMap {
-          case s: Step.SingleStep if s.name.contains("Git Checkout") => Seq(s, startPubsub)
-          case s                                                     => Seq(s)
-        })
-      case j => j
-    },
+    ciTestJobs             := ciTestJobs.value.map(withTestSetupUpdate),
     sonatypeCredentialHost := xerial.sbt.Sonatype.sonatypeCentralHost,
     ciReleaseJobs := ciReleaseJobs.value.map(j =>
       j.copy(
