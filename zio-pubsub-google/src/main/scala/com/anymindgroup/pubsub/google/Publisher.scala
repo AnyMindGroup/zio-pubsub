@@ -1,15 +1,14 @@
 package com.anymindgroup.pubsub.google
 
-import java.util.concurrent.TimeUnit
-
 import scala.jdk.CollectionConverters.*
 
 import com.anymindgroup.pubsub.*
-import com.google.cloud.pubsub.v1.Publisher as GPublisher
+import com.google.api.gax.core.FixedExecutorProvider
+import com.google.cloud.pubsub.v1.stub.{GrpcPublisherStub, PublisherStubSettings}
 import com.google.protobuf.ByteString
-import com.google.pubsub.v1.PubsubMessage as GPubsubMessage
+import com.google.pubsub.v1.{PublishRequest, PubsubMessage as GPubsubMessage}
 
-import zio.{NonEmptyChunk, RIO, Scope, ZIO}
+import zio.{Chunk, Clock, NonEmptyChunk, RIO, Scope, ZIO}
 
 object Publisher {
   def make[R, E](
@@ -26,34 +25,22 @@ object Publisher {
     serialzer: Serializer[R, E],
     connection: PubsubConnectionConfig,
   ): RIO[Scope, Publisher[R, E]] =
-    makeUnderlyingPublisher(config, connection).map(p => new GooglePublisher(p, serialzer))
+    makeUnderlyingPublisher(config, connection).map(p => new GooglePublisher(p, config.topicName, serialzer))
 
   private[pubsub] def makeUnderlyingPublisher(
     config: PublisherConfig,
     connection: PubsubConnectionConfig,
-  ): RIO[Scope, GPublisher] = ZIO.acquireRelease {
-    for {
-      builder <- connection match {
-                   case PubsubConnectionConfig.Cloud => ZIO.attempt(GPublisher.newBuilder(config.topicId))
-                   case emulator: PubsubConnectionConfig.Emulator =>
-                     for {
-                       (channelProvider, credentialsProvider) <- Emulator.createEmulatorSettings(emulator)
-                       p <- ZIO.attempt(
-                              GPublisher
-                                .newBuilder(config.topicId)
-                                .setChannelProvider(channelProvider)
-                                .setCredentialsProvider(credentialsProvider)
-                            )
-                     } yield p
-                 }
-      publisher <- ZIO.attempt(builder.setEnableMessageOrdering(config.enableOrdering).build())
-    } yield publisher
-  }(p =>
-    ZIO.logInfo(s"Shutting down publisher for topic ${config.topicName}...") *> ZIO.succeed {
-      p.shutdown()
-      p.awaitTermination(30, TimeUnit.SECONDS)
-    }
-  )
+  ): RIO[Scope, GrpcPublisherStub] =
+    Clock.scheduler
+      .map(_.asScheduledExecutorService)
+      .flatMap: executor =>
+        createStub(
+          connection = connection,
+          builder = PublisherStubSettings
+            .newBuilder()
+            .setBackgroundExecutorProvider(FixedExecutorProvider.create(executor)),
+          create = GrpcPublisherStub.create,
+        )
 
   private[pubsub] def toPubsubMessage(
     data: ByteString,
@@ -66,22 +53,30 @@ object Publisher {
 
 }
 
-class GooglePublisher[R, E](publisher: GPublisher, serde: Serializer[R, E]) extends Publisher[R, E] {
+class GooglePublisher[R, E](publisher: GrpcPublisherStub, topicName: TopicName, serde: Serializer[R, E])
+    extends Publisher[R, E] {
 
   override def publish(messages: NonEmptyChunk[PublishMessage[E]]): RIO[R, NonEmptyChunk[MessageId]] =
-    ZIO
-      .foreach(messages) { message =>
-        toPubsubMessage(message).map(publisher.publish(_))
-      }
-      .flatMap { futures =>
-        ZIO.foreachPar(futures)(f => ZIO.fromFutureJava(f).map(MessageId(_)))
-      }
+    for {
+      gMessages <- ZIO.foreach(messages)(toPubsubMessage(_)).map(_.toChunk.asJava)
+      response <- ZIO.fromFutureJava(
+                    publisher
+                      .publishCallable()
+                      .futureCall(
+                        PublishRequest
+                          .newBuilder()
+                          .setTopic(topicName.fullName)
+                          .addAllMessages(gMessages)
+                          .build()
+                      )
+                  )
+      ids <- NonEmptyChunk.fromChunk(Chunk.fromJavaIterable(response.getMessageIdsList()).map(MessageId(_))) match
+               case None        => ZIO.dieMessage("Unexpected response with no message ids")
+               case Some(value) => ZIO.succeed(value)
+    } yield ids
 
   override def publish(event: PublishMessage[E]): ZIO[R, Throwable, MessageId] =
-    for {
-      msg       <- toPubsubMessage(event)
-      messageId <- ZIO.fromFutureJava(publisher.publish(msg))
-    } yield MessageId(messageId)
+    publish(NonEmptyChunk(event)).map(_.head)
 
   private def toPubsubMessage(e: PublishMessage[E]): ZIO[R, Throwable, GPubsubMessage] =
     serde

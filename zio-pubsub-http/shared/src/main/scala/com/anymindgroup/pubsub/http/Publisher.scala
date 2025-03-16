@@ -15,7 +15,7 @@ import com.anymindgroup.gcp.pubsub.v1.schemas as s
 import com.anymindgroup.pubsub.*
 import sttp.client4.Backend
 
-import zio.{Chunk, NonEmptyChunk, RIO, Schedule, Scope, Task, ZIO}
+import zio.{Chunk, NonEmptyChunk, RIO, Scope, Task, ZIO}
 
 class HttpPublisher[R, E] private[http] (
   serializer: Serializer[R, E],
@@ -97,16 +97,14 @@ object HttpPublisher {
     topicName: TopicName,
     serializer: Serializer[R, E],
     backend: Backend[Task],
-    lookupComputeMetadataFirst: Boolean = false,
-    refreshRetrySchedule: Schedule[Any, Any, Any] = TokenProvider.defaults.refreshRetrySchedule,
-    refreshAtExpirationPercent: Double = TokenProvider.defaults.refreshAtExpirationPercent,
+    authConfig: AuthConfig = AuthConfig.default,
   ): ZIO[Scope, TokenProviderException, HttpPublisher[R, E]] =
     TokenProvider
       .defaultAccessTokenProvider(
         backend = backend,
-        lookupComputeMetadataFirst = lookupComputeMetadataFirst,
-        refreshRetrySchedule = refreshRetrySchedule,
-        refreshAtExpirationPercent = refreshAtExpirationPercent,
+        lookupComputeMetadataFirst = authConfig.lookupComputeMetadataFirst,
+        refreshRetrySchedule = authConfig.tokenRefreshRetrySchedule,
+        refreshAtExpirationPercent = authConfig.tokenRefreshAtExpirationPercent,
       )
       .map: tokenProvider =>
         make(connection, topicName, serializer, backend, tokenProvider)
@@ -115,14 +113,12 @@ object HttpPublisher {
     connection: PubsubConnectionConfig,
     topicName: TopicName,
     serializer: Serializer[R, E],
-    lookupComputeMetadataFirst: Boolean = false,
-    refreshRetrySchedule: Schedule[Any, Any, Any] = TokenProvider.defaults.refreshRetrySchedule,
-    refreshAtExpirationPercent: Double = TokenProvider.defaults.refreshAtExpirationPercent,
+    authConfig: AuthConfig = AuthConfig.default,
   ): ZIO[Scope, Throwable, HttpPublisher[R, E]] =
     defaultAccessTokenBackend(
-      lookupComputeMetadataFirst = lookupComputeMetadataFirst,
-      refreshRetrySchedule = refreshRetrySchedule,
-      refreshAtExpirationPercent = refreshAtExpirationPercent,
+      lookupComputeMetadataFirst = authConfig.lookupComputeMetadataFirst,
+      refreshRetrySchedule = authConfig.tokenRefreshRetrySchedule,
+      refreshAtExpirationPercent = authConfig.tokenRefreshAtExpirationPercent,
     ).map: backend =>
       makeFromAuthedBackend(connection, topicName, serializer, backend)
 }

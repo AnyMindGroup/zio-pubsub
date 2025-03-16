@@ -82,12 +82,12 @@ class HttpSubscriber private[http] (
       .pull(
         projectsId = subscriptionName.projectId,
         subscriptionsId = subscriptionName.subscription,
-        request = s.PullRequest(maxMessages = maxMessagesPerPull, returnImmediately),
+        request = s.PullRequest(maxMessages = maxMessagesPerPull, returnImmediately = returnImmediately),
       )
       .send(backend)
       .flatMap { res =>
         res.body match {
-          case Left(value) => ZIO.fail(new Throwable(value))
+          case Left(err) => ZIO.fail(err)
           case Right(value) =>
             ZIO.succeed(
               value.receivedMessages
@@ -191,16 +191,14 @@ object HttpSubscriber {
     backend: Backend[Task],
     maxMessagesPerPull: Int = defaults.maxMessagesPerPull,
     retrySchedule: Schedule[Any, Throwable, ?] = defaults.retrySchedule,
-    lookupComputeMetadataFirst: Boolean = false,
-    tokenRefreshRetrySchedule: Schedule[Any, Any, Any] = TokenProvider.defaults.refreshRetrySchedule,
-    tokenRefreshAtExpirationPercent: Double = TokenProvider.defaults.refreshAtExpirationPercent,
+    authConfig: AuthConfig = AuthConfig.default,
   ): ZIO[Scope, TokenProviderException, HttpSubscriber] =
     TokenProvider
       .defaultAccessTokenProvider(
         backend = backend,
-        lookupComputeMetadataFirst = lookupComputeMetadataFirst,
-        refreshRetrySchedule = tokenRefreshRetrySchedule,
-        refreshAtExpirationPercent = tokenRefreshAtExpirationPercent,
+        lookupComputeMetadataFirst = authConfig.lookupComputeMetadataFirst,
+        refreshRetrySchedule = authConfig.tokenRefreshRetrySchedule,
+        refreshAtExpirationPercent = authConfig.tokenRefreshAtExpirationPercent,
       )
       .flatMap: tokenProvider =>
         make(
@@ -215,14 +213,12 @@ object HttpSubscriber {
     connection: PubsubConnectionConfig,
     maxMessagesPerPull: Int = defaults.maxMessagesPerPull,
     retrySchedule: Schedule[Any, Throwable, ?] = defaults.retrySchedule,
-    lookupComputeMetadataFirst: Boolean = false,
-    tokenRefreshRetrySchedule: Schedule[Any, Any, Any] = TokenProvider.defaults.refreshRetrySchedule,
-    tokenRefreshAtExpirationPercent: Double = TokenProvider.defaults.refreshAtExpirationPercent,
+    authConfig: AuthConfig = AuthConfig.default,
   ): ZIO[Scope, Throwable, HttpSubscriber] =
     defaultAccessTokenBackend(
-      lookupComputeMetadataFirst = lookupComputeMetadataFirst,
-      refreshRetrySchedule = tokenRefreshRetrySchedule,
-      refreshAtExpirationPercent = tokenRefreshAtExpirationPercent,
+      lookupComputeMetadataFirst = authConfig.lookupComputeMetadataFirst,
+      refreshRetrySchedule = authConfig.tokenRefreshRetrySchedule,
+      refreshAtExpirationPercent = authConfig.tokenRefreshAtExpirationPercent,
     ).flatMap: authedBackend =>
       makeFromAuthedBackend(
         connection = connection,

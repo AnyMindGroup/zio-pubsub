@@ -6,6 +6,7 @@ import java.util.concurrent.TimeUnit
 import scala.jdk.CollectionConverters.*
 
 import com.anymindgroup.pubsub.{AckReply, PubsubConnectionConfig, SubscriptionName}
+import com.google.api.gax.core.FixedExecutorProvider
 import com.google.api.gax.rpc.{BidiStream as GBidiStream, ClientStream}
 import com.google.cloud.pubsub.v1.stub.{GrpcSubscriberStub, SubscriberStubSettings}
 import com.google.pubsub.v1.{
@@ -16,7 +17,7 @@ import com.google.pubsub.v1.{
 }
 
 import zio.stream.{ZStream, ZStreamAspect}
-import zio.{Cause, Chunk, Promise, Queue, RIO, Schedule, Scope, UIO, ZIO}
+import zio.{Cause, Chunk, Clock, Promise, Queue, RIO, Schedule, Scope, UIO, ZIO}
 
 private[pubsub] object StreamingPullSubscriber {
   private def settingsFromConfig(
@@ -31,13 +32,16 @@ private[pubsub] object StreamingPullSubscriber {
                        )
                    )
                  case c: PubsubConnectionConfig.Emulator =>
-                   Emulator.createEmulatorSettings(c).map { case (channelProvider, credentialsProvider) =>
+                   createEmulatorSettings(c).map { case (channelProvider, credentialsProvider) =>
                      SubscriberStubSettings.newBuilder
                        .setTransportChannelProvider(channelProvider)
                        .setCredentialsProvider(credentialsProvider)
                    }
                }
-  } yield builder.build()
+    executor <- Clock.scheduler
+                  .map(_.asScheduledExecutorService)
+                  .map(executor => FixedExecutorProvider.create(executor))
+  } yield builder.setBackgroundExecutorProvider(executor).build()
 
   private[pubsub] def makeServerStream(
     stream: ServerStream[StreamingPullResponse]
