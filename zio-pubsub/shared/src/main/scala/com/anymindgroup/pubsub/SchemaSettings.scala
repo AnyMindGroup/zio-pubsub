@@ -18,8 +18,5 @@ final case class SchemaSettings(
   schema: Option[SchemaRegistry],
 )
 
-sealed trait Encoding
-object Encoding {
-  case object Binary extends Encoding
-  case object Json   extends Encoding
-}
+enum Encoding:
+  case Binary, Json

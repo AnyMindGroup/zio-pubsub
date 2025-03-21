@@ -74,15 +74,16 @@ class HttpSubscriber private[http] (
       .as(None)
       .catchAllCause(c => ackQueue.offerAll(ackIds.map((_, true))).as(Some(c)))
 
-  private[http] def pull(
+  private[pubsub] def pull(
     subscriptionName: SubscriptionName,
     returnImmediately: Option[Boolean] = None,
+    maxMessages: Int = maxMessagesPerPull,
   ): ZIO[Any, Throwable, Chunk[(ReceivedMessage[Chunk[Byte]], AckReply)]] =
     p.Subscriptions
       .pull(
         projectsId = subscriptionName.projectId,
         subscriptionsId = subscriptionName.subscription,
-        request = s.PullRequest(maxMessages = maxMessagesPerPull, returnImmediately = returnImmediately),
+        request = s.PullRequest(maxMessages = maxMessages, returnImmediately = returnImmediately),
       )
       .send(backend)
       .flatMap { res =>

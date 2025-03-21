@@ -176,11 +176,8 @@ lazy val root =
       zioPubsubGoogleTest,
       zioPubsubTestkit.jvm,
       zioPubsubTestkit.native,
-      zioPubsubSerdeCirce.jvm,
-      zioPubsubSerdeCirce.native,
       zioPubsubSerdeZioSchema.jvm,
       zioPubsubSerdeZioSchema.native,
-      zioPubsubSerdeVulcan,
       zioPubsubTest.jvm,
       zioPubsubTest.native,
     )
@@ -216,32 +213,6 @@ lazy val zioPubsubHttp = crossProject(JVMPlatform, NativePlatform)
     )
   )
 
-val vulcanVersion = "1.11.1"
-lazy val zioPubsubSerdeVulcan = (project in file("zio-pubsub-serde-vulcan"))
-  .settings(moduleName := "zio-pubsub-serde-vulcan")
-  .dependsOn(zioPubsub.jvm)
-  .settings(commonSettings)
-  .settings(
-    libraryDependencies ++= Seq(
-      "com.github.fd4s" %% "vulcan"         % vulcanVersion,
-      "com.github.fd4s" %% "vulcan-generic" % vulcanVersion,
-    )
-  )
-
-val circeVersion = "0.14.10"
-lazy val zioPubsubSerdeCirce = crossProject(JVMPlatform, NativePlatform)
-  .in(file("zio-pubsub-serde-circe"))
-  .settings(moduleName := "zio-pubsub-serde-circe")
-  .dependsOn(zioPubsub)
-  .settings(commonSettings)
-  .settings(
-    libraryDependencies ++= Seq(
-      "io.circe" %%% "circe-core"    % circeVersion,
-      "io.circe" %%% "circe-parser"  % circeVersion,
-      "io.circe" %%% "circe-generic" % circeVersion,
-    )
-  )
-
 val zioSchemaVersion = "1.6.4"
 lazy val zioPubsubSerdeZioSchema = crossProject(JVMPlatform, NativePlatform)
   .in(file("zio-pubsub-serde-zio-schema"))
@@ -269,7 +240,11 @@ lazy val zioPubsubGoogle = (project in file("zio-pubsub-google"))
 
 lazy val zioPubsubGoogleTest = project
   .in(file("zio-pubsub-google-test"))
-  .dependsOn(zioPubsub.jvm, zioPubsubGoogle, zioPubsubTestkit.jvm, zioPubsubSerdeCirce.jvm, zioPubsubSerdeVulcan)
+  .dependsOn(
+    zioPubsub.jvm,
+    zioPubsubGoogle,
+    zioPubsubTest.jvm % "test->test",
+  )
   .settings(moduleName := "zio-pubsub-google-test")
   .settings(commonSettings)
   .settings(noPublishSettings)
@@ -295,7 +270,7 @@ lazy val zioPubsubTestkit =
 lazy val zioPubsubTest =
   crossProject(JVMPlatform, NativePlatform)
     .in(file("zio-pubsub-test"))
-    .dependsOn(zioPubsub, zioPubsubSerdeCirce, zioPubsubHttp, zioPubsubTestkit)
+    .dependsOn(zioPubsub, zioPubsubTestkit)
     .settings(moduleName := "zio-pubsub-test")
     .settings(commonSettings)
     .settings(noPublishSettings)

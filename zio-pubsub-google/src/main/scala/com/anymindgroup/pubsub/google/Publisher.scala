@@ -1,14 +1,13 @@
-package com.anymindgroup.pubsub.google
+package com.anymindgroup.pubsub
+package google
 
 import scala.jdk.CollectionConverters.*
 
-import com.anymindgroup.pubsub.*
-import com.google.api.gax.core.FixedExecutorProvider
 import com.google.cloud.pubsub.v1.stub.{GrpcPublisherStub, PublisherStubSettings}
 import com.google.protobuf.ByteString
 import com.google.pubsub.v1.{PublishRequest, PubsubMessage as GPubsubMessage}
 
-import zio.{Chunk, Clock, NonEmptyChunk, RIO, Scope, ZIO}
+import zio.{Chunk, NonEmptyChunk, RIO, Scope, ZIO}
 
 object Publisher {
   def make[R, E](
@@ -31,16 +30,11 @@ object Publisher {
     config: PublisherConfig,
     connection: PubsubConnectionConfig,
   ): RIO[Scope, GrpcPublisherStub] =
-    Clock.scheduler
-      .map(_.asScheduledExecutorService)
-      .flatMap: executor =>
-        createStub(
-          connection = connection,
-          builder = PublisherStubSettings
-            .newBuilder()
-            .setBackgroundExecutorProvider(FixedExecutorProvider.create(executor)),
-          create = GrpcPublisherStub.create,
-        )
+    createStub(
+      connection = connection,
+      builder = PublisherStubSettings.newBuilder(),
+      create = GrpcPublisherStub.create,
+    )
 
   private[pubsub] def toPubsubMessage(
     data: ByteString,

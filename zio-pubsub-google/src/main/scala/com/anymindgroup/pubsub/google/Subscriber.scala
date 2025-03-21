@@ -1,10 +1,10 @@
-package com.anymindgroup.pubsub.google
+package com.anymindgroup.pubsub
+package google
 
 import java.time.Instant
 
 import scala.jdk.CollectionConverters.*
 
-import com.anymindgroup.pubsub.*
 import com.google.pubsub.v1.ReceivedMessage as GReceivedMessage
 
 import zio.stream.ZStream

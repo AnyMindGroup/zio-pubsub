@@ -18,11 +18,9 @@ _Scala 2.13 release will be kept in `v0.2.x` release series in the`series/0.2.x`
 | Name | Description | JVM | Native |
 | ---- | ----------- | --- | ------ |
 | `zio-pubsub` | Core components/interfaces/models | ✅ | ✅ |
-| `zio-pubsub-google` | Provides publisher, admin and [StreamingPull API](https://cloud.google.com/pubsub/docs/pull#streamingpull_api) based subscriber client implementations using [Google's Java](https://cloud.google.com/java/docs/reference/google-cloud-pubsub/latest/overview) library | ✅ | ❌ |
+| `zio-pubsub-http` | Implementation using Pub/Sub REST API based on clients from [zio-gcp](https://github.com/AnyMindGroup/zio-gcp) | ✅ | ✅ |
+| `zio-pubsub-google` | Provides [StreamingPull API](https://cloud.google.com/pubsub/docs/pull#streamingpull_api) based subscriber client and publisher implementations using [Google's Java](https://cloud.google.com/java/docs/reference/google-cloud-pubsub/latest/overview) library | ✅ | ❌ |
 | `zio-pubsub-serde-zio-schema` | Provides Serializer/Deserializer using the [zio-schema](https://github.com/zio/zio-schema) binary codec | ✅ | ✅ |
-| `zio-pubsub-serde-circe` | Provides Json Serializer/Deserializer using the [circe](https://circe.github.io/circe) codec | ✅ | ✅ |
-| `zio-pubsub-serde-vulcan` | Provides Avro schema Serializer/Deserializer using the [vulcan](https://fd4s.github.io/vulcan) codec | ✅ | ❌ |
-
 
 Alternative implementations and codecs may be added later.
 

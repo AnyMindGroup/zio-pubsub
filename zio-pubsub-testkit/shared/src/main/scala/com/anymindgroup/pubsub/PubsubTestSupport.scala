@@ -2,9 +2,10 @@ package com.anymindgroup.pubsub
 
 import java.util.Base64
 
+import com.anymindgroup.gcp.auth.TokenProvider
 import com.anymindgroup.gcp.pubsub.v1.resources.projects as p
 import com.anymindgroup.gcp.pubsub.v1.schemas as s
-import com.anymindgroup.pubsub.http.EmulatorBackend
+import com.anymindgroup.pubsub.http.{EmulatorBackend, HttpSubscriber}
 import sttp.client4.Backend
 
 import zio.test.Gen
@@ -24,8 +25,8 @@ object PubsubTestSupport {
 
   def emulatorBackendLayer(
     config: PubsubConnectionConfig.Emulator = emulatorConnectionConfig()
-  ): ZLayer[Any, Throwable, Backend[Task]] =
-    ZLayer.scoped(EmulatorBackend.withDefaultBackend(config))
+  ): ZLayer[Any, Throwable, Backend[Task] & PubsubConnectionConfig.Emulator] =
+    ZLayer.scoped(EmulatorBackend.withDefaultBackend(config)) ++ ZLayer.succeed(config)
 
   def createTopicWithSubscription(
     topicName: TopicName,
@@ -41,16 +42,14 @@ object PubsubTestSupport {
       .serviceWithZIO[Backend[Task]](
         _.send(
           p.Subscriptions.create(
-            projectsId = topicName.projectId,
+            projectsId = subscriptionName.projectId,
             subscriptionsId = subscriptionName.subscription,
             request = s.Subscription(
               name = subscriptionName.fullName,
               topic = topicName.fullName,
             ),
           )
-        ).flatMap { res =>
-          if (res.isSuccess) ZIO.unit else ZIO.fail(new Throwable(s"Failed to create subscription $res"))
-        }
+        )
       )
       .unit
 
@@ -63,10 +62,7 @@ object PubsubTestSupport {
             topicsId = topicName.topic,
             request = s.Topic(name = topicName.fullName),
           )
-        ).flatMap { res =>
-          if (res.isSuccess) ZIO.unit
-          else ZIO.fail(new Throwable(s"Failed to create topic $res"))
-        }
+        )
       )
       .unit
 
@@ -153,4 +149,19 @@ object PubsubTestSupport {
     expiration = expiration,
     deadLettersSettings = None,
   ))
+
+  val testSubscriberLayer: ZLayer[PubsubConnectionConfig.Emulator & Backend[Task], Throwable, HttpSubscriber] =
+    ZLayer.scoped:
+      for
+        connection <- ZIO.service[PubsubConnectionConfig]
+        backend    <- ZIO.service[Backend[Task]]
+        subsciber  <- HttpSubscriber.make(connection, backend, TokenProvider.noTokenProvider)
+      yield subsciber
+
+  def pull(
+    subscription: SubscriptionName,
+    returnImmediately: Boolean = false,
+    maxMessages: Int = HttpSubscriber.defaults.maxMessagesPerPull,
+  ): ZIO[HttpSubscriber, Throwable, Chunk[(ReceivedMessage[Chunk[Byte]], AckReply)]] =
+    ZIO.serviceWithZIO[HttpSubscriber](_.pull(subscription, returnImmediately = Some(returnImmediately)))
 }

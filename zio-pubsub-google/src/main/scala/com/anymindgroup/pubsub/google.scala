@@ -3,17 +3,20 @@ package google
 
 import java.util.concurrent.TimeUnit
 
-import com.google.api.gax.core.{BackgroundResource, CredentialsProvider, NoCredentialsProvider}
+import com.google.api.gax.core.{BackgroundResource, CredentialsProvider, FixedExecutorProvider, NoCredentialsProvider}
 import com.google.api.gax.grpc.GrpcTransportChannel
 import com.google.api.gax.rpc.{ClientSettings, FixedTransportChannelProvider, StubSettings, TransportChannelProvider}
 import com.google.pubsub.v1.ReceivedMessage as GReceivedMessage
 import io.grpc.{ManagedChannel, ManagedChannelBuilder}
 
 import zio.stream.ZStream
-import zio.{RIO, Scope, Task, ZIO}
+import zio.{Clock, RIO, Scope, Task, ZIO}
 
 private[google] type GoogleReceipt = (GReceivedMessage, AckReply)
 private[google] type GoogleStream  = ZStream[Any, Throwable, GoogleReceipt]
+
+private def backgroundExecutorProvider =
+  Clock.scheduler.map(_.asScheduledExecutorService).map(FixedExecutorProvider.create)
 
 private def acquireBackgroundReource[R <: BackgroundResource](
   acquire: => Task[R]
@@ -45,24 +48,28 @@ def createClient[
   builder: => SettingsBuilder,
   create: Settings => Client,
 ): ZIO[Scope, Throwable, Client] =
-  connection match
-    case PubsubConnectionConfig.Cloud =>
-      acquireBackgroundReource(ZIO.attempt(create(builder.build().asInstanceOf[Settings])))
-    case conf: PubsubConnectionConfig.Emulator =>
-      for {
-        (channel, credentials) <- createEmulatorSettings(conf)
-        client <- acquireBackgroundReource(
-                    ZIO.attempt(
-                      create(
-                        builder
-                          .setCredentialsProvider(credentials)
-                          .setTransportChannelProvider(channel)
-                          .build()
-                          .asInstanceOf[Settings]
+  backgroundExecutorProvider.flatMap: executor =>
+    connection match
+      case PubsubConnectionConfig.Cloud =>
+        acquireBackgroundReource(
+          ZIO.attempt(create(builder.setBackgroundExecutorProvider(executor).build().asInstanceOf[Settings]))
+        )
+      case conf: PubsubConnectionConfig.Emulator =>
+        for {
+          (channel, credentials) <- createEmulatorSettings(conf)
+          client <- acquireBackgroundReource(
+                      ZIO.attempt(
+                        create(
+                          builder
+                            .setBackgroundExecutorProvider(executor)
+                            .setCredentialsProvider(credentials)
+                            .setTransportChannelProvider(channel)
+                            .build()
+                            .asInstanceOf[Settings]
+                        )
                       )
                     )
-                  )
-      } yield client
+        } yield client
 
 private def createStub[
   Settings <: StubSettings[Settings],
@@ -73,21 +80,32 @@ private def createStub[
   builder: => SettingsBuilder,
   create: Settings => Client,
 ): ZIO[Scope, Throwable, Client] =
-  connection match
-    case PubsubConnectionConfig.Cloud =>
-      acquireBackgroundReource(ZIO.attempt(create(builder.build().asInstanceOf[Settings])))
-    case conf: PubsubConnectionConfig.Emulator =>
-      for {
-        (channel, credentials) <- createEmulatorSettings(conf)
-        client <- acquireBackgroundReource(
-                    ZIO.attempt(
-                      create(
-                        builder
-                          .setCredentialsProvider(credentials)
-                          .setTransportChannelProvider(channel)
-                          .build()
-                          .asInstanceOf[Settings]
+  backgroundExecutorProvider.flatMap: executor =>
+    connection match
+      case PubsubConnectionConfig.Cloud =>
+        acquireBackgroundReource(
+          ZIO.attempt(
+            create(
+              builder
+                .setBackgroundExecutorProvider(executor)
+                .build()
+                .asInstanceOf[Settings]
+            )
+          )
+        )
+      case conf: PubsubConnectionConfig.Emulator =>
+        for {
+          (channel, credentials) <- createEmulatorSettings(conf)
+          client <- acquireBackgroundReource(
+                      ZIO.attempt(
+                        create(
+                          builder
+                            .setBackgroundExecutorProvider(executor)
+                            .setCredentialsProvider(credentials)
+                            .setTransportChannelProvider(channel)
+                            .build()
+                            .asInstanceOf[Settings]
+                        )
                       )
                     )
-                  )
-      } yield client
+        } yield client
