@@ -6,6 +6,7 @@ import com.google.cloud.pubsub.v1.{TopicAdminClient, TopicAdminSettings}
 
 import zio.{RIO, RLayer, Scope, ZIO, ZLayer}
 
+@deprecated("will be removed from release 0.3. Use Google's Java clients directly instead for admin APIs.", since = "0.2.11")
 object TopicAdmin {
   def makeClient(connection: PubsubConnectionConfig): RIO[Scope, TopicAdminClient] =
     ZIO.acquireRelease(

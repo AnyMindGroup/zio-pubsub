@@ -11,6 +11,7 @@ import com.google.pubsub.v1.Subscription as GSubscription
 
 import zio.{Duration, RIO, RLayer, Scope, ZIO, ZLayer, durationLong}
 
+@deprecated("will be removed from release 0.3. Use Google's Java clients directly instead for admin APIs.", since = "0.2.11")
 object SubscriptionAdmin {
   def makeClient(connection: PubsubConnectionConfig): RIO[Scope, SubscriptionAdminClient] =
     ZIO.acquireRelease(
