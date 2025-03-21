@@ -6,6 +6,7 @@ import io.circe.parser.decode
 
 import zio.{RIO, ZIO}
 
+@deprecated("Will be removed from release 0.3 in favor of zio-schema.", since = "0.2.11")
 object CirceSerde {
   def fromCirceCodec[T](codec: Codec[T]): Serde[Any, T] = new Serde[Any, T] {
     private implicit val c: Codec[T] = codec

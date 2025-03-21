@@ -10,6 +10,10 @@ import com.google.pubsub.v1.{ProjectName, Schema as GSchema, SchemaName}
 
 import zio.{RIO, Scope, Task, ZIO}
 
+@deprecated(
+  "will be removed from release 0.3. Use Google's Java clients directly instead for admin APIs.",
+  since = "0.2.11",
+)
 object PubSubSchemaRegistryAdmin {
 
   private[pubsub] def makeClient(connection: PubsubConnectionConfig): RIO[Scope, SchemaServiceClient] =

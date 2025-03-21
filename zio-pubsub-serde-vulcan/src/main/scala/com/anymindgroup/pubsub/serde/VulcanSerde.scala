@@ -6,6 +6,7 @@ import vulcan.Codec
 
 import zio.{RIO, ZIO}
 
+@deprecated("Will be removed from release 0.3 in favor of zio-schema.", since = "0.2.11")
 object VulcanSerde {
   def fromAvroCodec[T](codec: Codec[T], encoding: Encoding): Serde[Any, T] = new Serde[Any, T] {
     private implicit val c: Codec[T] = codec

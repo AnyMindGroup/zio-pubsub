@@ -12,18 +12,20 @@
 
 - `zio-pubsub` Core components/interfaces/models
 - `zio-pubsub-google` Provides publisher, admin and [StreamingPull API](https://cloud.google.com/pubsub/docs/pull#streamingpull_api) based subscriber client implementations using [Google's Java](https://cloud.google.com/java/docs/reference/google-cloud-pubsub/latest/overview) library
-- `zio-pubsub-serde-circe` Provides Json Serializer/Deserializer using the [circe](https://circe.github.io/circe) codec
-- `zio-pubsub-serde-vulcan` Provides Avro schema Serializer/Deserializer using the [vulcan](https://fd4s.github.io/vulcan) codec
-- `zio-pubsub-serde-zio-schema` Provides Serializer/Deserializer using the [zio-schema](https://github.com/zio/zio-schema) binary codec
+- `zio-pubsub-serde-zio-schema` Provides Serializer/Deserializer using the [zio-schema](https://github.com/zio/zio-schema) binary codec  
 
 Alternative implementations and codecs may be added later.
+
+_Deprecated modules that will be removed from 0.3 release in favor of codecs via zio-schema:_
+- ⚠️ `zio-pubsub-serde-circe` Provides Json Serializer/Deserializer using the [circe](https://circe.github.io/circe) codec
+- ⚠️ `zio-pubsub-serde-vulcan` Provides Avro schema Serializer/Deserializer using the [vulcan](https://fd4s.github.io/vulcan) codec
 
 ## Getting Started
 
 To get started with sbt, add the following line to your build.sbt file to use the implementation with the Google Java library:
 
 ```scala
-libraryDependencies += "com.anymindgroup" %% "zio-pubsub-google" % "0.2.2"
+libraryDependencies += "com.anymindgroup" %% "zio-pubsub-google" % "0.2.9"
 ```
 
 ## Usage examples

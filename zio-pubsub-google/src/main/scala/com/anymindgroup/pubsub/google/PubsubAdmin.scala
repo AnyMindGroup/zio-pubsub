@@ -8,6 +8,10 @@ import com.google.pubsub.v1.{Encoding as GEncoding, SchemaSettings as GSchemaSet
 
 import zio.{RIO, Task, ZIO}
 
+@deprecated(
+  "will be removed from release 0.3. Use Google's Java clients directly instead for admin APIs.",
+  since = "0.2.11",
+)
 object PubsubAdmin {
 
   def setup(topics: Seq[Topic[?, ?]], subscriptions: Seq[Subscription]): RIO[PubsubConnectionConfig, Unit] =

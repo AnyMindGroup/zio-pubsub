@@ -9,7 +9,7 @@ import com.anymindgroup.pubsub.sub.*
 import com.google.pubsub.v1.ReceivedMessage as GReceivedMessage
 
 import zio.stream.ZStream
-import zio.{Duration, RIO, Schedule, Scope, ZIO, ZLayer, durationInt}
+import zio.{RIO, Schedule, Scope, ZIO, ZLayer, durationInt}
 
 object Subscriber {
   type StreamAckDeadlineSeconds = Int
@@ -52,30 +52,6 @@ object Subscriber {
         (toRawReceivedMessage(gMessage), ackReply)
       }
     }
-
-  private[pubsub] def makeTempRawStreamingPullSubscription(
-    connection: PubsubConnectionConfig,
-    topicName: String,
-    subscriptionName: String,
-    subscriptionFilter: Option[SubscriberFilter],
-    maxTtl: Duration,
-    enableOrdering: Boolean,
-  ): RIO[Scope, ZStream[Any, Throwable, RawReceipt]] = for {
-    subscription <- SubscriptionAdmin.createTempSubscription(
-                      connection = connection,
-                      topicName = topicName,
-                      subscriptionName = subscriptionName,
-                      subscriptionFilter = subscriptionFilter,
-                      maxTtl = maxTtl,
-                      enableOrdering = enableOrdering,
-                    )
-    stream <- makeRawStreamingPullSubscription(
-                connection,
-                subscription.name,
-                defaultStreamAckDeadlineSeconds,
-                defaultRetrySchedule,
-              )
-  } yield stream
 
   private[pubsub] def toRawReceivedMessage(rm: GReceivedMessage): ReceivedMessage.Raw = {
     val msg = rm.getMessage
