@@ -173,7 +173,6 @@ lazy val root =
       zioPubsubHttp.jvm,
       zioPubsubHttp.native,
       zioPubsubGoogle,
-      zioPubsubGoogleTest,
       zioPubsubTestkit.jvm,
       zioPubsubTestkit.native,
       zioPubsubSerdeZioSchema.jvm,
@@ -228,28 +227,13 @@ lazy val zioPubsubSerdeZioSchema = crossProject(JVMPlatform, NativePlatform)
 val googleCloudPubsubVersion = "1.138.0"
 lazy val zioPubsubGoogle = (project in file("zio-pubsub-google"))
   .settings(moduleName := "zio-pubsub-google")
-  .dependsOn(zioPubsub.jvm)
+  .dependsOn(zioPubsub.jvm, zioPubsubTest.jvm % "test->test")
   .aggregate(zioPubsub.jvm)
   .settings(commonSettings)
   .settings(
-    scalacOptions --= List("-Wunused:nowarn"),
     libraryDependencies ++= Seq(
       "com.google.cloud" % "google-cloud-pubsub" % googleCloudPubsubVersion
     ),
-  )
-
-lazy val zioPubsubGoogleTest = project
-  .in(file("zio-pubsub-google-test"))
-  .dependsOn(
-    zioPubsub.jvm,
-    zioPubsubGoogle,
-    zioPubsubTest.jvm % "test->test",
-  )
-  .settings(moduleName := "zio-pubsub-google-test")
-  .settings(commonSettings)
-  .settings(noPublishSettings)
-  .settings(testDeps)
-  .settings(
     coverageEnabled            := true,
     (Test / parallelExecution) := true,
     (Test / fork)              := true,
@@ -270,7 +254,7 @@ lazy val zioPubsubTestkit =
 lazy val zioPubsubTest =
   crossProject(JVMPlatform, NativePlatform)
     .in(file("zio-pubsub-test"))
-    .dependsOn(zioPubsub, zioPubsubTestkit)
+    .dependsOn(zioPubsub % "test", zioPubsubTestkit % "test")
     .settings(moduleName := "zio-pubsub-test")
     .settings(commonSettings)
     .settings(noPublishSettings)
