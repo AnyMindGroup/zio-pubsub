@@ -1,12 +1,7 @@
-# Publisher
-
-Simple example for publishing one message with some string:
-
-```scala
 import com.anymindgroup.pubsub.*, http.*
 import zio.*, zio.ZIO.*
 
-object BasicPublisher extends ZIOAppDefault:
+object BasicPublish extends ZIOAppDefault:
   def run =
     for
       publisher <- makeTopicPublisher(
@@ -25,4 +20,3 @@ object BasicPublisher extends ZIOAppDefault:
              )
       _ <- logInfo(s"Published message with id ${mId.value} and data '$data'")
     yield ()
-```

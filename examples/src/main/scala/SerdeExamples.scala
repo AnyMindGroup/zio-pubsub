@@ -7,12 +7,12 @@ object CustomDataTypeSerdeExampleA:
   // define a custom deserializer
   val myDataDes: Deserializer[Any, MyData] =
     message =>
-      String(message.data).fromJson[MyData] match
+      String(message.data.toArray).fromJson[MyData] match
         case Left(err)    => ZIO.fail(Throwable(s"Failed to deserialize: $err"))
         case Right(value) => ZIO.succeed(value)
 
   // define a custom serializer
-  val myDataSerializer: Serializer[Any, MyData] = data => ZIO.succeed(data.toJson.getBytes())
+  val myDataSerializer: Serializer[Any, MyData] = data => ZIO.succeed(Chunk.fromArray(data.toJson.getBytes()))
 
 // example with deserialization error handling
 object CustomDataTypeSerdeExampleB:
@@ -20,12 +20,12 @@ object CustomDataTypeSerdeExampleB:
 
   // deserializer returning the result as Either instead of failing
   val myDataDes: Deserializer[Any, Either[String, MyData]] = message =>
-    ZIO.succeed(String(message.data).fromJson[MyData])
+    ZIO.succeed(String(message.data.toArray).fromJson[MyData])
 
   // result can be handled in the subscription process e.g. like
-  val subStream =
-    Subscriber.subscribe("my_sub_name", myDataDes).mapZIO { (message, reply) =>
-      message.data match
-        case Left(err)   => reply.nack() *> ZIO.logError(s"Failed to deserialize: $err")
-        case Right(data) => reply.ack() *> ZIO.logInfo(s"Data ok $data")
-    }
+  def subStream(s: Subscriber) =
+    s.subscribe(SubscriptionName("any", "my_sub_name"), myDataDes)
+      .mapZIO: (message, reply) =>
+        message.data match
+          case Left(err)   => reply.nack() *> ZIO.logError(s"Failed to deserialize: $err")
+          case Right(data) => reply.ack() *> ZIO.logInfo(s"Data ok $data")
