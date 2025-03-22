@@ -263,7 +263,7 @@ lazy val zioPubsubTest =
     .nativeSettings(coverageEnabled := false)
 
 lazy val examples = (project in file("examples"))
-  .dependsOn(zioPubsubHttp.jvm)
+  .dependsOn(zioPubsubHttp.jvm, zioPubsubGoogle)
   .settings(noPublishSettings)
   .settings(
     coverageEnabled := false,

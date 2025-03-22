@@ -1,18 +1,13 @@
-import com.anymindgroup.pubsub.*, http.*
-import zio.stream.*, zio.*, zio.ZIO.*
+import com.anymindgroup.pubsub.*, zio.stream.*, zio.*, zio.ZIO.*
 
 object SamplesPublisher extends ZIOAppDefault:
-  def run = makeTopicPublisher(
-    topicName = TopicName("gcp_project", "topic"),
-    serializer = Serde.utf8String,
-    // set by default to "PubsubConnectionConfig.Cloud" when not running against an emulator
-    connection = PubsubConnectionConfig.Emulator("localhost", 8085),
-  ).flatMap: publisher =>
+  // run samples publishing given Publisher implementation
+  def samplesPublish(p: Publisher[Any, String]) =
     ZStream
       .repeatZIOWithSchedule(Random.nextInt.map(i => s"some data $i"), Schedule.fixed(2.seconds))
       .mapZIO { sample =>
         for {
-          mId <- publisher.publish(
+          mId <- p.publish(
                    PublishMessage(
                      data = sample,
                      attributes = Map.empty,
@@ -23,3 +18,21 @@ object SamplesPublisher extends ZIOAppDefault:
         } yield ()
       }
       .runDrain
+
+  def run = {
+    val makePublisher: RIO[Scope, Publisher[Any, String]] =
+      http.makeTopicPublisher(
+        topicName = TopicName("gcp_project", "topic"),
+        serializer = Serde.utf8String,
+        // set by default to "PubsubConnectionConfig.Cloud" when not running against an emulator
+        connection = PubsubConnectionConfig.Emulator("localhost", 8085),
+      )
+      // or similarly by using gRCP based implementation via Google's Java client:
+      // google.makeTopicPublisher(
+      //   topicName = TopicName("gcp_project", "topic"),
+      //   serializer = Serde.utf8String,
+      //   connection = PubsubConnectionConfig.Emulator("localhost", 8085),
+      // )
+
+    makePublisher.flatMap(samplesPublish)
+  }

@@ -18,32 +18,32 @@ _Scala 2.13 release will be kept in `v0.2.x` release series in the`series/0.2.x`
 | Name | Description | JVM | Native |
 | ---- | ----------- | --- | ------ |
 | `zio-pubsub` | Core components/interfaces/models | ✅ | ✅ |
-| `zio-pubsub-http` | Implementation using Pub/Sub REST API based on clients from [zio-gcp](https://github.com/AnyMindGroup/zio-gcp) | ✅ | ✅ |
-| `zio-pubsub-google` | Provides [StreamingPull API](https://cloud.google.com/pubsub/docs/pull#streamingpull_api) based subscriber client and publisher implementations using [Google's Java](https://cloud.google.com/java/docs/reference/google-cloud-pubsub/latest/overview) library | ✅ | ❌ |
+| `zio-pubsub-http` | Implementation using Pub/Sub REST API based on clients from [AnyMindGroup/zio-gcp](https://github.com/AnyMindGroup/zio-gcp) | ✅ | ✅ |
+| `zio-pubsub-google` | Provides gRPC based client implementations via [Google's Java](https://cloud.google.com/java/docs/reference/google-cloud-pubsub/latest/overview) library by using the [StreamingPull API](https://cloud.google.com/pubsub/docs/pull#streamingpull_api) for subscriptions. | ✅ | ❌ |
 | `zio-pubsub-serde-zio-schema` | Provides Serializer/Deserializer using the [zio-schema](https://github.com/zio/zio-schema) binary codec | ✅ | ✅ |
 
 ## Getting Started
 
-To get started with sbt, add the following line to your build.sbt file to use the http implementation:
+To get started with sbt, add the following line to your build.sbt file:
 
 ```scala
 libraryDependencies += "com.anymindgroup" %% "zio-pubsub-http" % "@VERSION@"
+// or for Google's Java client based implementation:
+// libraryDependencies += "com.anymindgroup" %% "zio-pubsub-google" % "@VERSION@"
+// Both can also be used interchangeably
 ```
 
 ## Usage examples
 
-Create a stream for existing subscription:
+#### Create a stream for existing subscription:
 
 ```scala
-import com.anymindgroup.pubsub.*, http.*
-import zio.*, zio.ZIO.*
+import com.anymindgroup.pubsub.*, zio.*, zio.ZIO.*
 
 object BasicSubscription extends ZIOAppDefault:
-  def run = makeSubscriber(
-    // set by default to "PubsubConnectionConfig.Cloud" when not running against an emulator
-    connection = PubsubConnectionConfig.Emulator("localhost", 8085)
-  ).flatMap:
-    _.subscribe(
+  // run a subscription stream based on Subscriber implementation provided
+  def subStream(s: Subscriber) =
+    s.subscribe(
       subscriptionName = SubscriptionName("gcp_project", "subscription"),
       deserializer = Serde.utf8String,
     ).mapZIO { (message, ackReply) =>
@@ -56,26 +56,36 @@ object BasicSubscription extends ZIOAppDefault:
         _ <- ackReply.ack()
       yield ()
     }.runDrain
+
+  def run = {
+    val makeSubscriber: RIO[Scope, Subscriber] =
+      // make http based Subscriber implementation
+      http.makeSubscriber(
+        // set by default to "PubsubConnectionConfig.Cloud" when not running against an emulator
+        connection = PubsubConnectionConfig.Emulator("localhost", 8085)
+      )
+      // or similarly by using gRCP/StreamingPull API based implementation via Google's Java client:
+      // google.makeStreamingPullSubscriber(
+      //  connection = PubsubConnectionConfig.Emulator("localhost", 8085)
+      // )
+
+    makeSubscriber.flatMap(subStream)
+  }
 ```
 
-Publish random string every 2 seconds
+#### Publish random string every 2 seconds
 
 ```scala
-import com.anymindgroup.pubsub.*, http.*
-import zio.stream.*, zio.*, zio.ZIO.*
+import com.anymindgroup.pubsub.*, zio.stream.*, zio.*, zio.ZIO.*
 
 object SamplesPublisher extends ZIOAppDefault:
-  def run = makeTopicPublisher(
-    topicName = TopicName("gcp_project", "topic"),
-    serializer = Serde.utf8String,
-    // set by default to "PubsubConnectionConfig.Cloud" when not running against an emulator
-    connection = PubsubConnectionConfig.Emulator("localhost", 8085),
-  ).flatMap: publisher =>
+  // run samples publishing given Publisher implementation
+  def samplesPublish(p: Publisher[Any, String]) =
     ZStream
       .repeatZIOWithSchedule(Random.nextInt.map(i => s"some data $i"), Schedule.fixed(2.seconds))
       .mapZIO { sample =>
         for {
-          mId <- publisher.publish(
+          mId <- p.publish(
                    PublishMessage(
                      data = sample,
                      attributes = Map.empty,
@@ -86,9 +96,27 @@ object SamplesPublisher extends ZIOAppDefault:
         } yield ()
       }
       .runDrain
+
+  def run = {
+    val makePublisher: RIO[Scope, Publisher[Any, String]] =
+      http.makeTopicPublisher(
+        topicName = TopicName("gcp_project", "topic"),
+        serializer = Serde.utf8String,
+        // set by default to "PubsubConnectionConfig.Cloud" when not running against an emulator
+        connection = PubsubConnectionConfig.Emulator("localhost", 8085),
+      )
+      // or similarly by using gRCP based implementation via Google's Java client:
+      // google.makeTopicPublisher(
+      //   topicName = TopicName("gcp_project", "topic"),
+      //   serializer = Serde.utf8String,
+      //   connection = PubsubConnectionConfig.Emulator("localhost", 8085),
+      // )
+
+    makePublisher.flatMap(samplesPublish)
+  }
 ```
 
-Setup topics and subscription with dead letter settings using the admin api:
+#### Setup topics and subscription with dead letter settings using the admin api:
 
 ```scala
 import com.anymindgroup.gcp.pubsub.v1.*
@@ -165,3 +193,5 @@ sbt 'examples/runMain SamplesPublisher'
 # or choose in sbt which example to run
 sbt 'examples/run'
 ```
+
+For all examples check out the `examples` folder.
