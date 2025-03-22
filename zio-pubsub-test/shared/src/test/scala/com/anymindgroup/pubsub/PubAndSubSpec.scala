@@ -13,9 +13,9 @@ object PubAndSubSpec {
   def spec(
     pkgName: String,
     // Publisher implementation to test against
-    createPublisher: (PubsubConnectionConfig, TopicName, Encoding, Boolean) => RIO[Scope, Publisher[Any, String]],
+    publisherImpl: (PubsubConnectionConfig, TopicName) => RIO[Scope, Publisher[Any, String]],
     // Subscriber implementation to test against
-    createSubscriber: PubsubConnectionConfig => RIO[Scope, Subscriber],
+    subscriberImpl: PubsubConnectionConfig => RIO[Scope, Subscriber],
   ): Spec[Scope, Throwable] =
     suite(s"[$pkgName] Publisher/Subscriber spec")(
       suite("Published and consumed messages are matching")(
@@ -27,8 +27,8 @@ object PubAndSubSpec {
             (topic, sub) <- topicWithSubscriptionGen("any").runHead.map(_.get)
             _            <- PubsubTestSupport.createTopicWithSubscription(topic, sub)
             connection   <- ZIO.service[PubsubConnectionConfig]
-            publisher    <- createPublisher(connection, topic, encoding, enableOrdering)
-            subscriber   <- createSubscriber(connection)
+            publisher    <- publisherImpl(connection, topic)
+            subscriber   <- subscriberImpl(connection)
             message      <- publishMessageGen.runHead.map(_.get)
             publishedId  <- publisher.publish(message)
             consumed <-
@@ -46,8 +46,8 @@ object PubAndSubSpec {
             (topic, sub) <- topicWithSubscriptionGen("any").runHead.map(_.get)
             _            <- PubsubTestSupport.createTopicWithSubscription(topic, sub)
             connection   <- ZIO.service[PubsubConnectionConfig]
-            publisher    <- createPublisher(connection, topic, encoding, enableOrdering)
-            subscriber   <- createSubscriber(connection)
+            publisher    <- publisherImpl(connection, topic)
+            subscriber   <- subscriberImpl(connection)
             messages     <- publishMessagesGen(1, 20).runHead.map(_.get)
             publishedIds <- publisher.publish(messages)
             _            <- assertTrue(publishedIds.length == messages.length)
@@ -61,7 +61,7 @@ object PubAndSubSpec {
           (topic, sub) <- topicWithSubscriptionGen("any").runHead.map(_.get)
           _            <- PubsubTestSupport.createTopicWithSubscription(topic, sub)
           connection   <- ZIO.service[PubsubConnectionConfig]
-          subscriber   <- createSubscriber(connection)
+          subscriber   <- subscriberImpl(connection)
           messages     <- publishMessagesGen(1, 20).runHead.map(_.get)
           _            <- PubsubTestSupport.publishEvents(messages, topic)
           _ <- subscriber
@@ -78,7 +78,7 @@ object PubAndSubSpec {
           (topic, sub) <- topicWithSubscriptionGen("any").runHead.map(_.get)
           _            <- PubsubTestSupport.createTopicWithSubscription(topic, sub)
           connection   <- ZIO.service[PubsubConnectionConfig]
-          subscriber   <- createSubscriber(connection)
+          subscriber   <- subscriberImpl(connection)
           testMsgCount  = 2
           messages     <- publishMessagesGen(testMsgCount, testMsgCount).runHead.map(_.get)
           _            <- PubsubTestSupport.publishEvents(messages, topic)

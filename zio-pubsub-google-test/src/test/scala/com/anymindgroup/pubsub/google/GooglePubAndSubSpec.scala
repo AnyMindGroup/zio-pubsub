@@ -9,14 +9,12 @@ object GooglePubAndSubSpec extends ZIOSpecDefault {
   override def spec: Spec[Scope, Any] =
     com.anymindgroup.pubsub.PubAndSubSpec.spec(
       pkgName = "zio-pubsub-google",
-      createPublisher = (connection, topic, encoding, enableOrdering) =>
-        Publisher.make(
+      publisherImpl = (connection, topic) =>
+        makeTopicPublisher(
           topicName = topic,
-          encoding = encoding,
-          serialzer = Serde.utf8String,
-          enableOrdering = enableOrdering,
+          serializer = Serde.utf8String,
           connection = connection,
         ),
-      createSubscriber = connection => Subscriber.makeStreamingPullSubscriber(connection),
+      subscriberImpl = connection => makeStreamingPullSubscriber(connection = connection),
     )
 }

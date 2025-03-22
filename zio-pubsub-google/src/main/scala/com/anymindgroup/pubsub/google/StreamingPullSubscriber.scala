@@ -105,7 +105,7 @@ private[pubsub] object StreamingPullSubscriber {
     subscriptionId: GSubscriptionName,
     streamAckDeadlineSeconds: Int,
   ): ZStream[Any, Throwable, BidiStream[StreamingPullRequest, StreamingPullResponse]] = for {
-    _ <- ZStream.logInfo(s"Initializing bidi stream...")
+    _ <- ZStream.log(s"Initializing subscription bidi stream...")
     bidiStream <- ZStream.fromZIO(ZIO.attempt {
                     val gBidiStream = subscriber.streamingPullCallable().call()
                     val req =
@@ -116,7 +116,7 @@ private[pubsub] object StreamingPullSubscriber {
                     gBidiStream.send(req)
                     BidiStream.fromGrpcBidiStream(gBidiStream)
                   })
-    _ <- ZStream.logInfo(s"Bidi stream initialized")
+    _ <- ZStream.log(s"Subscription bidi stream initialized")
   } yield bidiStream
 
   def makeRawStream(

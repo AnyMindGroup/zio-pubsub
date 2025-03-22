@@ -13,6 +13,7 @@ import com.anymindgroup.gcp.auth.{
 import com.anymindgroup.gcp.pubsub.v1.resources.projects as p
 import com.anymindgroup.gcp.pubsub.v1.schemas as s
 import com.anymindgroup.gcp.pubsub.v1.schemas.PubsubMessage
+import com.anymindgroup.http.httpBackendScoped
 import com.anymindgroup.pubsub.*
 import sttp.client4.Backend
 
@@ -149,8 +150,8 @@ object HttpSubscriber {
   private[pubsub] def makeFromAuthedBackend(
     connection: PubsubConnectionConfig,
     authedBackend: Backend[Task],
-    maxMessagesPerPull: Int = defaults.maxMessagesPerPull,
-    retrySchedule: Schedule[Any, Throwable, ?] = defaults.retrySchedule,
+    maxMessagesPerPull: Int,
+    retrySchedule: Schedule[Any, Throwable, ?],
   ): ZIO[Scope, Nothing, HttpSubscriber] =
     for {
       ackQueue <- ZIO.acquireRelease(Queue.unbounded[(String, Boolean)])(_.shutdown)
@@ -216,15 +217,25 @@ object HttpSubscriber {
     retrySchedule: Schedule[Any, Throwable, ?] = defaults.retrySchedule,
     authConfig: AuthConfig = AuthConfig.default,
   ): ZIO[Scope, Throwable, HttpSubscriber] =
-    defaultAccessTokenBackend(
-      lookupComputeMetadataFirst = authConfig.lookupComputeMetadataFirst,
-      refreshRetrySchedule = authConfig.tokenRefreshRetrySchedule,
-      refreshAtExpirationPercent = authConfig.tokenRefreshAtExpirationPercent,
-    ).flatMap: authedBackend =>
-      makeFromAuthedBackend(
-        connection = connection,
-        authedBackend = authedBackend,
-        maxMessagesPerPull = maxMessagesPerPull,
-        retrySchedule = retrySchedule,
-      )
+    connection match
+      case emulator: PubsubConnectionConfig.Emulator =>
+        httpBackendScoped().flatMap: backend =>
+          makeFromAuthedBackend(
+            connection = emulator,
+            authedBackend = backend,
+            maxMessagesPerPull = maxMessagesPerPull,
+            retrySchedule = retrySchedule,
+          )
+      case PubsubConnectionConfig.Cloud =>
+        defaultAccessTokenBackend(
+          lookupComputeMetadataFirst = authConfig.lookupComputeMetadataFirst,
+          refreshRetrySchedule = authConfig.tokenRefreshRetrySchedule,
+          refreshAtExpirationPercent = authConfig.tokenRefreshAtExpirationPercent,
+        ).flatMap: authedBackend =>
+          makeFromAuthedBackend(
+            connection = connection,
+            authedBackend = authedBackend,
+            maxMessagesPerPull = maxMessagesPerPull,
+            retrySchedule = retrySchedule,
+          )
 }

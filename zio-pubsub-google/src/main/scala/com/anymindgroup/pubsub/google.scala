@@ -3,6 +3,7 @@ package google
 
 import java.util.concurrent.TimeUnit
 
+import com.anymindgroup.pubsub.google.Subscriber.StreamAckDeadlineSeconds
 import com.google.api.gax.core.{BackgroundResource, CredentialsProvider, FixedExecutorProvider, NoCredentialsProvider}
 import com.google.api.gax.grpc.GrpcTransportChannel
 import com.google.api.gax.rpc.{ClientSettings, FixedTransportChannelProvider, StubSettings, TransportChannelProvider}
@@ -10,7 +11,7 @@ import com.google.pubsub.v1.ReceivedMessage as GReceivedMessage
 import io.grpc.{ManagedChannel, ManagedChannelBuilder}
 
 import zio.stream.ZStream
-import zio.{Clock, RIO, Scope, Task, ZIO}
+import zio.{Clock, RIO, Schedule, Scope, Task, ZIO}
 
 private[google] type GoogleReceipt = (GReceivedMessage, AckReply)
 private[google] type GoogleStream  = ZStream[Any, Throwable, GoogleReceipt]
@@ -109,3 +110,20 @@ private def createStub[
                       )
                     )
         } yield client
+
+def makeTopicPublisher[R, E](
+  topicName: TopicName,
+  serializer: Serializer[R, E],
+  connection: PubsubConnectionConfig = PubsubConnectionConfig.Cloud,
+): RIO[Scope, GoogleTopicPublisher[R, E]] =
+  GoogleTopicPublisher.make(topicName = topicName, serializer = serializer, connection = connection)
+
+def makeStreamingPullSubscriber(
+  connection: PubsubConnectionConfig = PubsubConnectionConfig.Cloud,
+  streamAckDeadlineSeconds: StreamAckDeadlineSeconds = Subscriber.defaultStreamAckDeadlineSeconds,
+  retrySchedule: Schedule[Any, Throwable, ?] = Subscriber.defaultRetrySchedule,
+) = Subscriber.makeStreamingPullSubscriber(
+  connection = connection,
+  streamAckDeadlineSeconds = streamAckDeadlineSeconds,
+  retrySchedule = retrySchedule,
+)

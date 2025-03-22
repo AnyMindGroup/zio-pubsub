@@ -12,12 +12,13 @@ import com.anymindgroup.gcp.auth.{
 }
 import com.anymindgroup.gcp.pubsub.v1.resources.projects as p
 import com.anymindgroup.gcp.pubsub.v1.schemas as s
+import com.anymindgroup.http.httpBackendScoped
 import com.anymindgroup.pubsub.*
 import sttp.client4.Backend
 
 import zio.{Chunk, NonEmptyChunk, RIO, Scope, Task, ZIO}
 
-class HttpPublisher[R, E] private[http] (
+class HttpTopicPublisher[R, E] private[http] (
   serializer: Serializer[R, E],
   backend: Backend[Task],
   topic: TopicName,
@@ -59,23 +60,23 @@ class HttpPublisher[R, E] private[http] (
   )
 }
 
-object HttpPublisher {
+object HttpTopicPublisher {
   private def makeFromAuthedBackend[R, E](
     connection: PubsubConnectionConfig,
     topicName: TopicName,
     serializer: Serializer[R, E],
     authedBackend: Backend[Task],
-  ): HttpPublisher[R, E] =
+  ): HttpTopicPublisher[R, E] =
     connection match {
       case PubsubConnectionConfig.Cloud =>
-        new HttpPublisher[R, E](
+        new HttpTopicPublisher[R, E](
           serializer = serializer,
           topic = topicName,
           backend = authedBackend,
           base64Encoder = Base64.getEncoder(),
         )
       case emulator: PubsubConnectionConfig.Emulator =>
-        new HttpPublisher[R, E](
+        new HttpTopicPublisher[R, E](
           serializer = serializer,
           topic = topicName,
           backend = EmulatorBackend(authedBackend, emulator),
@@ -89,7 +90,7 @@ object HttpPublisher {
     serializer: Serializer[R, E],
     backend: Backend[Task],
     tokenProvider: TokenProvider[Token],
-  ): HttpPublisher[R, E] =
+  ): HttpTopicPublisher[R, E] =
     makeFromAuthedBackend(connection, topicName, serializer, toAuthedBackend(tokenProvider, backend))
 
   def makeWithDefaultTokenProvider[R, E](
@@ -98,7 +99,7 @@ object HttpPublisher {
     serializer: Serializer[R, E],
     backend: Backend[Task],
     authConfig: AuthConfig = AuthConfig.default,
-  ): ZIO[Scope, TokenProviderException, HttpPublisher[R, E]] =
+  ): ZIO[Scope, TokenProviderException, HttpTopicPublisher[R, E]] =
     TokenProvider
       .defaultAccessTokenProvider(
         backend = backend,
@@ -114,11 +115,21 @@ object HttpPublisher {
     topicName: TopicName,
     serializer: Serializer[R, E],
     authConfig: AuthConfig = AuthConfig.default,
-  ): ZIO[Scope, Throwable, HttpPublisher[R, E]] =
-    defaultAccessTokenBackend(
-      lookupComputeMetadataFirst = authConfig.lookupComputeMetadataFirst,
-      refreshRetrySchedule = authConfig.tokenRefreshRetrySchedule,
-      refreshAtExpirationPercent = authConfig.tokenRefreshAtExpirationPercent,
-    ).map: backend =>
-      makeFromAuthedBackend(connection, topicName, serializer, backend)
+  ): ZIO[Scope, Throwable, HttpTopicPublisher[R, E]] =
+    connection match
+      case emulator: PubsubConnectionConfig.Emulator =>
+        httpBackendScoped().map: backend =>
+          makeFromAuthedBackend(
+            connection = emulator,
+            topicName = topicName,
+            serializer = serializer,
+            authedBackend = backend,
+          )
+      case _ =>
+        defaultAccessTokenBackend(
+          lookupComputeMetadataFirst = authConfig.lookupComputeMetadataFirst,
+          refreshRetrySchedule = authConfig.tokenRefreshRetrySchedule,
+          refreshAtExpirationPercent = authConfig.tokenRefreshAtExpirationPercent,
+        ).map: backend =>
+          makeFromAuthedBackend(connection, topicName, serializer, backend)
 }

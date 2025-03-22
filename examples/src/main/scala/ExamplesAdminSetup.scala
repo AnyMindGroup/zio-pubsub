@@ -5,11 +5,11 @@ import zio.*
 
 object ExamplesAdminSetup extends ZIOAppDefault:
   // topics
-  val exampleTopic            = TopicName(projectId = "any", topic = "basic_example")
+  val exampleTopic            = TopicName("gcp_project", "topic")
   val exampleDeadLettersTopic = exampleTopic.copy(topic = s"${exampleTopic.topic}__dead_letters")
 
   // subscriptions
-  val subName = SubscriptionName(projectId = exampleTopic.projectId, subscription = "basic_example")
+  val subName = SubscriptionName(exampleTopic.projectId, "subscription")
   val exampleSub: Subscription = Subscription(
     topicName = exampleTopic,
     name = subName,
@@ -25,8 +25,9 @@ object ExamplesAdminSetup extends ZIOAppDefault:
   )
 
   def run =
-    defaultBackendByConfig(
-      PubsubConnectionConfig.Emulator(host = "localhost", port = 8085)
+    makeAuthedBackend(
+      // set by default to "PubsubConnectionConfig.Cloud" when not running against an emulator
+      connection = PubsubConnectionConfig.Emulator(host = "localhost", port = 8085)
     ).flatMap: backend =>
       for
         _ <- ZIO.foreach(List(exampleTopic, exampleDeadLettersTopic)): topic =>

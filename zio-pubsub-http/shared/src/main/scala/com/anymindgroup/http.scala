@@ -1,21 +1,68 @@
 package com.anymindgroup.pubsub.http
 
 import com.anymindgroup.gcp.auth.*
-import com.anymindgroup.pubsub.PubsubConnectionConfig
+import com.anymindgroup.pubsub.{PubsubConnectionConfig, Serializer, TopicName}
 import sttp.client4.Backend
 
 import zio.{Schedule, Scope, Task, ZIO}
 
-def defaultBackendByConfig(
-  config: PubsubConnectionConfig,
-  lookupComputeMetadataFirst: Boolean = false,
-  refreshRetrySchedule: Schedule[Any, Any, Any] = TokenProvider.defaults.refreshRetrySchedule,
-  refreshAtExpirationPercent: Double = TokenProvider.defaults.refreshAtExpirationPercent,
-): ZIO[Scope, Throwable, Backend[Task]] = config match
+// http backend with authentication
+// e.g. for usage with Pub/Sub Admin API
+def makeAuthedBackend(
+  connection: PubsubConnectionConfig = PubsubConnectionConfig.Cloud,
+  authConfig: AuthConfig = AuthConfig.default,
+): ZIO[Scope, Throwable, Backend[Task]] = connection match
   case PubsubConnectionConfig.Cloud =>
     defaultAccessTokenBackend(
-      lookupComputeMetadataFirst = lookupComputeMetadataFirst,
-      refreshRetrySchedule = refreshRetrySchedule,
-      refreshAtExpirationPercent = refreshAtExpirationPercent,
+      lookupComputeMetadataFirst = authConfig.lookupComputeMetadataFirst,
+      refreshRetrySchedule = authConfig.tokenRefreshRetrySchedule,
+      refreshAtExpirationPercent = authConfig.tokenRefreshAtExpirationPercent,
     )
   case e: PubsubConnectionConfig.Emulator => EmulatorBackend.withDefaultBackend(e)
+
+def makeTopicPublisher[R, E](
+  topicName: TopicName,
+  serializer: Serializer[R, E],
+  connection: PubsubConnectionConfig = PubsubConnectionConfig.Cloud,
+  backend: Option[Backend[Task]] = None,
+  authConfig: AuthConfig = AuthConfig.default,
+): ZIO[Scope, Throwable, HttpTopicPublisher[R, E]] =
+  backend match
+    case None =>
+      HttpTopicPublisher.makeWithDefaultBackend(
+        connection = connection,
+        topicName = topicName,
+        serializer = serializer,
+        authConfig = authConfig,
+      )
+    case Some(b) =>
+      HttpTopicPublisher.makeWithDefaultTokenProvider(
+        connection = connection,
+        topicName = topicName,
+        serializer = serializer,
+        backend = b,
+        authConfig = authConfig,
+      )
+
+def makeSubscriber(
+  backend: Option[Backend[Task]] = None,
+  connection: PubsubConnectionConfig = PubsubConnectionConfig.Cloud,
+  maxMessagesPerPull: Int = HttpSubscriber.defaults.maxMessagesPerPull,
+  retrySchedule: Schedule[Any, Throwable, ?] = HttpSubscriber.defaults.retrySchedule,
+  authConfig: AuthConfig = AuthConfig.default,
+): ZIO[Scope, Throwable, HttpSubscriber] = backend match
+  case None =>
+    HttpSubscriber.makeWithDefaultBackend(
+      connection = connection,
+      maxMessagesPerPull = maxMessagesPerPull,
+      retrySchedule = retrySchedule,
+      authConfig = authConfig,
+    )
+  case Some(b) =>
+    HttpSubscriber.makeWithDefaultTokenProvider(
+      connection = connection,
+      backend = b,
+      maxMessagesPerPull = maxMessagesPerPull,
+      retrySchedule = retrySchedule,
+      authConfig = authConfig,
+    )
