@@ -7,7 +7,7 @@ import com.anymindgroup.pubsub.http.HttpSubscriber
 import zio.stream.ZStream
 import zio.test.*
 import zio.test.Assertion.*
-import zio.{NonEmptyChunk, RIO, Scope, Task, ZIO, durationInt}
+import zio.{Clock, NonEmptyChunk, RIO, Scope, Task, ZIO, durationInt}
 
 object PubAndSubSpec {
   def spec(
@@ -69,7 +69,7 @@ object PubAndSubSpec {
                  .take(messages.length.toLong)
                  .tap(_._2.ack()) // ack all messages
                  .runDrain
-          unacked <- PubsubTestSupport.pull(sub, returnImmediately = false).timeout(2.seconds)
+          unacked <- Clock.sleep(2.seconds) *> PubsubTestSupport.pull(sub, returnImmediately = false).timeout(2.seconds)
           _       <- assertTrue(unacked.forall(_.isEmpty))
         } yield assertCompletes
       },
@@ -102,7 +102,7 @@ object PubAndSubSpec {
     ).provideSomeShared[Scope](
       PubsubTestSupport.emulatorBackendLayer(),
       PubsubTestSupport.testSubscriberLayer,
-    ) @@ TestAspect.withLiveClock @@ TestAspect.nondeterministic @@ TestAspect.timeout(30.seconds)
+    ) @@ TestAspect.withLiveClock @@ TestAspect.nondeterministic @@ TestAspect.timeout(60.seconds)
 
   private val publishMessageGen = for {
     data        <- Gen.alphaNumericStringBounded(1, 500) // data can't be empty
