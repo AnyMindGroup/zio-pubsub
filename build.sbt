@@ -207,7 +207,7 @@ lazy val zioPubsubSerdeVulcan = (project in file("zio-pubsub-serde-vulcan"))
     )
   )
 
-val circeVersion = "0.14.10"
+val circeVersion = "0.14.12"
 lazy val zioPubsubSerdeCirce = crossProject(JVMPlatform, NativePlatform)
   .in(file("zio-pubsub-serde-circe"))
   .settings(moduleName := "zio-pubsub-serde-circe")
@@ -221,7 +221,7 @@ lazy val zioPubsubSerdeCirce = crossProject(JVMPlatform, NativePlatform)
     )
   )
 
-val zioSchemaVersion = "1.6.4"
+val zioSchemaVersion = "1.6.6"
 lazy val zioPubsubSerdeZioSchema = crossProject(JVMPlatform, NativePlatform)
   .in(file("zio-pubsub-serde-zio-schema"))
   .settings(moduleName := "zio-pubsub-serde-zio-schema")
@@ -233,7 +233,7 @@ lazy val zioPubsubSerdeZioSchema = crossProject(JVMPlatform, NativePlatform)
     )
   )
 
-val googleCloudPubsubVersion = "1.137.1"
+val googleCloudPubsubVersion = "1.138.0"
 lazy val zioPubsubGoogle = (project in file("zio-pubsub-google"))
   .settings(moduleName := "zio-pubsub-google")
   .dependsOn(zioPubsub.jvm)
