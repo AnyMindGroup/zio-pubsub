@@ -8,7 +8,7 @@ object BasicSubscription extends ZIOAppDefault:
   ).flatMap:
     _.subscribe(
       subscriptionName = SubscriptionName("gcp_project", "subscription"),
-      deserializer = Serde.int,
+      deserializer = Serde.utf8String,
     ).mapZIO { (message, ackReply) =>
       for
         _ <- logInfo(

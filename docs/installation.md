@@ -9,6 +9,9 @@ libraryDependencies ++= Seq(
     
     // to use the implementation with Google's Java library
     "com.anymindgroup" %% "zio-pubsub-google"  % "@VERSION@",
+    
+    // or to use the http implementation
+    // "com.anymindgroup" %% "zio-pubsub-http"  % "@VERSION@",
 
     // include for testing support
     "com.anymindgroup" %% "zio-pubsub-testkit" % "@VERSION@" % Test

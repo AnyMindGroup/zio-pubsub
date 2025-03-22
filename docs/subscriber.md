@@ -5,8 +5,8 @@ A basic subscription stream that is going to deserialize message data as integer
 ```scala
 import com.anymindgroup.pubsub.*, zio.*, zio.stream.ZStream
 
-val subStream: ZStream[Subscriber, Throwable, (ReceivedMessage[Int], AckReply)] =
-  Subscriber.subscribe(subscriptionName = "basic_example", des = Serde.int)
+def subStream(s: Subscriber): ZStream[Any, Throwable, (ReceivedMessage[Int], AckReply)] =
+  s.subscribe(subscriptionName = "basic_example", des = Serde.int)
 ```
 
 In the next step one can define a function that is going to process a message 
@@ -26,19 +26,19 @@ def process(message: ReceivedMessage[Int], reply: AckReply) =
 Processing can be controlled according to the needs.  
 E.g. to process all messages in sequence:
 ```scala
-val processStream = subStream.mapZIO(process)
+def processStream(s: Subscriber) = subStream(s).mapZIO(process)
 ```
 
 Process up to 16 messages concurrently:
 ```scala
-val processStream = subStream.mapZIOPar(16)(process)
+def processStream(s: Subscriber) = subStream(s).mapZIOPar(16)(process)
 ```
 
 Group by ordering key (if present) and process the groups in parallel
 while items with same ordering key are processed sequentially:  
 
 ```scala
-val processStream = subStream.groupByKey((m, _) => m.orderingKey.getOrElse(m.messageId).hashCode()) {
+def processStream(s: Subscriber) = subStream(s).groupByKey((m, _) => m.orderingKey.getOrElse(m.messageId).hashCode()) {
   (_, groupStream) => groupStream.mapZIO(process)
 }
 ```
@@ -46,21 +46,11 @@ val processStream = subStream.groupByKey((m, _) => m.orderingKey.getOrElse(m.mes
 Putting it all together for exection by providing the `Subscriber` implementation:
 ```scala
 object MyProcess extends ZIOAppDefault:
-  // execute by providing the subscriber implementation layer
-  def run = processStream.runDrain.provide(subscriberLayer)
-
-  // subscriber implementation layer using StreamingPull API via Google's Java library
-  val subscriberLayer: TaskLayer[Subscriber] = {
-    import com.anymindgroup.pubsub.google as G
-
-    ZLayer.scoped(
-      G.Subscriber.makeStreamingPullSubscriber(
-        connection = G.PubsubConnectionConfig.Cloud(
-          G.PubsubConnectionConfig.GcpProject("my-gcp-project")
-        )
-      )
-    )
-  }
+  // execute by providing the subscriber implementation
+  def run = for 
+    subscriber <- com.anymindgroup.pubsub.http.makeSubscriber()
+    _ <- processStream(subscriber).runDrain
+  yield ()  
 ```
 
 ## Subscription with custom deserializer
@@ -76,8 +66,8 @@ val utf8StringDes: Deserializer[Any, String] = (message: ReceivedMessage[Chunk[B
   ZIO.attempt(String(message.data, java.nio.charset.StandardCharsets.UTF_8))
 
 // deserializer output will be reflected in the message type that is emitted by the stream: ReceivedMessage[String]
-val subStream: ZStream[Subscriber, Throwable, (ReceivedMessage[String], AckReply)] =
-  Subscriber.subscribe(subscriptionName = "basic_example", des = utf8StringDes)
+def subStream(s: Subscriber): ZStream[Any, Throwable, (ReceivedMessage[String], AckReply)] =
+  s.subscribe(subscriptionName = "basic_example", des = utf8StringDes)
 ```
 
 For custom data types see the [Serializer/Deserializer for custom data types](./serde.md#serializerdeserializer-for-custom-data-types) section.
@@ -90,8 +80,8 @@ to emit `ReceivedMessage[Chunk[Byte]]` containing data as array of bytes.
 ```scala
 import com.anymindgroup.pubsub.*, zio.stream.ZStream
 
-val subStream: ZStream[Subscriber, Throwable, (ReceivedMessage[Chunk[Byte]], AckReply)] =
-  Subscriber.subscribeRaw(subscriptionName = "basic_example")
+def subStream(s: Subscriber): ZStream[Any, Throwable, (ReceivedMessage[Chunk[Byte]], AckReply)] =
+  s.subscribeRaw(subscriptionName = "basic_example")
 ```
 
 ## Handling deserialization errors
