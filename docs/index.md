@@ -192,4 +192,4 @@ sbt 'examples/runMain SamplesPublisher'
 sbt 'examples/run'
 ```
 
-For all examples check out the `examples` folder.
+For more examples check out the `examples` folder or the file [PubsubCloudTest.scala](../zio-pubsub-test/shared/src/test/scala/com/anymindgroup/pubsub/PubsubCloudTest.scala) which contains usage of subscriber, publisher and the admin api running against an actaul Pub/Sub in the cloud for manual execution.  

@@ -3,13 +3,7 @@ package com.anymindgroup.pubsub.http
 import java.util.Base64
 import java.util.Base64.Decoder
 
-import com.anymindgroup.gcp.auth.{
-  Token,
-  TokenProvider,
-  TokenProviderException,
-  defaultAccessTokenBackend,
-  toAuthedBackend,
-}
+import com.anymindgroup.gcp.auth.{AuthedBackend, Token, TokenProvider, TokenProviderException, defaultAccessTokenBackend, toAuthedBackend}
 import com.anymindgroup.gcp.pubsub.v1.resources.projects as p
 import com.anymindgroup.gcp.pubsub.v1.schemas as s
 import com.anymindgroup.gcp.pubsub.v1.schemas.PubsubMessage
@@ -148,31 +142,20 @@ object HttpSubscriber {
     val retrySchedule: Schedule[Any, Throwable, Any] = Schedule.recurs(5)
 
   private[pubsub] def makeFromAuthedBackend(
-    connection: PubsubConnectionConfig,
-    authedBackend: Backend[Task],
+    authedBackend: AuthedBackend,
     maxMessagesPerPull: Int,
     retrySchedule: Schedule[Any, Throwable, ?],
   ): ZIO[Scope, Nothing, HttpSubscriber] =
-    for {
-      ackQueue <- ZIO.acquireRelease(Queue.unbounded[(String, Boolean)])(_.shutdown)
-    } yield connection match {
-      case PubsubConnectionConfig.Cloud =>
-        new HttpSubscriber(
+    ZIO
+      .acquireRelease(Queue.unbounded[(String, Boolean)])(_.shutdown)
+      .map: ackQueue =>
+        HttpSubscriber(
           backend = authedBackend,
           maxMessagesPerPull = maxMessagesPerPull,
           ackQueue = ackQueue,
           retrySchedule = retrySchedule,
           base64Decoder = Base64.getDecoder(),
         )
-      case config: PubsubConnectionConfig.Emulator =>
-        new HttpSubscriber(
-          backend = EmulatorBackend(authedBackend, config),
-          maxMessagesPerPull = maxMessagesPerPull,
-          ackQueue = ackQueue,
-          retrySchedule = retrySchedule,
-          base64Decoder = Base64.getDecoder(),
-        )
-    }
 
   def make(
     connection: PubsubConnectionConfig,
@@ -182,7 +165,6 @@ object HttpSubscriber {
     retrySchedule: Schedule[Any, Throwable, ?] = defaults.retrySchedule,
   ): ZIO[Scope, Nothing, HttpSubscriber] =
     makeFromAuthedBackend(
-      connection = connection,
       authedBackend = toAuthedBackend(tokenProvider, backend),
       maxMessagesPerPull = maxMessagesPerPull,
       retrySchedule = retrySchedule,
@@ -221,8 +203,7 @@ object HttpSubscriber {
       case emulator: PubsubConnectionConfig.Emulator =>
         httpBackendScoped().flatMap: backend =>
           makeFromAuthedBackend(
-            connection = emulator,
-            authedBackend = backend,
+            authedBackend = EmulatorBackend(backend, emulator),
             maxMessagesPerPull = maxMessagesPerPull,
             retrySchedule = retrySchedule,
           )
@@ -233,7 +214,6 @@ object HttpSubscriber {
           refreshAtExpirationPercent = authConfig.tokenRefreshAtExpirationPercent,
         ).flatMap: authedBackend =>
           makeFromAuthedBackend(
-            connection = connection,
             authedBackend = authedBackend,
             maxMessagesPerPull = maxMessagesPerPull,
             retrySchedule = retrySchedule,

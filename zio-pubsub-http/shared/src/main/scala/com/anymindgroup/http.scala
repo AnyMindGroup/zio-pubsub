@@ -11,7 +11,7 @@ import zio.{Schedule, Scope, Task, ZIO}
 def makeAuthedBackend(
   connection: PubsubConnectionConfig = PubsubConnectionConfig.Cloud,
   authConfig: AuthConfig = AuthConfig.default,
-): ZIO[Scope, Throwable, Backend[Task]] = connection match
+): ZIO[Scope, Throwable, AuthedBackend] = connection match
   case PubsubConnectionConfig.Cloud =>
     defaultAccessTokenBackend(
       lookupComputeMetadataFirst = authConfig.lookupComputeMetadataFirst,
@@ -24,7 +24,7 @@ def makeTopicPublisher[R, E](
   topicName: TopicName,
   serializer: Serializer[R, E],
   connection: PubsubConnectionConfig = PubsubConnectionConfig.Cloud,
-  backend: Option[Backend[Task]] = None,
+  backend: Option[AuthedBackend | Backend[Task]] = None,
   authConfig: AuthConfig = AuthConfig.default,
 ): ZIO[Scope, Throwable, HttpTopicPublisher[R, E]] =
   backend match
@@ -35,7 +35,15 @@ def makeTopicPublisher[R, E](
         serializer = serializer,
         authConfig = authConfig,
       )
-    case Some(b) =>
+    case Some(b: AuthedBackend) =>
+      ZIO.succeed(
+        HttpTopicPublisher.makeFromAuthedBackend(
+          topicName = topicName,
+          serializer = serializer,
+          authedBackend = b,
+        )
+      )
+    case Some(b: Backend[Task]) =>
       HttpTopicPublisher.makeWithDefaultTokenProvider(
         connection = connection,
         topicName = topicName,
@@ -45,7 +53,7 @@ def makeTopicPublisher[R, E](
       )
 
 def makeSubscriber(
-  backend: Option[Backend[Task]] = None,
+  backend: Option[AuthedBackend | Backend[Task]] = None,
   connection: PubsubConnectionConfig = PubsubConnectionConfig.Cloud,
   maxMessagesPerPull: Int = HttpSubscriber.defaults.maxMessagesPerPull,
   retrySchedule: Schedule[Any, Throwable, ?] = HttpSubscriber.defaults.retrySchedule,
@@ -57,6 +65,12 @@ def makeSubscriber(
       maxMessagesPerPull = maxMessagesPerPull,
       retrySchedule = retrySchedule,
       authConfig = authConfig,
+    )
+  case Some(b: AuthedBackend) =>
+    HttpSubscriber.makeFromAuthedBackend(
+      authedBackend = b,
+      maxMessagesPerPull = maxMessagesPerPull,
+      retrySchedule = retrySchedule,
     )
   case Some(b) =>
     HttpSubscriber.makeWithDefaultTokenProvider(

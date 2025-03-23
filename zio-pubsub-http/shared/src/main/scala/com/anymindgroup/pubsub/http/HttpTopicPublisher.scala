@@ -3,13 +3,7 @@ package com.anymindgroup.pubsub.http
 import java.util.Base64
 import java.util.Base64.Encoder
 
-import com.anymindgroup.gcp.auth.{
-  Token,
-  TokenProvider,
-  TokenProviderException,
-  defaultAccessTokenBackend,
-  toAuthedBackend,
-}
+import com.anymindgroup.gcp.auth.{AuthedBackend, Token, TokenProvider, TokenProviderException, defaultAccessTokenBackend, toAuthedBackend}
 import com.anymindgroup.gcp.pubsub.v1.resources.projects as p
 import com.anymindgroup.gcp.pubsub.v1.schemas as s
 import com.anymindgroup.http.httpBackendScoped
@@ -61,28 +55,17 @@ class HttpTopicPublisher[R, E] private[http] (
 }
 
 object HttpTopicPublisher {
-  private def makeFromAuthedBackend[R, E](
-    connection: PubsubConnectionConfig,
+  private[http] def makeFromAuthedBackend[R, E](
     topicName: TopicName,
     serializer: Serializer[R, E],
-    authedBackend: Backend[Task],
+    authedBackend: AuthedBackend,
   ): HttpTopicPublisher[R, E] =
-    connection match {
-      case PubsubConnectionConfig.Cloud =>
-        new HttpTopicPublisher[R, E](
-          serializer = serializer,
-          topic = topicName,
-          backend = authedBackend,
-          base64Encoder = Base64.getEncoder(),
-        )
-      case emulator: PubsubConnectionConfig.Emulator =>
-        new HttpTopicPublisher[R, E](
-          serializer = serializer,
-          topic = topicName,
-          backend = EmulatorBackend(authedBackend, emulator),
-          base64Encoder = Base64.getEncoder(),
-        )
-    }
+    new HttpTopicPublisher[R, E](
+      serializer = serializer,
+      topic = topicName,
+      backend = authedBackend,
+      base64Encoder = Base64.getEncoder(),
+    )
 
   def make[R, E](
     connection: PubsubConnectionConfig,
@@ -91,7 +74,7 @@ object HttpTopicPublisher {
     backend: Backend[Task],
     tokenProvider: TokenProvider[Token],
   ): HttpTopicPublisher[R, E] =
-    makeFromAuthedBackend(connection, topicName, serializer, toAuthedBackend(tokenProvider, backend))
+    makeFromAuthedBackend(topicName, serializer, toAuthedBackend(tokenProvider, backend))
 
   def makeWithDefaultTokenProvider[R, E](
     connection: PubsubConnectionConfig,
@@ -120,10 +103,9 @@ object HttpTopicPublisher {
       case emulator: PubsubConnectionConfig.Emulator =>
         httpBackendScoped().map: backend =>
           makeFromAuthedBackend(
-            connection = emulator,
             topicName = topicName,
             serializer = serializer,
-            authedBackend = backend,
+            authedBackend = EmulatorBackend(backend, emulator),
           )
       case _ =>
         defaultAccessTokenBackend(
@@ -131,5 +113,5 @@ object HttpTopicPublisher {
           refreshRetrySchedule = authConfig.tokenRefreshRetrySchedule,
           refreshAtExpirationPercent = authConfig.tokenRefreshAtExpirationPercent,
         ).map: backend =>
-          makeFromAuthedBackend(connection, topicName, serializer, backend)
+          makeFromAuthedBackend(topicName, serializer, backend)
 }
