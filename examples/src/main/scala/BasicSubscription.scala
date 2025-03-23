@@ -1,23 +1,22 @@
-import com.anymindgroup.pubsub.*, zio.*, zio.ZIO.*
+import com.anymindgroup.pubsub.*, zio.*, zio.stream.ZStream
 
 object BasicSubscription extends ZIOAppDefault:
-  // run a subscription stream based on Subscriber implementation provided
-  def subStream(s: Subscriber) =
-    s.subscribe(
-      subscriptionName = SubscriptionName("gcp_project", "subscription"),
-      deserializer = Serde.utf8String,
-    ).mapZIO { (message, ackReply) =>
-      for
-        _ <- logInfo(
-               s"Received message" +
-                 s" with id ${message.messageId.value}" +
-                 s" and data ${message.data}"
-             )
-        _ <- ackReply.ack()
-      yield ()
-    }.runDrain
+  def run =
+    // create a subscription stream based on Subscriber implementation provided
+    def subStream(s: Subscriber): ZStream[Any, Throwable, Unit] =
+      s.subscribe(
+        subscriptionName = SubscriptionName("gcp_project", "subscription"),
+        deserializer = Serde.utf8String,
+      ).mapZIO: (message, ackReply) =>
+        for
+          _ <- ZIO.logInfo(
+                 s"Received message" +
+                   s" with id ${message.messageId.value}" +
+                   s" and data ${message.data}"
+               )
+          _ <- ackReply.ack()
+        yield ()
 
-  def run = {
     val makeSubscriber: RIO[Scope, Subscriber] =
       // make http based Subscriber implementation
       http.makeSubscriber(
@@ -29,5 +28,4 @@ object BasicSubscription extends ZIOAppDefault:
       //  connection = PubsubConnectionConfig.Emulator("localhost", 8085)
       // )
 
-    makeSubscriber.flatMap(subStream)
-  }
+    makeSubscriber.flatMap(subStream(_).runDrain)

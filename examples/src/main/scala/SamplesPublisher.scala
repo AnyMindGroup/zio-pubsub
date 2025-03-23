@@ -1,26 +1,27 @@
 import com.anymindgroup.pubsub.*, zio.stream.*, zio.*, zio.ZIO.*
 
 object SamplesPublisher extends ZIOAppDefault:
-  // run samples publishing given Publisher implementation
-  def samplesPublish(p: Publisher[Any, String]) =
-    ZStream
-      .repeatZIOWithSchedule(Random.nextInt.map(i => s"some data $i"), Schedule.fixed(2.seconds))
-      .mapZIO { sample =>
-        for {
-          mId <- p.publish(
-                   PublishMessage(
-                     data = sample,
-                     attributes = Map.empty,
-                     orderingKey = None,
+  def run =
+    // run samples publishing given Publisher implementation
+    def samplesPublish(p: Publisher[Any, String]) =
+      ZStream
+        .repeatZIOWithSchedule(Random.nextInt.map(i => s"some data $i"), Schedule.fixed(2.seconds))
+        .mapZIO { sample =>
+          for {
+            mId <- p.publish(
+                     PublishMessage(
+                       data = sample,
+                       attributes = Map.empty,
+                       orderingKey = None,
+                     )
                    )
-                 )
-          _ <- logInfo(s"Published data $sample with message id ${mId.value}")
-        } yield ()
-      }
-      .runDrain
+            _ <- logInfo(s"Published data $sample with message id ${mId.value}")
+          } yield ()
+        }
+        .runDrain
 
-  def run = {
     val makePublisher: RIO[Scope, Publisher[Any, String]] =
+      // make http based topic publisher
       http.makeTopicPublisher(
         topicName = TopicName("gcp_project", "topic"),
         serializer = Serde.utf8String,
@@ -35,4 +36,3 @@ object SamplesPublisher extends ZIOAppDefault:
       // )
 
     makePublisher.flatMap(samplesPublish)
-  }

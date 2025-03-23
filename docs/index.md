@@ -38,26 +38,25 @@ libraryDependencies += "com.anymindgroup" %% "zio-pubsub-http" % "@VERSION@"
 #### Create a stream for existing subscription:
 
 ```scala
-import com.anymindgroup.pubsub.*, zio.*, zio.ZIO.*
+import com.anymindgroup.pubsub.*, zio.*, zio.stream.ZStream
 
 object BasicSubscription extends ZIOAppDefault:
-  // run a subscription stream based on Subscriber implementation provided
-  def subStream(s: Subscriber) =
-    s.subscribe(
-      subscriptionName = SubscriptionName("gcp_project", "subscription"),
-      deserializer = Serde.utf8String,
-    ).mapZIO { (message, ackReply) =>
-      for
-        _ <- logInfo(
-               s"Received message" +
-                 s" with id ${message.messageId.value}" +
-                 s" and data ${message.data}"
-             )
-        _ <- ackReply.ack()
-      yield ()
-    }.runDrain
+  def run =
+    // create a subscription stream based on Subscriber implementation provided
+    def subStream(s: Subscriber): ZStream[Any, Throwable, Unit] =
+      s.subscribe(
+        subscriptionName = SubscriptionName("gcp_project", "subscription"),
+        deserializer = Serde.utf8String,
+      ).mapZIO: (message, ackReply) =>
+        for
+          _ <- ZIO.logInfo(
+                 s"Received message" +
+                   s" with id ${message.messageId.value}" +
+                   s" and data ${message.data}"
+               )
+          _ <- ackReply.ack()
+        yield ()
 
-  def run = {
     val makeSubscriber: RIO[Scope, Subscriber] =
       // make http based Subscriber implementation
       http.makeSubscriber(
@@ -69,8 +68,7 @@ object BasicSubscription extends ZIOAppDefault:
       //  connection = PubsubConnectionConfig.Emulator("localhost", 8085)
       // )
 
-    makeSubscriber.flatMap(subStream)
-  }
+    makeSubscriber.flatMap(subStream(_).runDrain)
 ```
 
 #### Publish random string every 2 seconds
@@ -79,26 +77,27 @@ object BasicSubscription extends ZIOAppDefault:
 import com.anymindgroup.pubsub.*, zio.stream.*, zio.*, zio.ZIO.*
 
 object SamplesPublisher extends ZIOAppDefault:
-  // run samples publishing given Publisher implementation
-  def samplesPublish(p: Publisher[Any, String]) =
-    ZStream
-      .repeatZIOWithSchedule(Random.nextInt.map(i => s"some data $i"), Schedule.fixed(2.seconds))
-      .mapZIO { sample =>
-        for {
-          mId <- p.publish(
-                   PublishMessage(
-                     data = sample,
-                     attributes = Map.empty,
-                     orderingKey = None,
+  def run =
+    // run samples publishing given Publisher implementation
+    def samplesPublish(p: Publisher[Any, String]) =
+      ZStream
+        .repeatZIOWithSchedule(Random.nextInt.map(i => s"some data $i"), Schedule.fixed(2.seconds))
+        .mapZIO { sample =>
+          for {
+            mId <- p.publish(
+                     PublishMessage(
+                       data = sample,
+                       attributes = Map.empty,
+                       orderingKey = None,
+                     )
                    )
-                 )
-          _ <- logInfo(s"Published data $sample with message id ${mId.value}")
-        } yield ()
-      }
-      .runDrain
+            _ <- logInfo(s"Published data $sample with message id ${mId.value}")
+          } yield ()
+        }
+        .runDrain
 
-  def run = {
     val makePublisher: RIO[Scope, Publisher[Any, String]] =
+      // make http based topic publisher
       http.makeTopicPublisher(
         topicName = TopicName("gcp_project", "topic"),
         serializer = Serde.utf8String,
@@ -113,7 +112,6 @@ object SamplesPublisher extends ZIOAppDefault:
       // )
 
     makePublisher.flatMap(samplesPublish)
-  }
 ```
 
 #### Setup topics and subscription with dead letter settings using the admin api:
