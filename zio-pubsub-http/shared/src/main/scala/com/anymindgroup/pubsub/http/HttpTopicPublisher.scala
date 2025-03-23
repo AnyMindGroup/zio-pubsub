@@ -3,7 +3,14 @@ package com.anymindgroup.pubsub.http
 import java.util.Base64
 import java.util.Base64.Encoder
 
-import com.anymindgroup.gcp.auth.{AuthedBackend, Token, TokenProvider, TokenProviderException, defaultAccessTokenBackend, toAuthedBackend}
+import com.anymindgroup.gcp.auth.{
+  AuthedBackend,
+  Token,
+  TokenProvider,
+  TokenProviderException,
+  defaultAccessTokenBackend,
+  toAuthedBackend,
+}
 import com.anymindgroup.gcp.pubsub.v1.resources.projects as p
 import com.anymindgroup.gcp.pubsub.v1.schemas as s
 import com.anymindgroup.http.httpBackendScoped

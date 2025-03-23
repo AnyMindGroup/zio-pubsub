@@ -3,13 +3,21 @@ package com.anymindgroup.pubsub.http
 import java.util.Base64
 import java.util.Base64.Decoder
 
-import com.anymindgroup.gcp.auth.{AuthedBackend, Token, TokenProvider, TokenProviderException, defaultAccessTokenBackend, toAuthedBackend}
+import com.anymindgroup.gcp.auth.{
+  AuthedBackend,
+  Token,
+  TokenProvider,
+  TokenProviderException,
+  defaultAccessTokenBackend,
+  toAuthedBackend,
+}
 import com.anymindgroup.gcp.pubsub.v1.resources.projects as p
 import com.anymindgroup.gcp.pubsub.v1.schemas as s
 import com.anymindgroup.gcp.pubsub.v1.schemas.PubsubMessage
 import com.anymindgroup.http.httpBackendScoped
 import com.anymindgroup.pubsub.*
-import sttp.client4.Backend
+import sttp.client4.*
+import sttp.client4.ResponseException.UnexpectedStatusCode
 
 import zio.stream.ZStream
 import zio.{Cause, Chunk, NonEmptyChunk, Queue, Schedule, Scope, Task, UIO, ZIO}
@@ -50,9 +58,16 @@ class HttpSubscriber private[http] (
       .modifyAckDeadline(
         projectsId = subName.projectId,
         subscriptionsId = subName.subscription,
-        request = s.ModifyAckDeadlineRequest(nackIds, ackDeadlineSeconds = 0),
+        request = s.ModifyAckDeadlineRequest(ackIds = nackIds, ackDeadlineSeconds = 0),
+      )
+      .response(
+        asStringAlways.mapWithMetadata((body, metadata) =>
+          if metadata.isSuccess then Right(())
+          else Left(UnexpectedStatusCode(body, metadata))
+        )
       )
       .send(backend)
+      .flatMap(r => ZIO.fromEither(r.body))
       .uninterruptible
       .as(None)
       .catchAllCause(c => ackQueue.offerAll(nackIds.map((_, false))).as(Some(c)))
@@ -62,9 +77,16 @@ class HttpSubscriber private[http] (
       .acknowledge(
         projectsId = subName.projectId,
         subscriptionsId = subName.subscription,
-        request = s.AcknowledgeRequest(ackIds),
+        request = s.AcknowledgeRequest(ackIds = ackIds),
+      )
+      .response(
+        asStringAlways.mapWithMetadata((body, metadata) =>
+          if metadata.isSuccess then Right(())
+          else Left(UnexpectedStatusCode(body, metadata))
+        )
       )
       .send(backend)
+      .flatMap(r => ZIO.fromEither(r.body))
       .uninterruptible
       .as(None)
       .catchAllCause(c => ackQueue.offerAll(ackIds.map((_, true))).as(Some(c)))
@@ -125,12 +147,11 @@ class HttpSubscriber private[http] (
     val pullStream = ZStream.repeatZIOChunk(pull(subscriptionName))
 
     val ackStream: ZStream[Any, Throwable, Unit] = ZStream
-      .unfoldZIO(())(_ =>
+      .repeatZIO:
         processAckQueue(Some(1024), subscriptionName).flatMap {
-          case None    => ZIO.some(((), ()))
+          case None    => ZIO.unit
           case Some(c) => ZIO.failCause(c)
         }
-      )
 
     pullStream.drainFork(ackStream).onError(_ => processAckQueue(None, subscriptionName)).retry(retrySchedule)
   }
