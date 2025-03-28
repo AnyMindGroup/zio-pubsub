@@ -16,8 +16,7 @@ import com.google.pubsub.v1.{
 }
 
 import zio.stream.{ZStream, ZStreamAspect}
-import zio.{Cause, Chunk, Promise, Queue, RIO, Schedule, Scope, Task, UIO, ZIO, durationInt}
-import zio.ZIOAspect
+import zio.{Cause, Chunk, Promise, Queue, RIO, Schedule, Scope, Task, UIO, ZIO, ZIOAspect, durationInt}
 
 private[pubsub] object StreamingPullSubscriber {
   val defaultRetrySchedule: Schedule[Any, Throwable, Any] = {
