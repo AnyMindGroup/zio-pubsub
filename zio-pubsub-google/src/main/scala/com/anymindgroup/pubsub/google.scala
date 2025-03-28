@@ -3,7 +3,6 @@ package google
 
 import java.util.concurrent.TimeUnit
 
-import com.anymindgroup.pubsub.google.Subscriber.StreamAckDeadlineSeconds
 import com.google.api.gax.core.{BackgroundResource, CredentialsProvider, FixedExecutorProvider, NoCredentialsProvider}
 import com.google.api.gax.grpc.GrpcTransportChannel
 import com.google.api.gax.rpc.{ClientSettings, FixedTransportChannelProvider, StubSettings, TransportChannelProvider}
@@ -45,9 +44,9 @@ def createClient[
   SettingsBuilder <: ClientSettings.Builder[Settings, SettingsBuilder],
   Client <: BackgroundResource,
 ](
-  connection: PubsubConnectionConfig,
   builder: => SettingsBuilder,
   create: Settings => Client,
+  connection: PubsubConnectionConfig = PubsubConnectionConfig.Cloud,
 ): ZIO[Scope, Throwable, Client] =
   backgroundExecutorProvider.flatMap: executor =>
     connection match
@@ -120,10 +119,5 @@ def makeTopicPublisher[R, E](
 
 def makeStreamingPullSubscriber(
   connection: PubsubConnectionConfig = PubsubConnectionConfig.Cloud,
-  streamAckDeadlineSeconds: StreamAckDeadlineSeconds = Subscriber.defaultStreamAckDeadlineSeconds,
-  retrySchedule: Schedule[Any, Throwable, ?] = Subscriber.defaultRetrySchedule,
-) = Subscriber.makeStreamingPullSubscriber(
-  connection = connection,
-  streamAckDeadlineSeconds = streamAckDeadlineSeconds,
-  retrySchedule = retrySchedule,
-)
+  retrySchedule: Schedule[Any, Throwable, ?] = StreamingPullSubscriber.defaultRetrySchedule,
+) = Subscriber.makeStreamingPullSubscriber(connection, retrySchedule)

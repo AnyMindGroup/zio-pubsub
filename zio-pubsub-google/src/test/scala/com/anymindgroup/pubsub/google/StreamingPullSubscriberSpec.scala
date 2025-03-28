@@ -7,7 +7,6 @@ import scala.jdk.CollectionConverters.*
 
 import com.google.pubsub.v1.{ReceivedMessage, StreamingPullRequest, StreamingPullResponse}
 
-import zio.stream.ZStream
 import zio.test.Assertion.*
 import zio.test.{
   Gen,
@@ -38,11 +37,9 @@ object StreamingPullSubscriberSpec extends ZIOSpecDefault {
       val failUntilAttempt = 3
 
       def initStream(initCountRef: Ref[Int], ackedRef: AtomicReference[Vector[String]]) =
-        ZStream.fromZIO {
-          initCountRef.get
-            .map(initCount => testBidiStream(failPull = initCount < (failUntilAttempt - 1), ackedRef = ackedRef))
-            .tap(_ => initCountRef.updateAndGet(_ + 1))
-        }
+        initCountRef.get
+          .map(initCount => testBidiStream(failPull = initCount < (failUntilAttempt - 1), ackedRef = ackedRef))
+          .tap(_ => initCountRef.updateAndGet(_ + 1))
 
       for {
         initCountRef <- Ref.make(0)
@@ -68,11 +65,9 @@ object StreamingPullSubscriberSpec extends ZIOSpecDefault {
       val failUntilAttempt = 3
 
       def initStream(initCountRef: Ref[Int], ackedRef: AtomicReference[Vector[String]]) =
-        ZStream.fromZIO {
-          initCountRef.get
-            .map(t => testBidiStream(failSend = t < (failUntilAttempt - 1), ackedRef = ackedRef))
-            .tap(_ => initCountRef.updateAndGet(_ + 1))
-        }
+        initCountRef.get
+          .map(t => testBidiStream(failSend = t < (failUntilAttempt - 1), ackedRef = ackedRef))
+          .tap(_ => initCountRef.updateAndGet(_ + 1))
 
       for {
         initCountRef <- Ref.make(0)
@@ -101,7 +96,7 @@ object StreamingPullSubscriberSpec extends ZIOSpecDefault {
       val schedule   = Schedule.recurs(maxRetries)
 
       def initStream(counter: Ref[Int]) =
-        ZStream.fromZIO(counter.update(_ + 1)) *> ZStream.succeed(testBidiStream)
+        counter.update(_ + 1).as(testBidiStream)
 
       for {
         retryCounter <- Ref.make(-1)
@@ -121,7 +116,7 @@ object StreamingPullSubscriberSpec extends ZIOSpecDefault {
           interruptPromise <- Promise.make[Throwable, Unit]
           _ <- StreamingPullSubscriber
                  .makeStream(
-                   ZStream.succeed(testBidiStream(ackedRef = ackedRef, nackedRef = nackedRef)),
+                   ZIO.succeed(testBidiStream(ackedRef = ackedRef, nackedRef = nackedRef)),
                    ackQueue,
                    Schedule.stop,
                  )
@@ -198,7 +193,7 @@ object StreamingPullSubscriberSpec extends ZIOSpecDefault {
         queue <- Queue.unbounded[(String, Boolean)]
         _ <- Live.live(
                StreamingPullSubscriber
-                 .makeStream(ZStream.succeed(testBidiStream), queue, Schedule.forever)
+                 .makeStream(ZIO.succeed(testBidiStream), queue, Schedule.forever)
                  .timeout(500.millis)
                  .runDrain
              )

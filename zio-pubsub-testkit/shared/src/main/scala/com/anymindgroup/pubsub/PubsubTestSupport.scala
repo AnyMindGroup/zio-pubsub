@@ -31,12 +31,14 @@ object PubsubTestSupport {
   def createTopicWithSubscription(
     topicName: TopicName,
     subscriptionName: SubscriptionName,
+    ackDeadlineSeconds: Option[Int] = Some(10),
   ): RIO[Backend[Task], Unit] =
-    createTopic(topicName) *> createSubscription(topicName, subscriptionName)
+    createTopic(topicName) *> createSubscription(topicName, subscriptionName, ackDeadlineSeconds)
 
   def createSubscription(
     topicName: TopicName,
     subscriptionName: SubscriptionName,
+    ackDeadlineSeconds: Option[Int] = Some(10),
   ): RIO[Backend[Task], Unit] =
     ZIO
       .serviceWithZIO[Backend[Task]](
@@ -47,6 +49,7 @@ object PubsubTestSupport {
             request = s.Subscription(
               name = subscriptionName.fullName,
               topic = topicName.fullName,
+              ackDeadlineSeconds = ackDeadlineSeconds,
             ),
           )
         )
@@ -75,14 +78,14 @@ object PubsubTestSupport {
     event: E,
     topicName: TopicName,
     encode: E => Chunk[Byte] = (e: E) => Chunk.fromArray(e.toString.getBytes),
-  ): RIO[Backend[Task], Seq[String]] =
-    publishEvents(Seq(event), topicName, encode)
+  ): RIO[Backend[Task], MessageId] =
+    publishEvents(Seq(event), topicName, encode).map(_.head)
 
   def publishEvents[E](
     events: Seq[E],
     topicName: TopicName,
     encode: E => Chunk[Byte] = (e: E) => Chunk.fromArray(e.toString.getBytes),
-  ): RIO[Backend[Task], Seq[String]] =
+  ): RIO[Backend[Task], Chunk[MessageId]] =
     ZIO.serviceWithZIO[Backend[Task]](
       _.send(
         p.Topics
@@ -100,8 +103,8 @@ object PubsubTestSupport {
           )
       ).flatMap { res =>
         res.body match {
-          case Left(value)  => ZIO.fail(new Throwable(value))
-          case Right(value) => ZIO.succeed(value.messageIds.toList.flatten)
+          case Left(value)  => ZIO.fail(Throwable(value))
+          case Right(value) => ZIO.succeed(value.messageIds.getOrElse(Chunk.empty).map(MessageId(_)))
         }
       }
     )

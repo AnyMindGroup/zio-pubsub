@@ -7,6 +7,7 @@ import scala.jdk.CollectionConverters.*
 import com.anymindgroup.pubsub.{AckReply, PubsubConnectionConfig, SubscriptionName}
 import com.google.api.gax.rpc.{BidiStream as GBidiStream, ClientStream}
 import com.google.cloud.pubsub.v1.stub.{GrpcSubscriberStub, SubscriberStubSettings}
+import com.google.cloud.pubsub.v1.{SubscriptionAdminClient, SubscriptionAdminSettings}
 import com.google.pubsub.v1.{
   ReceivedMessage as GReceivedMessage,
   StreamingPullRequest,
@@ -15,9 +16,38 @@ import com.google.pubsub.v1.{
 }
 
 import zio.stream.{ZStream, ZStreamAspect}
-import zio.{Cause, Chunk, Promise, Queue, RIO, Schedule, Scope, UIO, ZIO}
+import zio.{Cause, Chunk, Promise, Queue, RIO, Schedule, Scope, Task, UIO, ZIO, durationInt}
+import zio.ZIOAspect
 
 private[pubsub] object StreamingPullSubscriber {
+  val defaultRetrySchedule: Schedule[Any, Throwable, Any] = {
+    val maxConsecutiveAttempts   = 5
+    val consecutiveAttemptWithin = 10.seconds
+
+    (Schedule.recurs(maxConsecutiveAttempts) && Schedule.identity[Throwable])
+      .resetAfter(consecutiveAttemptWithin)
+      .addDelayZIO { (consecutiveAttemptCount, err) =>
+        val delay = 1.second
+
+        (err match
+          // https://cloud.google.com/pubsub/docs/pull#streamingpull_api
+          // The StreamingPull API keeps an open connection.
+          // The Pub/Sub servers recurrently close the connection after a time period to avoid a long-running sticky connection.
+          case _: com.google.api.gax.rpc.UnavailableException =>
+            ZIO.logInfo(s"Recovering connection in ${delay.getSeconds()}s").as(delay)
+          case _ =>
+            ZIO
+              .logInfoCause(
+                s"Trying to recover connection in ${delay.toSeconds()}s from unexpected cause",
+                Cause.fail(err),
+              )
+              .as(delay)
+        ) @@ ZIOAspect.annotated(
+          "consecutiveAttempts" -> s"${consecutiveAttemptCount.toString()} / ${maxConsecutiveAttempts.toString()}"
+        )
+      }
+  }
+
   private[pubsub] def makeServerStream(
     stream: ServerStream[StreamingPullResponse]
   ): ZStream[Any, Throwable, GReceivedMessage] =
@@ -63,11 +93,11 @@ private[pubsub] object StreamingPullSubscriber {
       }
 
   private[pubsub] def makeStream(
-    initBidiStream: ZStream[Any, Throwable, BidiStream[StreamingPullRequest, StreamingPullResponse]],
+    initBidiStream: Task[BidiStream[StreamingPullRequest, StreamingPullResponse]],
     ackQueue: Queue[(String, Boolean)],
     retrySchedule: Schedule[Any, Throwable, ?],
   ): ZStream[Any, Throwable, (GReceivedMessage, AckReply)] = (for {
-    bidiStream <- initBidiStream
+    bidiStream <- ZStream.fromZIO(initBidiStream)
     stream = makeServerStream(bidiStream).map { message =>
                val ackReply = new AckReply {
                  override def ack(): UIO[Unit]  = ackQueue.offer((message.getAckId(), true)).uninterruptible.unit
@@ -75,13 +105,12 @@ private[pubsub] object StreamingPullSubscriber {
                }
                (message, ackReply)
              }
-    ackStream = ZStream
-                  .unfoldZIO(())(_ =>
-                    processAckQueue(ackQueue, bidiStream, Some(1024)).flatMap {
-                      case None    => ZIO.some(((), ()))
-                      case Some(c) => ZIO.failCause(c)
-                    }
-                  )
+    ackStream = ZStream.repeatZIO(
+                  processAckQueue(ackQueue, bidiStream, Some(1024)).flatMap {
+                    case None    => ZIO.unit
+                    case Some(c) => ZIO.failCause(c)
+                  }
+                )
     ackStreamFailed <- ZStream.fromZIO(Promise.make[Throwable, Nothing])
     _ <-
       ZStream.scopedWith { scope =>
@@ -104,9 +133,9 @@ private[pubsub] object StreamingPullSubscriber {
     subscriber: GrpcSubscriberStub,
     subscriptionId: GSubscriptionName,
     streamAckDeadlineSeconds: Int,
-  ): ZStream[Any, Throwable, BidiStream[StreamingPullRequest, StreamingPullResponse]] = for {
-    _ <- ZStream.log(s"Initializing subscription bidi stream...")
-    bidiStream <- ZStream.fromZIO(ZIO.attempt {
+  ): Task[BidiStream[StreamingPullRequest, StreamingPullResponse]] = for {
+    _ <- ZIO.log(s"Initializing subscription bidi stream...")
+    bidiStream <- ZIO.attempt {
                     val gBidiStream = subscriber.streamingPullCallable().call()
                     val req =
                       StreamingPullRequest.newBuilder
@@ -115,25 +144,37 @@ private[pubsub] object StreamingPullSubscriber {
                         .build()
                     gBidiStream.send(req)
                     BidiStream.fromGrpcBidiStream(gBidiStream)
-                  })
-    _ <- ZStream.log(s"Subscription bidi stream initialized")
+                  }
+    _ <- ZIO.log(s"Subscription bidi stream initialized")
   } yield bidiStream
+
+  private def getAckDeadlineSeconds(
+    connection: PubsubConnectionConfig,
+    subscriptionName: GSubscriptionName,
+  ) =
+    ZIO.scoped(
+      createClient(SubscriptionAdminSettings.newBuilder(), SubscriptionAdminClient.create(_), connection).flatMap: s =>
+        ZIO.attempt(s.getSubscription(subscriptionName).getAckDeadlineSeconds())
+    )
 
   def makeRawStream(
     subscriptionName: SubscriptionName,
-    streamAckDeadlineSeconds: Int,
     retrySchedule: Schedule[Any, Throwable, ?],
     connection: PubsubConnectionConfig,
   ): RIO[Scope, GoogleStream] = for {
-    subscriber    <- createStub(connection, SubscriberStubSettings.newBuilder, GrpcSubscriberStub.create(_))
-    ackQueue      <- ZIO.acquireRelease(Queue.unbounded[(String, Boolean)])(_.shutdown)
-    subscriptionId = GSubscriptionName.of(subscriptionName.projectId, subscriptionName.subscription)
+    subscriptionId     <- ZIO.succeed(GSubscriptionName.of(subscriptionName.projectId, subscriptionName.subscription))
+    ackDeadlineSeconds <- getAckDeadlineSeconds(connection, subscriptionId)
+    subscriber         <- createStub(connection, SubscriberStubSettings.newBuilder, GrpcSubscriberStub.create(_))
+    ackQueue           <- ZIO.acquireRelease(Queue.unbounded[(String, Boolean)])(_.shutdown)
     stream =
       makeStream(
-        initGrpcBidiStream(subscriber, subscriptionId, streamAckDeadlineSeconds),
+        initGrpcBidiStream(subscriber, subscriptionId, ackDeadlineSeconds),
         ackQueue,
         retrySchedule,
-      ) @@ ZStreamAspect.annotated("subscription_name", subscriptionName.fullName)
+      ) @@ ZStreamAspect.annotated(
+        "subscription_name"         -> subscriptionName.fullName,
+        "subscription_ack_deadline" -> s"${ackDeadlineSeconds}s",
+      )
   } yield stream
 }
 
