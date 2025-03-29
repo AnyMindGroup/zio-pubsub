@@ -11,13 +11,12 @@ import zio.{Chunk, NonEmptyChunk, RIO, Scope, Task, ZIO, durationInt}
 // integration tests that need to run agains an emulator
 object PubsubIntegrationSpec {
   def spec(
-    pkgName: String,
     // Publisher implementation to test against
     publisherImpl: (PubsubConnectionConfig, TopicName) => RIO[Scope, Publisher[Any, String]],
     // Subscriber implementation to test against
     subscriberImpl: PubsubConnectionConfig => RIO[Scope, Subscriber],
   ): Spec[Scope, Throwable] =
-    suite(s"[$pkgName] Publisher/Subscriber spec")(
+    suite(s"Pub/Sub integration spec")(
       test(s"Published and consumed messages are matching (single message)") {
         ZIO.scoped:
           for {

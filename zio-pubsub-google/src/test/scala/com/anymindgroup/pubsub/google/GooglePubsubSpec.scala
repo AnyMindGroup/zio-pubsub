@@ -5,10 +5,9 @@ import com.anymindgroup.pubsub.Serde
 import zio.Scope
 import zio.test.*
 
-object GooglePubsubIntegrationSpec extends ZIOSpecDefault {
-  override def spec: Spec[Scope, Any] =
+object GooglePubsubSpec extends ZIOSpecDefault {
+  override def spec: Spec[Scope, Any] = suite("GooglePubsubSpec")(
     com.anymindgroup.pubsub.PubsubIntegrationSpec.spec(
-      pkgName = "zio-pubsub-google",
       publisherImpl = (connection, topic) =>
         makeTopicPublisher(
           topicName = topic,
@@ -17,4 +16,5 @@ object GooglePubsubIntegrationSpec extends ZIOSpecDefault {
         ),
       subscriberImpl = connection => makeStreamingPullSubscriber(connection = connection),
     )
+  )
 }

@@ -9,11 +9,10 @@ import sttp.model.StatusCode
 import zio.test.*
 import zio.{Ref, Schedule, Scope, Task, ZIO}
 
-object HttpPubsubIntegrationSpec extends ZIOSpecDefault {
+object HttpPubsubSpec extends ZIOSpecDefault {
   override def spec: Spec[Scope, Any] =
-    suite("HttpPubAndSubSpec")(
+    suite("HttpPubsubSpec")(
       PubsubIntegrationSpec.spec(
-        pkgName = "zio-pubsub-http",
         publisherImpl = (connection, topic) =>
           makeTopicPublisher(connection = connection, topicName = topic, serializer = Serde.utf8String),
         subscriberImpl = connection => makeSubscriber(connection = connection),
@@ -40,7 +39,7 @@ object HttpPubsubIntegrationSpec extends ZIOSpecDefault {
               } yield assertCompletes
           }
       ),
-    ) @@ TestAspect.native(TestAspect.parallelN(2))
+    ) @@ TestAspect.native(TestAspect.sequential)
 
   private def backendStub(ackCounter: Ref[Int]) =
     Ref
