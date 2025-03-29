@@ -1,10 +1,29 @@
-import zio.sbt.githubactions.{Job, Step, Condition, ActionRef}
+import zio.sbt.githubactions.{ActionRef, Condition, Job, Step}
 import _root_.io.circe.Json
+
+import scala.annotation.tailrec
 enablePlugins(ZioSbtEcosystemPlugin, ZioSbtCiPlugin)
 
 lazy val _scala3 = "3.3.5"
 
 lazy val defaultJavaVersion = "21"
+
+lazy val zioGcpVersion = "0.1.4"
+
+def withTestSetupUpdate(j: Job) = if (j.id == "test") {
+  val startPubsub = Step.SingleStep(
+    name = "Start up pubsub emulator",
+    run = Some(
+      "docker compose up -d && until curl -s http://localhost:8085; do printf 'waiting for pubsub...'; sleep 1; done && echo \"pubsub ready\""
+    ),
+  )
+  j.copy(steps = j.steps.flatMap {
+    case s: Step.SingleStep if s.name.contains("Git Checkout") => Seq(s, startPubsub)
+    case s: Step.SingleStep if s.name.contains("Install libuv") =>
+      Seq(s.copy(run = Some("sudo apt-get update && sudo apt-get install -y libuv1-dev libidn2-dev libcurl3-dev")))
+    case s => Seq(s)
+  })
+} else j
 
 inThisBuild(
   List(
@@ -63,20 +82,7 @@ inThisBuild(
         )
       )
     },
-    ciTestJobs := ciTestJobs.value.map {
-      case j if j.id == "test" =>
-        val startPubsub = Step.SingleStep(
-          name = "Start up pubsub",
-          run = Some(
-            "docker compose up -d && until curl -s http://localhost:8085; do printf 'waiting for pubsub...'; sleep 1; done && echo \"pubsub ready\""
-          ),
-        )
-        j.copy(steps = j.steps.flatMap {
-          case s: Step.SingleStep if s.name.contains("Git Checkout") => Seq(s, startPubsub)
-          case s                                                     => Seq(s)
-        })
-      case j => j
-    },
+    ciTestJobs             := ciTestJobs.value.map(withTestSetupUpdate),
     sonatypeCredentialHost := xerial.sbt.Sonatype.sonatypeCentralHost,
     ciReleaseJobs := ciReleaseJobs.value.map(j =>
       j.copy(
@@ -164,14 +170,13 @@ lazy val root =
     .aggregate(
       zioPubsub.jvm,
       zioPubsub.native,
+      zioPubsubHttp.jvm,
+      zioPubsubHttp.native,
       zioPubsubGoogle,
-      zioPubsubGoogleTest,
-      zioPubsubTestkit,
-      zioPubsubSerdeCirce.jvm,
-      zioPubsubSerdeCirce.native,
+      zioPubsubTestkit.jvm,
+      zioPubsubTestkit.native,
       zioPubsubSerdeZioSchema.jvm,
       zioPubsubSerdeZioSchema.native,
-      zioPubsubSerdeVulcan,
       zioPubsubTest.jvm,
       zioPubsubTest.native,
     )
@@ -195,29 +200,15 @@ lazy val zioPubsub = crossProject(JVMPlatform, NativePlatform)
     )
   )
 
-val vulcanVersion = "1.11.1"
-lazy val zioPubsubSerdeVulcan = (project in file("zio-pubsub-serde-vulcan"))
-  .settings(moduleName := "zio-pubsub-serde-vulcan")
-  .dependsOn(zioPubsub.jvm)
-  .settings(commonSettings)
-  .settings(
-    libraryDependencies ++= Seq(
-      "com.github.fd4s" %% "vulcan"         % vulcanVersion,
-      "com.github.fd4s" %% "vulcan-generic" % vulcanVersion,
-    )
-  )
-
-val circeVersion = "0.14.12"
-lazy val zioPubsubSerdeCirce = crossProject(JVMPlatform, NativePlatform)
-  .in(file("zio-pubsub-serde-circe"))
-  .settings(moduleName := "zio-pubsub-serde-circe")
+lazy val zioPubsubHttp = crossProject(JVMPlatform, NativePlatform)
+  .in(file("zio-pubsub-http"))
+  .settings(moduleName := "zio-pubsub-http")
   .dependsOn(zioPubsub)
   .settings(commonSettings)
   .settings(
     libraryDependencies ++= Seq(
-      "io.circe" %%% "circe-core"    % circeVersion,
-      "io.circe" %%% "circe-parser"  % circeVersion,
-      "io.circe" %%% "circe-generic" % circeVersion,
+      "com.anymindgroup" %%% "zio-gcp-auth"      % zioGcpVersion,
+      "com.anymindgroup" %%% "zio-gcp-pubsub-v1" % zioGcpVersion,
     )
   )
 
@@ -236,33 +227,22 @@ lazy val zioPubsubSerdeZioSchema = crossProject(JVMPlatform, NativePlatform)
 val googleCloudPubsubVersion = "1.138.0"
 lazy val zioPubsubGoogle = (project in file("zio-pubsub-google"))
   .settings(moduleName := "zio-pubsub-google")
-  .dependsOn(zioPubsub.jvm)
+  .dependsOn(zioPubsub.jvm, zioPubsubTest.jvm % "test->test")
   .aggregate(zioPubsub.jvm)
   .settings(commonSettings)
   .settings(
-    scalacOptions --= List("-Wunused:nowarn"),
     libraryDependencies ++= Seq(
       "com.google.cloud" % "google-cloud-pubsub" % googleCloudPubsubVersion
     ),
-  )
-
-lazy val zioPubsubGoogleTest = project
-  .in(file("zio-pubsub-google-test"))
-  .dependsOn(zioPubsub.jvm, zioPubsubGoogle, zioPubsubTestkit, zioPubsubSerdeCirce.jvm, zioPubsubSerdeVulcan)
-  .settings(moduleName := "zio-pubsub-google-test")
-  .settings(commonSettings)
-  .settings(noPublishSettings)
-  .settings(testDeps)
-  .settings(
     coverageEnabled            := true,
     (Test / parallelExecution) := true,
     (Test / fork)              := true,
   )
 
-// TODO remove dependency on zioPubsubGoogle
 lazy val zioPubsubTestkit =
-  (project in file("zio-pubsub-testkit"))
-    .dependsOn(zioPubsub.jvm, zioPubsubGoogle)
+  crossProject(JVMPlatform, NativePlatform)
+    .in(file("zio-pubsub-testkit"))
+    .dependsOn(zioPubsub, zioPubsubHttp)
     .settings(moduleName := "zio-pubsub-testkit")
     .settings(commonSettings)
     .settings(
@@ -274,22 +254,26 @@ lazy val zioPubsubTestkit =
 lazy val zioPubsubTest =
   crossProject(JVMPlatform, NativePlatform)
     .in(file("zio-pubsub-test"))
-    .dependsOn(zioPubsub, zioPubsubSerdeCirce)
+    .dependsOn(zioPubsub % "test", zioPubsubTestkit % "test")
     .settings(moduleName := "zio-pubsub-test")
     .settings(commonSettings)
     .settings(noPublishSettings)
     .settings(testDeps)
-    .jvmSettings(coverageEnabled := true)
+    .jvmSettings(
+      coverageEnabled            := true,
+      (Test / parallelExecution) := true,
+      (Test / fork)              := true,
+    )
     .nativeSettings(coverageEnabled := false)
 
 lazy val examples = (project in file("examples"))
-  .dependsOn(zioPubsubGoogle)
+  .dependsOn(zioPubsubHttp.jvm, zioPubsubGoogle)
   .settings(noPublishSettings)
   .settings(
     coverageEnabled := false,
     fork            := true,
     libraryDependencies ++= Seq(
-      "dev.zio" %% "zio-json" % "0.7.1"
+      "dev.zio" %% "zio-json" % "0.7.39"
     ),
   )
 

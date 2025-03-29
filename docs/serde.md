@@ -1,20 +1,20 @@
 # Serialization / Deserialization
 
-Serializer and deserializer are defined under `com.anymindgroup.pubsub.serde`.
+Serializer and deserializer are available via `import com.anymindgroup.pubsub.{Serializer, Deserializer}`.
 
 A `Deserializer` basically represents a function that takes a message with array of bytes as input and returns type `T` by using environment `R`.  
 Other meta information under `ReceivedMessage` can be included into building type `T` apart from the message body.  
 Defined as follows:
 ```scala
 trait Deserializer[-R, +T] {
-  def deserialize(message: ReceivedMessage[Array[Byte]]): RIO[R, T]
+  def deserialize(message: ReceivedMessage[Chunk[Byte]]): RIO[R, T]
 }
 ```
 
 `Serializer` works the other way around, given input of type `T`, return an array of bytes using environmet `R`:
 ```scala
 trait Serializer[-R, -T] {
-  def serialize(data: T): RIO[R, Array[Byte]]
+  def serialize(data: T): RIO[R, Chunk[Byte]]
 }
 ```
 
@@ -23,7 +23,7 @@ trait Serializer[-R, -T] {
 trait Serde[-R, T] extends Serializer[R, T] with Deserializer[R, T] {}
 ```
 
-The object `com.anymindgroup.Serde` contains built-in serializers/deserializers.
+The object `com.anymindgroup.pubsub.Serde` contains built-in serializers/deserializers.
 Currently available:
  - `Serde.byteArray`
  - `Serde.int`
@@ -64,8 +64,8 @@ val myDataDes: Deserializer[Any, Either[String, MyData]] = message =>
   ZIO.succeed(String(message.data).fromJson[MyData])
 
 // result can be handled in the subscription process e.g. like
-val subStream =
-  Subscriber.subscribe("my_sub_name", myDataDes).mapZIO { (message, reply) =>
+def subStream(s: Subscriber) =
+  s.subscribe("my_sub_name", myDataDes).mapZIO { (message, reply) =>
     message.data match
       case Left(err)   => reply.nack() *> ZIO.logError(s"Failed to deserialize: $err")
       case Right(data) => reply.ack() *> ZIO.logInfo(s"Data ok $data")
