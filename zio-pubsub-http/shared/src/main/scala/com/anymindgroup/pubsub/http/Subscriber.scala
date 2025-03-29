@@ -17,7 +17,6 @@ import com.anymindgroup.gcp.pubsub.v1.schemas.PubsubMessage
 import com.anymindgroup.http.httpBackendScoped
 import com.anymindgroup.pubsub.*
 import sttp.client4.*
-import sttp.client4.ResponseException.UnexpectedStatusCode
 
 import zio.stream.ZStream
 import zio.{Cause, Chunk, NonEmptyChunk, Queue, Schedule, Scope, Task, UIO, ZIO}
@@ -60,12 +59,6 @@ class HttpSubscriber private[http] (
         subscriptionsId = subName.subscription,
         request = s.ModifyAckDeadlineRequest(ackIds = nackIds, ackDeadlineSeconds = 0),
       )
-      .response(
-        asStringAlways.mapWithMetadata((body, metadata) =>
-          if metadata.isSuccess then Right(())
-          else Left(UnexpectedStatusCode(body, metadata))
-        )
-      )
       .send(backend)
       .flatMap(r => ZIO.fromEither(r.body))
       .uninterruptible
@@ -78,12 +71,6 @@ class HttpSubscriber private[http] (
         projectsId = subName.projectId,
         subscriptionsId = subName.subscription,
         request = s.AcknowledgeRequest(ackIds = ackIds),
-      )
-      .response(
-        asStringAlways.mapWithMetadata((body, metadata) =>
-          if metadata.isSuccess then Right(())
-          else Left(UnexpectedStatusCode(body, metadata))
-        )
       )
       .send(backend)
       .flatMap(r => ZIO.fromEither(r.body))

@@ -8,7 +8,7 @@ lazy val _scala3 = "3.3.5"
 
 lazy val defaultJavaVersion = "21"
 
-lazy val zioGcpVersion = "0.1.3"
+lazy val zioGcpVersion = "0.1.4"
 
 def withTestSetupUpdate(j: Job) = if (j.id == "test") {
   val startPubsub = Step.SingleStep(
@@ -259,7 +259,11 @@ lazy val zioPubsubTest =
     .settings(commonSettings)
     .settings(noPublishSettings)
     .settings(testDeps)
-    .jvmSettings(coverageEnabled := true)
+    .jvmSettings(
+      coverageEnabled            := true,
+      (Test / parallelExecution) := true,
+      (Test / fork)              := true,
+    )
     .nativeSettings(coverageEnabled := false)
 
 lazy val examples = (project in file("examples"))

@@ -17,8 +17,8 @@ object PubAndSubSpec {
     subscriberImpl: PubsubConnectionConfig => RIO[Scope, Subscriber],
   ): Spec[Scope, Throwable] =
     suite(s"[$pkgName] Publisher/Subscriber spec")(
-      suite("Published and consumed messages are matching")(
-        test(s"single message") {
+      test(s"Published and consumed messages are matching (single message)") {
+        ZIO.scoped:
           for {
             (topic, sub) <- topicWithSubscriptionGen("any").runHead.map(_.get)
             _            <- PubsubTestSupport.createTopicWithSubscription(topic, sub)
@@ -34,8 +34,9 @@ object PubAndSubSpec {
             _ <- assertTrue(consumed.attributes == message.attributes)
             _ <- assertTrue(consumed.orderingKey == message.orderingKey)
           } yield assertCompletes
-        },
-        test(s"multiple messages") {
+      },
+      test(s"Published and consumed messages are matching (multiple messages)") {
+        ZIO.scoped:
           for {
             (topic, sub) <- topicWithSubscriptionGen("any").runHead.map(_.get)
             _            <- PubsubTestSupport.createTopicWithSubscription(topic, sub)
@@ -48,65 +49,70 @@ object PubAndSubSpec {
             consumed     <- subscriber.subscribe(sub, Serde.utf8String).take(messages.length).runCollect
             _            <- assertTrue(consumed.length == publishedIds.length)
           } yield assertCompletes
-        },
-      ),
+      },
       test("Subscriber messages are not acked or nacked") {
         val ackDeadlineSeconds = 10 // minimum
 
-        for {
-          (topic, sub) <- topicWithSubscriptionGen("any").runHead.map(_.get)
-          _            <- PubsubTestSupport.createTopicWithSubscription(topic, sub, ackDeadlineSeconds = Some(ackDeadlineSeconds))
-          connection   <- ZIO.service[PubsubConnectionConfig]
-          subscriber   <- subscriberImpl(connection)
-          message      <- publishMessagesGen(1, 1).runHead.map(_.get.head)
-          mId          <- PubsubTestSupport.publishEvent(message, topic)
-          res <- subscriber
-                   .subscribe(sub, Serde.utf8String)
-                   // run consumer until the same message was re-delivered due to ack deadline exceeded
-                   .run(ZSink.foldUntil(Chunk.empty[MessageId], 2)(_ :+ _._1.messageId))
-          _ <- assertTrue(res == Chunk(mId, mId))
-        } yield assertCompletes
+        ZIO.scoped:
+          for {
+            (topic, sub) <- topicWithSubscriptionGen("any").runHead.map(_.get)
+            _ <-
+              PubsubTestSupport.createTopicWithSubscription(topic, sub, ackDeadlineSeconds = Some(ackDeadlineSeconds))
+            connection <- ZIO.service[PubsubConnectionConfig]
+            subscriber <- subscriberImpl(connection)
+            message    <- publishMessagesGen(1, 1).runHead.map(_.get.head)
+            mId        <- PubsubTestSupport.publishEvent(message, topic)
+            res <- subscriber
+                     .subscribe(sub, Serde.utf8String)
+                     // run consumer until the same message was re-delivered due to ack deadline exceeded
+                     .run(ZSink.foldUntil(Chunk.empty[MessageId], 2)(_ :+ _._1.messageId))
+            _ <- assertTrue(res == Chunk(mId, mId))
+          } yield assertCompletes
       },
       test("Subscriber messages are nacked") {
-        for {
-          (topic, sub) <- topicWithSubscriptionGen("any").runHead.map(_.get)
-          _            <- PubsubTestSupport.createTopicWithSubscription(topic, sub)
-          connection   <- ZIO.service[PubsubConnectionConfig]
-          subscriber   <- subscriberImpl(connection)
-          message      <- publishMessagesGen(1, 1).runHead.map(_.get.head)
-          mId          <- PubsubTestSupport.publishEvent(message, topic)
-          res <- subscriber
-                   .subscribe(sub, Serde.utf8String)
-                   .tap(_._2.nack()) // nack all messages
-                   // run consumer until the same message was re-delivered
-                   .run(ZSink.foldUntil(Chunk.empty[MessageId], 2)(_ :+ _._1.messageId))
-          _ <- assertTrue(res == Chunk(mId, mId))
-        } yield assertCompletes
+        ZIO.scoped:
+          for {
+            (topic, sub) <- topicWithSubscriptionGen("any").runHead.map(_.get)
+            _            <- PubsubTestSupport.createTopicWithSubscription(topic, sub)
+            connection   <- ZIO.service[PubsubConnectionConfig]
+            subscriber   <- subscriberImpl(connection)
+            message      <- publishMessagesGen(1, 1).runHead.map(_.get.head)
+            mId          <- PubsubTestSupport.publishEvent(message, topic)
+            res <- subscriber
+                     .subscribe(sub, Serde.utf8String)
+                     .tap(_._2.nack()) // nack all messages
+                     // run consumer until the same message was re-delivered
+                     .run(ZSink.foldUntil(Chunk.empty[MessageId], 2)(_ :+ _._1.messageId))
+            _ <- assertTrue(res == Chunk(mId, mId))
+          } yield assertCompletes
       },
       test("Subscriber messages are acked") {
         val ackDeadlineSeconds = 10 // minimum
-
-        for {
-          (topic, sub) <- topicWithSubscriptionGen("any").runHead.map(_.get)
-          _            <- PubsubTestSupport.createTopicWithSubscription(topic, sub, ackDeadlineSeconds = Some(ackDeadlineSeconds))
-          connection   <- ZIO.service[PubsubConnectionConfig]
-          subscriber   <- subscriberImpl(connection)
-          message      <- publishMessagesGen(1, 1).runHead.map(_.get.head)
-          _            <- PubsubTestSupport.publishEvent(message, topic)
-          consumed <-
-            subscriber
-              .subscribe(sub, Serde.utf8String)
-              .tap(_._2.ack())
-              .interruptAfter(
-                (ackDeadlineSeconds + 3).seconds
-              ) // run consumer for longer than the ack deadline to confirm that messages are delivered once due to being acknowledged
-              .runCount
-          _ <- assertTrue(consumed == 1)
-        } yield assertCompletes
+        ZIO.scoped:
+          for {
+            (topic, sub) <- topicWithSubscriptionGen("any").runHead.map(_.get)
+            _ <-
+              PubsubTestSupport.createTopicWithSubscription(topic, sub, ackDeadlineSeconds = Some(ackDeadlineSeconds))
+            connection <- ZIO.service[PubsubConnectionConfig]
+            subscriber <- subscriberImpl(connection)
+            message    <- publishMessagesGen(1, 1).runHead.map(_.get.head)
+            _          <- PubsubTestSupport.publishEvent(message, topic)
+            consumed <-
+              subscriber
+                .subscribe(sub, Serde.utf8String)
+                .tap(_._2.ack())
+                .interruptAfter(
+                  (ackDeadlineSeconds + 3).seconds
+                ) // run consumer for longer than the ack deadline to confirm that messages are delivered once due to being acknowledged
+                .runCount
+            _ <- assertTrue(consumed == 1)
+          } yield assertCompletes
       },
-    ).provideSomeShared[Scope](
+    ).provide(
       PubsubTestSupport.emulatorBackendLayer()
-    ) @@ TestAspect.withLiveClock @@ TestAspect.nondeterministic @@ TestAspect.timeout(60.seconds)
+    ) @@ TestAspect.withLiveClock @@ TestAspect.nondeterministic @@ TestAspect.timeout(60.seconds) @@ TestAspect.native(
+      TestAspect.parallelN(2)
+    )
 
   private val publishMessageGen = for {
     data        <- Gen.alphaNumericStringBounded(1, 500) // data can't be empty
