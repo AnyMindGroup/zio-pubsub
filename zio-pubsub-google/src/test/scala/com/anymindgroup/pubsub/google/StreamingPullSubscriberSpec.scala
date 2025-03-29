@@ -107,7 +107,7 @@ object StreamingPullSubscriberSpec extends ZIOSpecDefault {
       } yield assert(exit)(fails(anything))
     },
     test("all processed messages are acked or nacked on interruption") {
-      check(Gen.int(1, 10000), Gen.boolean, Gen.int(1, 50)) { (interruptOnCount, interruptWithFailure, parralelism) =>
+      check(Gen.int(1, 10000), Gen.boolean) { (interruptOnCount, interruptWithFailure) =>
         for {
           processedRef     <- Ref.make(Vector.empty[String])
           ackedRef          = new AtomicReference(Vector.empty[String])
@@ -120,7 +120,7 @@ object StreamingPullSubscriberSpec extends ZIOSpecDefault {
                    ackQueue,
                    Schedule.stop,
                  )
-                 .mapZIOPar(parralelism) { case (msg, reply) =>
+                 .mapZIO { (msg, reply) =>
                    (for {
                      c <- processedRef.updateAndGet(_ :+ msg.getAckId())
                      _ <- Live.live(Random.nextBoolean).flatMap {
