@@ -7,32 +7,40 @@ import sttp.client4.testing.{BackendStub, ResponseStub}
 import sttp.model.StatusCode
 
 import zio.test.*
-import zio.test.Assertion.*
-import zio.{Ref, Schedule, Task, ZIO}
+import zio.{Ref, Schedule, Scope, Task, ZIO}
 
-object HttpSubscriberSpec extends ZIOSpecDefault {
-  override def spec: Spec[Any, Any] = suite("HttpSubscriberSpec")(
-    List(true, false).map: ack =>
-      test(s"failed ${if ack then "ack" else "nack"} requests are retried by provided schedule") {
-        ZIO.scoped:
-          for {
-            ackCounter <- Ref.make(0)
-            backend    <- backendStub(ackCounter)
-            maxRetries  = 5
-            subscriber <- makeSubscriber(
-                            backend = Some(backend),
-                            retrySchedule = Schedule.recurs(maxRetries),
-                          )
-            exit <- subscriber
-                      .subscribe(SubscriptionName("any", "any"), Serde.utf8String)
-                      .mapZIO((_, reply) => if ack then reply.ack() else reply.nack())
-                      .runDrain
-                      .exit
-            _ <- assertTrue(exit.isFailure)
-            _ <- assertZIO(ackCounter.get)(equalTo(maxRetries))
-          } yield assertCompletes
-      }
-  )
+object HttpPubsubIntegrationSpec extends ZIOSpecDefault {
+  override def spec: Spec[Scope, Any] =
+    suite("HttpPubAndSubSpec")(
+      PubsubIntegrationSpec.spec(
+        pkgName = "zio-pubsub-http",
+        publisherImpl = (connection, topic) =>
+          makeTopicPublisher(connection = connection, topicName = topic, serializer = Serde.utf8String),
+        subscriberImpl = connection => makeSubscriber(connection = connection),
+      ),
+      suite("HttpSubscriberSpec")(
+        List(true, false).map: ack =>
+          test(s"failed ${if ack then "ack" else "nack"} requests are retried by provided schedule") {
+            ZIO.scoped:
+              for {
+                ackCounter <- Ref.make(0)
+                backend    <- backendStub(ackCounter)
+                maxRetries  = 5
+                subscriber <- makeSubscriber(
+                                backend = Some(backend),
+                                retrySchedule = Schedule.recurs(maxRetries),
+                              )
+                exit <- subscriber
+                          .subscribe(SubscriptionName("any", "any"), Serde.utf8String)
+                          .mapZIO((_, reply) => if ack then reply.ack() else reply.nack())
+                          .runDrain
+                          .exit
+                _ <- assertTrue(exit.isFailure)
+                _ <- ackCounter.get.map(retries => assertTrue(retries == maxRetries))
+              } yield assertCompletes
+          }
+      ),
+    ) @@ TestAspect.native(TestAspect.parallelN(2))
 
   private def backendStub(ackCounter: Ref[Int]) =
     Ref
@@ -71,5 +79,4 @@ object HttpSubscriberSpec extends ZIOSpecDefault {
             .whenAnyRequest
             .thenRespondNotFound(),
         )
-
 }

@@ -5,9 +5,9 @@ import com.anymindgroup.pubsub.Serde
 import zio.Scope
 import zio.test.*
 
-object GooglePubAndSubSpec extends ZIOSpecDefault {
+object GooglePubsubIntegrationSpec extends ZIOSpecDefault {
   override def spec: Spec[Scope, Any] =
-    com.anymindgroup.pubsub.PubAndSubSpec.spec(
+    com.anymindgroup.pubsub.PubsubIntegrationSpec.spec(
       pkgName = "zio-pubsub-google",
       publisherImpl = (connection, topic) =>
         makeTopicPublisher(

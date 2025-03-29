@@ -8,7 +8,8 @@ import zio.test.*
 import zio.test.Assertion.*
 import zio.{Chunk, NonEmptyChunk, RIO, Scope, Task, ZIO, durationInt}
 
-object PubAndSubSpec {
+// integration tests that need to run agains an emulator
+object PubsubIntegrationSpec {
   def spec(
     pkgName: String,
     // Publisher implementation to test against
@@ -110,9 +111,7 @@ object PubAndSubSpec {
       },
     ).provide(
       PubsubTestSupport.emulatorBackendLayer()
-    ) @@ TestAspect.withLiveClock @@ TestAspect.nondeterministic @@ TestAspect.timeout(60.seconds) @@ TestAspect.native(
-      TestAspect.parallelN(2)
-    )
+    ) @@ TestAspect.withLiveClock @@ TestAspect.nondeterministic @@ TestAspect.timeout(60.seconds)
 
   private val publishMessageGen = for {
     data        <- Gen.alphaNumericStringBounded(1, 500) // data can't be empty
