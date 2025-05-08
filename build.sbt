@@ -4,7 +4,7 @@ import _root_.io.circe.Json
 import scala.annotation.tailrec
 enablePlugins(ZioSbtEcosystemPlugin, ZioSbtCiPlugin)
 
-lazy val _scala3 = "3.3.5"
+lazy val _scala3 = "3.3.6"
 
 lazy val defaultJavaVersion = "21"
 
