@@ -212,7 +212,7 @@ lazy val zioPubsubHttp = crossProject(JVMPlatform, NativePlatform)
     )
   )
 
-val zioSchemaVersion = "1.7.0"
+val zioSchemaVersion = "1.7.1"
 lazy val zioPubsubSerdeZioSchema = crossProject(JVMPlatform, NativePlatform)
   .in(file("zio-pubsub-serde-zio-schema"))
   .settings(moduleName := "zio-pubsub-serde-zio-schema")
