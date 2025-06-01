@@ -69,7 +69,7 @@ private[pubsub] object StreamingPullSubscriber {
       .fold(ackQueue.takeAll)(ackQueue.takeBetween(1, _))
       .flatMap {
         case chunk if chunk.isEmpty => ZIO.none
-        case chunk =>
+        case chunk                  =>
           ZIO.attempt {
             val (ackIds, nackIds) = chunk.partitionMap {
               case (id, true)  => Left(id)
@@ -97,7 +97,7 @@ private[pubsub] object StreamingPullSubscriber {
     retrySchedule: Schedule[Any, Throwable, ?],
   ): ZStream[Any, Throwable, (GReceivedMessage, AckReply)] = (for {
     bidiStream <- ZStream.fromZIO(initBidiStream)
-    stream = makeServerStream(bidiStream).map { message =>
+    stream      = makeServerStream(bidiStream).map { message =>
                val ackReply = new AckReply {
                  override def ack(): UIO[Unit]  = ackQueue.offer((message.getAckId(), true)).uninterruptible.unit
                  override def nack(): UIO[Unit] = ackQueue.offer((message.getAckId(), false)).uninterruptible.unit
@@ -111,7 +111,7 @@ private[pubsub] object StreamingPullSubscriber {
                   }
                 )
     ackStreamFailed <- ZStream.fromZIO(Promise.make[Throwable, Nothing])
-    _ <-
+    _               <-
       ZStream.scopedWith { scope =>
         for {
           _ <-
@@ -133,10 +133,10 @@ private[pubsub] object StreamingPullSubscriber {
     subscriptionId: GSubscriptionName,
     streamAckDeadlineSeconds: Int,
   ): Task[BidiStream[StreamingPullRequest, StreamingPullResponse]] = for {
-    _ <- ZIO.log(s"Initializing subscription bidi stream...")
+    _          <- ZIO.log(s"Initializing subscription bidi stream...")
     bidiStream <- ZIO.attempt {
                     val gBidiStream = subscriber.streamingPullCallable().call()
-                    val req =
+                    val req         =
                       StreamingPullRequest.newBuilder
                         .setSubscription(subscriptionId.toString())
                         .setStreamAckDeadlineSeconds(streamAckDeadlineSeconds)
@@ -165,7 +165,7 @@ private[pubsub] object StreamingPullSubscriber {
     ackDeadlineSeconds <- getAckDeadlineSeconds(connection, subscriptionId)
     subscriber         <- createStub(connection, SubscriberStubSettings.newBuilder, GrpcSubscriberStub.create(_))
     ackQueue           <- ZIO.acquireRelease(Queue.unbounded[(String, Boolean)])(_.shutdown)
-    stream =
+    stream              =
       makeStream(
         initGrpcBidiStream(subscriber, subscriptionId, ackDeadlineSeconds),
         ackQueue,

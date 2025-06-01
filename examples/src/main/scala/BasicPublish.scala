@@ -11,7 +11,7 @@ object BasicPublish extends ZIOAppDefault:
                      connection = PubsubConnectionConfig.Emulator("localhost", 8085),
                    )
       data <- Random.nextInt.map(i => s"some data $i")
-      mId <- publisher.publish(
+      mId  <- publisher.publish(
                PublishMessage(
                  data = data,
                  attributes = Map.empty,

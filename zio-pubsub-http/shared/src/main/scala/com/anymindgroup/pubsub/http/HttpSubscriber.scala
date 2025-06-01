@@ -92,7 +92,7 @@ class HttpSubscriber private[http] (
       .send(backend)
       .flatMap { res =>
         res.body match {
-          case Left(err) => ZIO.fail(err)
+          case Left(err)    => ZIO.fail(err)
           case Right(value) =>
             ZIO.succeed(
               value.receivedMessages

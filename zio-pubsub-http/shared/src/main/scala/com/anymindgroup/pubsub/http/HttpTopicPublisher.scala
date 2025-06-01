@@ -30,7 +30,7 @@ class HttpTopicPublisher[R, E] private[http] (
     for {
       request  <- toRequestBody(events)
       response <- request.send(backend)
-      ids <- ZIO.fromEither {
+      ids      <- ZIO.fromEither {
                if (response.isSuccess) {
                  response.body.map(r => NonEmptyChunk.fromChunk(r.messageIds.getOrElse(Chunk.empty))) match {
                    case Right(Some(msgIds)) => Right(msgIds.map(MessageId(_)))

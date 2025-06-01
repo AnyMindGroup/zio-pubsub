@@ -46,7 +46,7 @@ object StreamingPullSubscriberSpec extends ZIOSpecDefault {
         processedRef <- Ref.make(0)
         ackedRef      = new AtomicReference(Vector.empty[String])
         ackQueue     <- Queue.unbounded[(String, Boolean)]
-        _ <- StreamingPullSubscriber
+        _            <- StreamingPullSubscriber
                .makeStream(
                  initStream(initCountRef, ackedRef),
                  ackQueue,
@@ -74,7 +74,7 @@ object StreamingPullSubscriberSpec extends ZIOSpecDefault {
         processedRef <- Ref.make(0)
         ackedRef      = new AtomicReference(Vector.empty[String])
         ackQueue     <- Queue.unbounded[(String, Boolean)]
-        _ <- StreamingPullSubscriber
+        _            <- StreamingPullSubscriber
                .makeStream(initStream(initCountRef, ackedRef), ackQueue, Schedule.recurs(5))
                .mapZIO(e => processedRef.getAndUpdate(_ + 1) *> e._2.ack())
                .takeUntil(_ => ackedRef.get().length > 0) // take until first successfull ack
@@ -114,7 +114,7 @@ object StreamingPullSubscriberSpec extends ZIOSpecDefault {
           nackedRef         = new AtomicReference(Vector.empty[String])
           ackQueue         <- Queue.unbounded[(String, Boolean)]
           interruptPromise <- Promise.make[Throwable, Unit]
-          _ <- StreamingPullSubscriber
+          _                <- StreamingPullSubscriber
                  .makeStream(
                    ZIO.succeed(testBidiStream(ackedRef = ackedRef, nackedRef = nackedRef)),
                    ackQueue,
@@ -147,8 +147,8 @@ object StreamingPullSubscriberSpec extends ZIOSpecDefault {
       }
     } @@ TestAspect.samples(20) @@ TestAspect.flaky, // TODO fix flaky test
     test("server stream is canceled on interruption (standalone)") {
-      val cancelled = new ju.concurrent.atomic.AtomicBoolean(false)
-      val lock      = new AnyRef
+      val cancelled      = new ju.concurrent.atomic.AtomicBoolean(false)
+      val lock           = new AnyRef
       val testBidiStream = new TestBidiStream[StreamingPullRequest, StreamingPullResponse] {
         override def iterator(): ju.Iterator[StreamingPullResponse] = streamingPullResIterator(
           // hasNext that never returns until cancelled
@@ -173,8 +173,8 @@ object StreamingPullSubscriberSpec extends ZIOSpecDefault {
       } yield assertTrue(cancelled.get)
     } @@ TestAspect.timeout(5.seconds),
     test("server stream is canceled on interruption when running with ack stream") {
-      val cancelled = new ju.concurrent.atomic.AtomicBoolean(false)
-      val lock      = new AnyRef
+      val cancelled      = new ju.concurrent.atomic.AtomicBoolean(false)
+      val lock           = new AnyRef
       val testBidiStream = new TestBidiStream[StreamingPullRequest, StreamingPullResponse] {
         override def iterator(): ju.Iterator[StreamingPullResponse] = streamingPullResIterator(
           // hasNext that never returns until cancelled
@@ -191,7 +191,7 @@ object StreamingPullSubscriberSpec extends ZIOSpecDefault {
 
       for {
         queue <- Queue.unbounded[(String, Boolean)]
-        _ <- Live.live(
+        _     <- Live.live(
                StreamingPullSubscriber
                  .makeStream(ZIO.succeed(testBidiStream), queue, Schedule.forever)
                  .timeout(500.millis)

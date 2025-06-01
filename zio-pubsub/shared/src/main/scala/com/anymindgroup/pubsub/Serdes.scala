@@ -7,7 +7,7 @@ import zio.{Chunk, RIO, ZIO}
 private[pubsub] trait Serdes {
   val byteArray: Serde[Any, Chunk[Byte]] =
     new Serde[Any, Chunk[Byte]] {
-      override final def serialize(value: Chunk[Byte]): RIO[Any, Chunk[Byte]] = ZIO.succeed(value)
+      override final def serialize(value: Chunk[Byte]): RIO[Any, Chunk[Byte]]             = ZIO.succeed(value)
       override final def deserialize(message: ReceivedMessage.Raw): RIO[Any, Chunk[Byte]] =
         ZIO.succeed(message.data)
     }

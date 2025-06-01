@@ -9,7 +9,7 @@ object ExamplesAdminSetup extends ZIOAppDefault:
   val exampleDeadLettersTopic = exampleTopic.copy(topic = s"${exampleTopic.topic}__dead_letters")
 
   // subscriptions
-  val subName = SubscriptionName(exampleTopic.projectId, "subscription")
+  val subName                  = SubscriptionName(exampleTopic.projectId, "subscription")
   val exampleSub: Subscription = Subscription(
     topicName = exampleTopic,
     name = subName,

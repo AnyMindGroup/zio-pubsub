@@ -18,7 +18,7 @@ def withTestSetupUpdate(j: Job) = if (j.id == "test") {
     ),
   )
   j.copy(steps = j.steps.flatMap {
-    case s: Step.SingleStep if s.name.contains("Git Checkout") => Seq(s, startPubsub)
+    case s: Step.SingleStep if s.name.contains("Git Checkout")  => Seq(s, startPubsub)
     case s: Step.SingleStep if s.name.contains("Install libuv") =>
       Seq(s.copy(run = Some("sudo apt-get update && sudo apt-get install -y libuv1-dev libidn2-dev libcurl3-dev")))
     case s => Seq(s)
@@ -31,7 +31,7 @@ inThisBuild(
     organization := "com.anymindgroup",
     licenses     := Seq(License.Apache2),
     homepage     := Some(url("https://anymindgroup.github.io/zio-pubsub")),
-    developers := List(
+    developers   := List(
       Developer(id = "rolang", name = "Roman Langolf", email = "rolang@pm.me", url = url("https://github.com/rolang")),
       Developer(
         id = "dutch3883",
@@ -54,7 +54,7 @@ inThisBuild(
     ciJvmOptions ++= Seq("-Xms2G", "-Xmx2G", "-Xss4M", "-XX:+UseG1GC"),
     ciTargetJavaVersions := Seq(defaultJavaVersion),
     ciDefaultJavaVersion := defaultJavaVersion,
-    ciBuildJobs := ciBuildJobs.value.map { j =>
+    ciBuildJobs          := ciBuildJobs.value.map { j =>
       j.copy(steps =
         j.steps.map {
           case s @ Step.SingleStep("Check all code compiles", _, _, _, _, _, _) =>
@@ -84,7 +84,7 @@ inThisBuild(
     },
     ciTestJobs             := ciTestJobs.value.map(withTestSetupUpdate),
     sonatypeCredentialHost := xerial.sbt.Sonatype.sonatypeCentralHost,
-    ciReleaseJobs := ciReleaseJobs.value.map(j =>
+    ciReleaseJobs          := ciReleaseJobs.value.map(j =>
       j.copy(
         steps = j.steps.map {
           case Step.SingleStep(name @ "Release", _, _, _, _, _, env) =>
@@ -108,7 +108,7 @@ inThisBuild(
     // zio.sbt.githubactions.Job doesn't provide options for adding permissions and environment
     // overriding ciGenerateGithubWorkflow as well as ciCheckGithubWorkflow to get both working
     ciGenerateGithubWorkflow := ciGenerateGithubWorkflowV2.value,
-    ciCheckGithubWorkflow := Def.task {
+    ciCheckGithubWorkflow    := Def.task {
       import sys.process.*
       val _ = ciGenerateGithubWorkflowV2.value
 
@@ -212,7 +212,7 @@ lazy val zioPubsubHttp = crossProject(JVMPlatform, NativePlatform)
     )
   )
 
-val zioSchemaVersion = "1.7.2"
+val zioSchemaVersion             = "1.7.2"
 lazy val zioPubsubSerdeZioSchema = crossProject(JVMPlatform, NativePlatform)
   .in(file("zio-pubsub-serde-zio-schema"))
   .settings(moduleName := "zio-pubsub-serde-zio-schema")
@@ -225,7 +225,7 @@ lazy val zioPubsubSerdeZioSchema = crossProject(JVMPlatform, NativePlatform)
   )
 
 val googleCloudPubsubVersion = "1.139.4"
-lazy val zioPubsubGoogle = (project in file("zio-pubsub-google"))
+lazy val zioPubsubGoogle     = (project in file("zio-pubsub-google"))
   .settings(moduleName := "zio-pubsub-google")
   .dependsOn(zioPubsub.jvm, zioPubsubTest.jvm % "test->test")
   .aggregate(zioPubsub.jvm)
@@ -294,13 +294,13 @@ lazy val docs = project
     mainModuleName                             := (zioPubsub.jvm / moduleName).value,
     projectStage                               := ProjectStage.Development,
     ScalaUnidoc / unidoc / unidocProjectFilter := inProjects(zioPubsub.jvm),
-    readmeContribution :=
+    readmeContribution                         :=
       """|If you have any question or problem feel free to open an issue or discussion.
          |
          |People are expected to follow the [Code of Conduct](CODE_OF_CONDUCT.md) when discussing on the GitHub issues or PRs.""".stripMargin,
     readmeSupport       := "Open an issue or discussion on [GitHub](https://github.com/AnyMindGroup/zio-pubsub/issues)",
     readmeCodeOfConduct := "See the [Code of Conduct](CODE_OF_CONDUCT.md)",
-    readmeCredits := """|Inspired by libraries like [zio-kafka](https://github.com/zio/zio-kafka) 
+    readmeCredits       := """|Inspired by libraries like [zio-kafka](https://github.com/zio/zio-kafka) 
                         |and [fs2-pubsub](https://github.com/permutive-engineering/fs2-pubsub) to provide a similar experience.""".stripMargin,
     // docusaurusPublishGhpages := docusaurusPublishGhpages.value,
   )
