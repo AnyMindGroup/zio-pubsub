@@ -57,7 +57,7 @@ def createClient[
       case conf: PubsubConnectionConfig.Emulator =>
         for {
           (channel, credentials) <- createEmulatorSettings(conf)
-          client <- acquireBackgroundReource(
+          client                 <- acquireBackgroundReource(
                       ZIO.attempt(
                         create(
                           builder
@@ -96,7 +96,7 @@ private def createStub[
       case conf: PubsubConnectionConfig.Emulator =>
         for {
           (channel, credentials) <- createEmulatorSettings(conf)
-          client <- acquireBackgroundReource(
+          client                 <- acquireBackgroundReource(
                       ZIO.attempt(
                         create(
                           builder

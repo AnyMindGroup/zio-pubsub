@@ -17,7 +17,7 @@ class GoogleTopicPublisher[R, E] private[pubsub] (
   override def publish(messages: NonEmptyChunk[PublishMessage[E]]): RIO[R, NonEmptyChunk[MessageId]] =
     for {
       gMessages <- ZIO.foreach(messages)(toPubsubMessage(_)).map(_.toChunk.asJava)
-      response <- ZIO.fromFutureJava(
+      response  <- ZIO.fromFutureJava(
                     publisher
                       .publishCallable()
                       .futureCall(

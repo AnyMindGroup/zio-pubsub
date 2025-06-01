@@ -58,7 +58,7 @@ object PubsubCloudTest extends ZIOAppDefault:
                       )
                       .send(backend)
                       .flatMap(r => ZIO.fromEither(r.body))
-               _ <- printLine(s"✅ Subscription ${s.name} created")
+               _   <- printLine(s"✅ Subscription ${s.name} created")
                mId <- ZIO.scoped:
                         makeTopicPublisher(
                           topicName = topic,

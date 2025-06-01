@@ -27,7 +27,7 @@ object PubsubIntegrationSpec {
             subscriber   <- subscriberImpl(connection)
             message      <- publishMessageGen.runHead.map(_.get)
             publishedId  <- publisher.publish(message)
-            consumed <-
+            consumed     <-
               subscriber.subscribe(sub, Serde.utf8String).map(_._1).take(1).runCollect.map(_.head)
             _ <- assertTrue(consumed.messageId == publishedId)
             _ <- assertTrue(consumed.data == message.data)
@@ -56,13 +56,13 @@ object PubsubIntegrationSpec {
         ZIO.scoped:
           for {
             (topic, sub) <- topicWithSubscriptionGen("any").runHead.map(_.get)
-            _ <-
+            _            <-
               PubsubTestSupport.createTopicWithSubscription(topic, sub, ackDeadlineSeconds = Some(ackDeadlineSeconds))
             connection <- ZIO.service[PubsubConnectionConfig]
             subscriber <- subscriberImpl(connection)
             message    <- publishMessagesGen(1, 1).runHead.map(_.get.head)
             mId        <- PubsubTestSupport.publishEvent(message, topic)
-            res <- subscriber
+            res        <- subscriber
                      .subscribe(sub, Serde.utf8String)
                      // run consumer until the same message was re-delivered due to ack deadline exceeded
                      .run(ZSink.foldUntil(Chunk.empty[MessageId], 2)(_ :+ _._1.messageId))
@@ -78,7 +78,7 @@ object PubsubIntegrationSpec {
             subscriber   <- subscriberImpl(connection)
             message      <- publishMessagesGen(1, 1).runHead.map(_.get.head)
             mId          <- PubsubTestSupport.publishEvent(message, topic)
-            res <- subscriber
+            res          <- subscriber
                      .subscribe(sub, Serde.utf8String)
                      .tap(_._2.nack()) // nack all messages
                      // run consumer until the same message was re-delivered
@@ -91,13 +91,13 @@ object PubsubIntegrationSpec {
         ZIO.scoped:
           for {
             (topic, sub) <- topicWithSubscriptionGen("any").runHead.map(_.get)
-            _ <-
+            _            <-
               PubsubTestSupport.createTopicWithSubscription(topic, sub, ackDeadlineSeconds = Some(ackDeadlineSeconds))
             connection <- ZIO.service[PubsubConnectionConfig]
             subscriber <- subscriberImpl(connection)
             message    <- publishMessagesGen(1, 1).runHead.map(_.get.head)
             _          <- PubsubTestSupport.publishEvent(message, topic)
-            consumed <-
+            consumed   <-
               subscriber
                 .subscribe(sub, Serde.utf8String)
                 .tap(_._2.ack())

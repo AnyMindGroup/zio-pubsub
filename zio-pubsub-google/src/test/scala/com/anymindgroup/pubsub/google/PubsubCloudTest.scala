@@ -46,7 +46,7 @@ object PubsubCloudTest extends ZIOAppDefault:
       _  <- printLine(s"✅ Topic ${t.getName()} created")
       _  <- printLine(s"⏳ Creating subscription ${sub.fullName}...")
       sa <- createClient(SubscriptionAdminSettings.newBuilder(), SubscriptionAdminClient.create(_))
-      s <- ZIO.attempt(
+      s  <- ZIO.attempt(
              sa.createSubscription(
                GSubscription
                  .newBuilder()
@@ -55,7 +55,7 @@ object PubsubCloudTest extends ZIOAppDefault:
                  .build()
              )
            )
-      _ <- printLine(s"✅ Subscription ${s.getName()} created")
+      _   <- printLine(s"✅ Subscription ${s.getName()} created")
       mId <- ZIO.scoped:
                makeTopicPublisher(
                  topicName = topic,
