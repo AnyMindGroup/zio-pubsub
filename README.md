@@ -5,6 +5,7 @@
 # ZIO Google Cloud Pub/Sub
 
 ![Maven Central Version](https://img.shields.io/maven-central/v/com.anymindgroup/zio-pubsub_3)
+![Maven Snapshot Version](https://img.shields.io/maven-metadata/v?metadataUrl=https:%2F%2Fcentral.sonatype.com%2Frepository%2Fmaven-snapshots%2Fcom%2Fanymindgroup%2Fzio-pubsub_3%2Fmaven-metadata.xml&label=maven-snapshots)
 
 [Google Cloud Pub/Sub](https://cloud.google.com/pubsub) client providing stream-based, declarative, high-level API with [zio](https://zio.dev) and [zio-streams](https://zio.dev/reference/stream) to help to concentrate on the business logic.
 
@@ -27,9 +28,9 @@ _Scala 2.13 release will be kept in `v0.2.x` release series in the`series/0.2.x`
 To get started with sbt, add the following line to your build.sbt file:
 
 ```scala
-libraryDependencies += "com.anymindgroup" %% "zio-pubsub-http" % "0.2.9"
+libraryDependencies += "com.anymindgroup" %% "zio-pubsub-http" % "0.3.3"
 // or for Google's Java client based implementation:
-// libraryDependencies += "com.anymindgroup" %% "zio-pubsub-google" % "0.2.9"
+// libraryDependencies += "com.anymindgroup" %% "zio-pubsub-google" % "0.3.3"
 // Both can also be used interchangeably
 ```
 

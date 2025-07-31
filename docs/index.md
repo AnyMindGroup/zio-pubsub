@@ -5,6 +5,7 @@ sidebar_label: "Getting Started"
 ---
 
 ![Maven Central Version](https://img.shields.io/maven-central/v/com.anymindgroup/zio-pubsub_3)
+![Maven Snapshot Version](https://img.shields.io/maven-metadata/v?metadataUrl=https:%2F%2Fcentral.sonatype.com%2Frepository%2Fmaven-snapshots%2Fcom%2Fanymindgroup%2Fzio-pubsub_3%2Fmaven-metadata.xml&label=maven-snapshots)
 
 [Google Cloud Pub/Sub](https://cloud.google.com/pubsub) client providing stream-based, declarative, high-level API with [zio](https://zio.dev) and [zio-streams](https://zio.dev/reference/stream) to help to concentrate on the business logic.
 
