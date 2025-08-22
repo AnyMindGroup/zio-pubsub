@@ -230,7 +230,7 @@ lazy val zioPubsubSerdeZioSchema = crossProject(JVMPlatform, NativePlatform)
     )
   )
 
-val googleCloudPubsubVersion = "1.141.2"
+val googleCloudPubsubVersion = "1.141.3"
 lazy val zioPubsubGoogle     = (project in file("zio-pubsub-google"))
   .settings(moduleName := "zio-pubsub-google")
   .dependsOn(zioPubsub.jvm, zioPubsubTest.jvm % "test->test")
