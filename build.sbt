@@ -188,12 +188,6 @@ lazy val root =
     )
     .settings(commonSettings)
     .settings(noPublishSettings)
-    .settings(
-      coverageDataDir := {
-        val scalaVersionMajor = scalaVersion.value.head
-        target.value / s"scala-$scalaVersionMajor"
-      }
-    )
 
 lazy val zioPubsub = crossProject(JVMPlatform, NativePlatform)
   .in(file("zio-pubsub"))
@@ -240,7 +234,6 @@ lazy val zioPubsubGoogle     = (project in file("zio-pubsub-google"))
     libraryDependencies ++= Seq(
       "com.google.cloud" % "google-cloud-pubsub" % googleCloudPubsubVersion
     ),
-    coverageEnabled            := true,
     (Test / parallelExecution) := true,
     (Test / fork)              := true,
   )
@@ -266,18 +259,15 @@ lazy val zioPubsubTest =
     .settings(noPublishSettings)
     .settings(testDeps)
     .jvmSettings(
-      coverageEnabled            := true,
       (Test / parallelExecution) := true,
       (Test / fork)              := true,
     )
-    .nativeSettings(coverageEnabled := false)
 
 lazy val examples = (project in file("examples"))
   .dependsOn(zioPubsubHttp.jvm, zioPubsubGoogle)
   .settings(noPublishSettings)
   .settings(
-    coverageEnabled := false,
-    fork            := true,
+    fork := true,
     libraryDependencies ++= Seq(
       "dev.zio" %% "zio-json" % "0.7.39"
     ),
