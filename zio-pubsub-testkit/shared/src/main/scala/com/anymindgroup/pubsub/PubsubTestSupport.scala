@@ -2,7 +2,6 @@ package com.anymindgroup.pubsub
 
 import java.util.Base64
 
-import com.anymindgroup.gcp.auth.TokenProvider
 import com.anymindgroup.gcp.pubsub.v1.resources.projects as p
 import com.anymindgroup.gcp.pubsub.v1.schemas as s
 import com.anymindgroup.pubsub.http.{EmulatorBackend, HttpSubscriber}
@@ -152,14 +151,6 @@ object PubsubTestSupport {
     expiration = expiration,
     deadLettersSettings = None,
   ))
-
-  val testSubscriberLayer: ZLayer[PubsubConnectionConfig.Emulator & Backend[Task], Throwable, HttpSubscriber] =
-    ZLayer.scoped:
-      for
-        connection <- ZIO.service[PubsubConnectionConfig]
-        backend    <- ZIO.service[Backend[Task]]
-        subsciber  <- HttpSubscriber.make(connection, backend, TokenProvider.noTokenProvider)
-      yield subsciber
 
   def pull(
     subscription: SubscriptionName,

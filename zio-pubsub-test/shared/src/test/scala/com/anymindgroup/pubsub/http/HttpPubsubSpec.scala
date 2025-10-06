@@ -2,12 +2,11 @@ package com.anymindgroup.pubsub
 package http
 
 import com.anymindgroup.gcp.auth.{AuthedBackend, TokenProvider}
-import sttp.client4.impl.zio.RIOMonadAsyncError
-import sttp.client4.testing.{BackendStub, ResponseStub}
+import sttp.client4.testing.ResponseStub
 import sttp.model.StatusCode
 
 import zio.test.*
-import zio.{Ref, Schedule, Scope, Task, ZIO}
+import zio.{Ref, Schedule, Scope, ZIO}
 
 object HttpPubsubSpec extends ZIOSpecDefault {
   override def spec: Spec[Scope, Any] =
@@ -47,7 +46,7 @@ object HttpPubsubSpec extends ZIOSpecDefault {
       .map: pullCount =>
         AuthedBackend(
           TokenProvider.noTokenProvider,
-          BackendStub[Task](new RIOMonadAsyncError[Any])
+          platformStub
             .whenRequestMatches(r => r.uri.pathToString.endsWith(":pull"))
             .thenRespondF {
               // return a message on first pull only

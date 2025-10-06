@@ -78,7 +78,7 @@ object HttpTopicPublisher {
     connection: PubsubConnectionConfig,
     topicName: TopicName,
     serializer: Serializer[R, E],
-    backend: Backend[Task],
+    backend: HttpPlatformBackend,
     tokenProvider: TokenProvider[Token],
   ): HttpTopicPublisher[R, E] =
     makeFromAuthedBackend(topicName, serializer, toAuthedBackend(tokenProvider, backend))
@@ -87,7 +87,7 @@ object HttpTopicPublisher {
     connection: PubsubConnectionConfig,
     topicName: TopicName,
     serializer: Serializer[R, E],
-    backend: Backend[Task],
+    backend: HttpPlatformBackend,
     authConfig: AuthConfig = AuthConfig.default,
   ): ZIO[Scope, TokenProviderException, HttpTopicPublisher[R, E]] =
     TokenProvider
