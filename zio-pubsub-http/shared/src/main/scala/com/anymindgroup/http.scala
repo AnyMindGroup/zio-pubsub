@@ -2,9 +2,8 @@ package com.anymindgroup.pubsub.http
 
 import com.anymindgroup.gcp.auth.*
 import com.anymindgroup.pubsub.{PubsubConnectionConfig, Serializer, TopicName}
-import sttp.client4.Backend
 
-import zio.{Schedule, Scope, Task, ZIO}
+import zio.{Schedule, Scope, ZIO}
 
 // http backend with authentication
 // e.g. for usage with Pub/Sub Admin API
@@ -24,7 +23,7 @@ def makeTopicPublisher[R, E](
   topicName: TopicName,
   serializer: Serializer[R, E],
   connection: PubsubConnectionConfig = PubsubConnectionConfig.Cloud,
-  backend: Option[AuthedBackend | Backend[Task]] = None,
+  backend: Option[AuthedBackend | HttpPlatformBackend] = None,
   authConfig: AuthConfig = AuthConfig.default,
 ): ZIO[Scope, Throwable, HttpTopicPublisher[R, E]] =
   backend match
@@ -43,7 +42,7 @@ def makeTopicPublisher[R, E](
           authedBackend = b,
         )
       )
-    case Some(b: Backend[Task]) =>
+    case Some(b) =>
       HttpTopicPublisher.makeWithDefaultTokenProvider(
         connection = connection,
         topicName = topicName,
@@ -53,7 +52,7 @@ def makeTopicPublisher[R, E](
       )
 
 def makeSubscriber(
-  backend: Option[AuthedBackend | Backend[Task]] = None,
+  backend: Option[AuthedBackend | HttpPlatformBackend] = None,
   connection: PubsubConnectionConfig = PubsubConnectionConfig.Cloud,
   maxMessagesPerPull: Int = HttpSubscriber.defaults.maxMessagesPerPull,
   retrySchedule: Schedule[Any, Throwable, ?] = HttpSubscriber.defaults.retrySchedule,
