@@ -125,8 +125,6 @@ inThisBuild(
         )
       }
     },
-    scalafmt         := true,
-    scalafmtSbtCheck := true,
   )
 )
 
