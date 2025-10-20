@@ -44,7 +44,6 @@ def makeTopicPublisher[R, E](
       )
     case Some(b) =>
       HttpTopicPublisher.makeWithDefaultTokenProvider(
-        connection = connection,
         topicName = topicName,
         serializer = serializer,
         backend = b,
@@ -73,7 +72,6 @@ def makeSubscriber(
     )
   case Some(b) =>
     HttpSubscriber.makeWithDefaultTokenProvider(
-      connection = connection,
       backend = b,
       maxMessagesPerPull = maxMessagesPerPull,
       retrySchedule = retrySchedule,

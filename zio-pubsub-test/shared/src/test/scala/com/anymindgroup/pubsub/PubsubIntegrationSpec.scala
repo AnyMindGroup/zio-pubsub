@@ -5,8 +5,7 @@ import com.anymindgroup.pubsub.PubsubTestSupport.topicWithSubscriptionGen
 
 import zio.stream.ZSink
 import zio.test.*
-import zio.test.Assertion.*
-import zio.{Chunk, NonEmptyChunk, RIO, Scope, Task, ZIO, durationInt}
+import zio.{Chunk, NonEmptyChunk, RIO, Scope, ZIO, durationInt}
 
 // integration tests that need to run agains an emulator
 object PubsubIntegrationSpec {

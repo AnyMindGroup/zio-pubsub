@@ -166,7 +166,6 @@ object HttpSubscriber {
         )
 
   def make(
-    connection: PubsubConnectionConfig,
     backend: HttpPlatformBackend,
     tokenProvider: TokenProvider[Token],
     maxMessagesPerPull: Int = defaults.maxMessagesPerPull,
@@ -179,7 +178,6 @@ object HttpSubscriber {
     )
 
   def makeWithDefaultTokenProvider(
-    connection: PubsubConnectionConfig,
     backend: HttpPlatformBackend,
     maxMessagesPerPull: Int = defaults.maxMessagesPerPull,
     retrySchedule: Schedule[Any, Throwable, ?] = defaults.retrySchedule,
@@ -194,7 +192,6 @@ object HttpSubscriber {
       )
       .flatMap: tokenProvider =>
         make(
-          connection = connection,
           backend = backend,
           tokenProvider = tokenProvider,
           maxMessagesPerPull = maxMessagesPerPull,
