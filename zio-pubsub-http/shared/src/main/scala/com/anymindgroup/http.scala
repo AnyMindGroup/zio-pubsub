@@ -73,7 +73,6 @@ def makeSubscriber(
     )
   case Some(b) =>
     HttpSubscriber.makeWithDefaultTokenProvider(
-      connection = connection,
       backend = b,
       maxMessagesPerPull = maxMessagesPerPull,
       retrySchedule = retrySchedule,
