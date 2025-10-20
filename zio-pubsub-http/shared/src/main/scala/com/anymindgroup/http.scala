@@ -44,7 +44,6 @@ def makeTopicPublisher[R, E](
       )
     case Some(b) =>
       HttpTopicPublisher.makeWithDefaultTokenProvider(
-        connection = connection,
         topicName = topicName,
         serializer = serializer,
         backend = b,

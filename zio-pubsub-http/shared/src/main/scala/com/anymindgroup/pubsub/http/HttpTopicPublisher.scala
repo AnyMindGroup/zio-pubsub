@@ -75,7 +75,6 @@ object HttpTopicPublisher {
     )
 
   def make[R, E](
-    connection: PubsubConnectionConfig,
     topicName: TopicName,
     serializer: Serializer[R, E],
     backend: HttpPlatformBackend,
@@ -84,7 +83,6 @@ object HttpTopicPublisher {
     makeFromAuthedBackend(topicName, serializer, toAuthedBackend(tokenProvider, backend))
 
   def makeWithDefaultTokenProvider[R, E](
-    connection: PubsubConnectionConfig,
     topicName: TopicName,
     serializer: Serializer[R, E],
     backend: HttpPlatformBackend,
@@ -98,7 +96,7 @@ object HttpTopicPublisher {
         refreshAtExpirationPercent = authConfig.tokenRefreshAtExpirationPercent,
       )
       .map: tokenProvider =>
-        make(connection, topicName, serializer, backend, tokenProvider)
+        make(topicName, serializer, backend, tokenProvider)
 
   def makeWithDefaultBackend[R, E](
     connection: PubsubConnectionConfig,
