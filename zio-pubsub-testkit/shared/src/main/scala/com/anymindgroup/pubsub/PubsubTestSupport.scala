@@ -157,5 +157,7 @@ object PubsubTestSupport {
     returnImmediately: Boolean = false,
     maxMessages: Int = HttpSubscriber.defaults.maxMessagesPerPull,
   ): ZIO[HttpSubscriber, Throwable, Chunk[(ReceivedMessage[Chunk[Byte]], AckReply)]] =
-    ZIO.serviceWithZIO[HttpSubscriber](_.pull(subscription, returnImmediately = Some(returnImmediately)))
+    ZIO.serviceWithZIO[HttpSubscriber](
+      _.pull(subscription, returnImmediately = Some(returnImmediately), maxMessages = maxMessages)
+    )
 }
