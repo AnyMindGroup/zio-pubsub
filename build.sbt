@@ -1,14 +1,14 @@
 import zio.sbt.githubactions.{ActionRef, Condition, Job, Step}
-import _root_.io.circe.Json
+import zio.json.ast.Json
 
 import scala.annotation.tailrec
 enablePlugins(ZioSbtEcosystemPlugin, ZioSbtCiPlugin)
 
-lazy val _scala3 = "3.3.6"
+lazy val _scala3 = "3.3.7"
 
 lazy val defaultJavaVersion = "21"
 
-lazy val zioGcpVersion = "0.2.4"
+lazy val zioGcpVersion = "0.2.5"
 
 def withTestSetupUpdate(j: Job) = if (j.id == "test") {
   val startPubsub = Step.SingleStep(
@@ -46,7 +46,7 @@ inThisBuild(
         url = url("https://github.com/qhquanghuy"),
       ),
     ),
-    zioVersion         := "2.1.21",
+    zioVersion         := "2.1.23",
     scalaVersion       := _scala3,
     crossScalaVersions := Seq(_scala3),
     versionScheme      := Some("early-semver"),
@@ -78,7 +78,7 @@ inThisBuild(
         } :+ Step.SingleStep(
           name = "Upload website build",
           uses = Some(ActionRef("actions/upload-pages-artifact@v3")),
-          parameters = Map("path" -> Json.fromString("zio-pubsub-docs/target/website/build")),
+          parameters = Map("path" -> Json.Str("zio-pubsub-docs/target/website/build")),
         )
       )
     },
@@ -222,7 +222,7 @@ lazy val zioPubsubSerdeZioSchema = crossProject(JVMPlatform, NativePlatform)
     )
   )
 
-val googleCloudPubsubVersion = "1.142.0"
+val googleCloudPubsubVersion = "1.143.1"
 lazy val zioPubsubGoogle     = (project in file("zio-pubsub-google"))
   .settings(moduleName := "zio-pubsub-google")
   .dependsOn(zioPubsub.jvm, zioPubsubTest.jvm % "test->test")
