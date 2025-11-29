@@ -1,5 +1,5 @@
 import zio.sbt.githubactions.{ActionRef, Condition, Job, Step}
-import _root_.io.circe.Json
+import zio.json.ast.Json
 
 import scala.annotation.tailrec
 enablePlugins(ZioSbtEcosystemPlugin, ZioSbtCiPlugin)
@@ -8,7 +8,7 @@ lazy val _scala3 = "3.3.7"
 
 lazy val defaultJavaVersion = "21"
 
-lazy val zioGcpVersion = "0.2.4"
+lazy val zioGcpVersion = "0.2.5"
 
 def withTestSetupUpdate(j: Job) = if (j.id == "test") {
   val startPubsub = Step.SingleStep(
@@ -78,7 +78,7 @@ inThisBuild(
         } :+ Step.SingleStep(
           name = "Upload website build",
           uses = Some(ActionRef("actions/upload-pages-artifact@v3")),
-          parameters = Map("path" -> Json.fromString("zio-pubsub-docs/target/website/build")),
+          parameters = Map("path" -> Json.Str("zio-pubsub-docs/target/website/build")),
         )
       )
     },

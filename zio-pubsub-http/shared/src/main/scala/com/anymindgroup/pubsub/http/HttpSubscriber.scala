@@ -99,9 +99,9 @@ class HttpSubscriber private[http] (
                 .getOrElse(Chunk.empty)
                 .collect {
                   case s.ReceivedMessage(
-                        Some(ackId),
-                        Some(PubsubMessage(data, attrs, Some(mId), Some(ts), orderingKey)),
+                        Some(PubsubMessage(Some(mId), Some(ts), attrs, data, orderingKey)),
                         deliveryAttempt,
+                        Some(ackId),
                       ) =>
                     (
                       ReceivedMessage(
