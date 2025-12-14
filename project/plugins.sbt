@@ -10,6 +10,6 @@ addSbtPlugin("org.typelevel" % "sbt-tpolecat" % "0.5.2")
 
 addSbtPlugin("org.scalameta" % "sbt-scalafmt" % "2.5.6")
 
-addSbtPlugin("ch.epfl.scala" % "sbt-scalafix" % "0.14.4")
+addSbtPlugin("ch.epfl.scala" % "sbt-scalafix" % "0.14.5")
 
 addSbtPlugin("org.portable-scala" % "sbt-scala-native-crossproject" % "1.3.2")
