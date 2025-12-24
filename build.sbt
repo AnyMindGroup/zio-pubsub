@@ -8,7 +8,7 @@ lazy val _scala3 = "3.3.7"
 
 lazy val defaultJavaVersion = "21"
 
-lazy val zioGcpVersion = "0.2.5"
+lazy val zioGcpVersion = "0.2.7"
 
 def withTestSetupUpdate(j: Job) = if (j.id == "test") {
   val startPubsub = Step.SingleStep(
