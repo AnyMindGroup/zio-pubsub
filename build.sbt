@@ -1,3 +1,4 @@
+import zio.Chunk
 import zio.sbt.githubactions.{ActionRef, Condition, Job, Step}
 import zio.json.ast.Json
 
@@ -8,7 +9,7 @@ lazy val _scala3 = "3.3.7"
 
 lazy val defaultJavaVersion = "21"
 
-lazy val zioGcpVersion = "0.2.7"
+lazy val zioGcpVersion = "0.3.0"
 
 def withTestSetupUpdate(j: Job) = if (j.id == "test") {
   val startPubsub = Step.SingleStep(
@@ -20,7 +21,12 @@ def withTestSetupUpdate(j: Job) = if (j.id == "test") {
   j.copy(steps = j.steps.flatMap {
     case s: Step.SingleStep if s.name.contains("Git Checkout")  => Seq(s, startPubsub)
     case s: Step.SingleStep if s.name.contains("Install libuv") =>
-      Seq(s.copy(run = Some("sudo apt-get update && sudo apt-get install -y libuv1-dev libidn2-dev libcurl3-dev")))
+      Seq(
+        s.copy(
+          name = "Install libcurl",
+          run = Some("sudo apt-get update && sudo apt-get install -y libidn2-dev libcurl3-dev"),
+        )
+      )
     case s => Seq(s)
   })
 } else j
@@ -56,25 +62,30 @@ inThisBuild(
     ciDefaultJavaVersion := defaultJavaVersion,
     ciBuildJobs          := ciBuildJobs.value.map { j =>
       j.copy(steps =
-        j.steps.map {
+        j.steps.flatMap {
           case s @ Step.SingleStep("Check all code compiles", _, _, _, _, _, _) =>
-            Step.SingleStep(
-              name = s.name,
-              run = Some("sbt 'Test/compile; examples/compile'"),
-            )
-          case s @ Step.SingleStep("Check website build process", _, _, _, _, _, _) =>
-            Step.StepSequence(
-              Seq(
-                s,
-                Step.SingleStep(
-                  "Adjust baseUrl in website build",
-                  run = Some(
-                    """sed -i "s/baseUrl:.*/baseUrl: \"\/zio-pubsub\/\",/g" zio-pubsub-docs/target/website/docusaurus.config.js && sbt docs/buildWebsite"""
-                  ),
-                ),
+            Chunk(
+              Step.SingleStep(
+                name = s.name,
+                run = Some("sbt 'Test/compile; examples/compile'"),
               )
             )
-          case s => s
+          case s @ Step.SingleStep("Check website build process", _, _, _, _, _, _) =>
+            Chunk(
+              Step.StepSequence(
+                Seq(
+                  s,
+                  Step.SingleStep(
+                    "Adjust baseUrl in website build",
+                    run = Some(
+                      """sed -i "s/baseUrl:.*/baseUrl: \"\/zio-pubsub\/\",/g" zio-pubsub-docs/target/website/docusaurus.config.js && sbt docs/buildWebsite"""
+                    ),
+                  ),
+                )
+              )
+            )
+          case s: Step.SingleStep if s.name.contains("Install libuv") => Chunk.empty
+          case s                                                      => Chunk(s)
         } :+ Step.SingleStep(
           name = "Upload website build",
           uses = Some(ActionRef("actions/upload-pages-artifact@v3")),

@@ -32,8 +32,6 @@ jobs:
       uses: actions/checkout@v6
       with:
         fetch-depth: '0'
-    - name: Install libuv
-      run: sudo apt-get update && sudo apt-get install -y libuv1-dev
     - name: Setup Scala
       uses: actions/setup-java@v5
       with:
@@ -91,8 +89,8 @@ jobs:
         java:
         - '21'
     steps:
-    - name: Install libuv
-      run: sudo apt-get update && sudo apt-get install -y libuv1-dev libidn2-dev libcurl3-dev
+    - name: Install libcurl
+      run: sudo apt-get update && sudo apt-get install -y libidn2-dev libcurl3-dev
     - name: Setup Scala
       uses: actions/setup-java@v5
       with:
