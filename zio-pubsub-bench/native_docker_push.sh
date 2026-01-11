@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -e
 
-SCALANATIVE_MODE=release-fast ./mill testHttpNative.nativeLink
+SCALANATIVE_MODE=release-fast ./mill -i testHttpNative.nativeLink
 
 rm -rf docker_native/bin && mkdir docker_native/bin
 cp out/testHttpNative/nativeLink.dest/out docker_native/bin/zio_pubsub_test
