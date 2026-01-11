@@ -5,7 +5,7 @@ import sttp.client4.ResponseException.UnexpectedStatusCode
 
 import zio.ZIO.logInfo
 import com.anymindgroup.gcp.auth.AuthedBackend
-import zio.{Runtime, ZIO, ZLayer}
+import zio.{ZIO, ZLayer}
 
 object ZIOPubsubTestHttp extends ZIOPubsubTestApp with ZIOPubsubTestRuntime:
   private def pubLayer =

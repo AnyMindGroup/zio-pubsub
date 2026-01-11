@@ -66,31 +66,29 @@ trait ZIOPubsubTestApp extends ZIOApp:
         )
       _ <-
         ZIO
-          .foreachParDiscard(0 to messagesAmount)(i =>
-            p.publish(
+          .foreachParDiscard(
+            (0 to messagesAmount).map { i =>
               PublishMessage(
                 data = testPayload(i.toString()),
                 orderingKey = None,
                 attributes = testAttributes,
               )
-            )
-          )
-          .withParallelism(16)
+            }.grouped(100).collect { case x +: xs => NonEmptyChunk.fromIterable(x, xs) }.toList
+          )(msgs => p.publish(msgs))
           .timed
           .flatMap((d, _) =>
             ZIO
               .logInfo(s"Published $messagesAmount messages in ${d.toMillis()}ms")
           )
-      _ <- s
-             .subscribeRaw(testSub)
-             .take(messagesAmount)
-             .chunks
-             .mapZIO(chunk =>
-               ZIO.logInfo(s"Acking chunk of ${chunk.length}") *> ZIO.foreachParDiscard(chunk)((_, ack) => ack.ack())
-             )
-             .runDrain
-             .timed
-             .flatMap((d, _) => ZIO.logInfo(s"Consumed in ${d.toMillis}ms"))
+      _ <-
+        s
+          .subscribeRaw(testSub)
+          .take(messagesAmount)
+          .chunks
+          .mapZIO(chunk => ZIO.foreachParDiscard(chunk)((_, ack) => ack.ack()))
+          .runDrain
+          .timed
+          .flatMap((d, _) => ZIO.logInfo(s"Consumed in ${d.toMillis}ms"))
     yield ()).timed.flatMap((d, _) => ZIO.logInfo(s"Test completed in ${d.toMillis}ms"))
 
   private def testPayload(id: String) =

@@ -8,10 +8,10 @@ import contrib.docker.DockerModule
 import mill.scalanativelib.api.ReleaseMode
 import mill.api.Task.Simple
 
-val zioPubsubVersion = "0.3.6"
+val zioPubsubVersion = "0.3.6+26-28de6c15+20251129-0932-SNAPSHOT"
 
 trait CommonModule extends ScalaModule {
-  def scalaVersion = "3.7.3"
+  def scalaVersion = "3.7.4"
 
   def scalacOptions = Seq(
     "-source:future-migration",
@@ -36,7 +36,7 @@ trait CommonJvmModule extends CommonModule {
 }
 
 trait CommonNativeModule extends CommonModule, ScalaNativeModule {
-  def scalaNativeVersion = "0.5.8"
+  def scalaNativeVersion = "0.5.9"
 
   def nativeMultithreading = Some(true)
 
@@ -45,6 +45,8 @@ trait CommonNativeModule extends CommonModule, ScalaNativeModule {
     "-DGC_MAXIMUM_HEAP_SIZE=768g",
     // "-DDEBUG_PRINT",
   )
+
+  def releaseMode = ReleaseMode.ReleaseFast
 }
 
 object `test-runtime-jvm` extends CommonJvmModule
@@ -64,7 +66,9 @@ trait JvmDockerModule extends CommonJvmModule, DockerModule {
   }
 }
 
-object `test-google` extends JvmDockerModule {
+object testGoogle extends JvmDockerModule {
+  def moduleDir = super.moduleDir / ".." / "test-google"
+
   def moduleDeps = Seq(`test-core`, `test-runtime-jvm`)
 
   def mvnDeps = Seq(
