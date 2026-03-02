@@ -28,9 +28,9 @@ _Scala 2.13 release will be kept in `v0.2.x` release series in the`series/0.2.x`
 To get started with sbt, add the following line to your build.sbt file:
 
 ```scala
-libraryDependencies += "com.anymindgroup" %% "zio-pubsub-http" % "0.3.3"
+libraryDependencies += "com.anymindgroup" %% "zio-pubsub-http" % "0.4.0"
 // or for Google's Java client based implementation:
-// libraryDependencies += "com.anymindgroup" %% "zio-pubsub-google" % "0.3.3"
+// libraryDependencies += "com.anymindgroup" %% "zio-pubsub-google" % "0.4.0"
 // Both can also be used interchangeably
 ```
 

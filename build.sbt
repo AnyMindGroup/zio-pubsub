@@ -1,8 +1,9 @@
 import zio.Chunk
 import zio.sbt.githubactions.{ActionRef, Condition, Job, Step}
 import zio.json.ast.Json
-
+import scala.sys.process._
 import scala.annotation.tailrec
+
 enablePlugins(ZioSbtEcosystemPlugin, ZioSbtCiPlugin)
 
 lazy val _scala3 = "3.3.7"
@@ -307,7 +308,16 @@ lazy val docs = project
     readmeCodeOfConduct := "See the [Code of Conduct](CODE_OF_CONDUCT.md)",
     readmeCredits       := """|Inspired by libraries like [zio-kafka](https://github.com/zio/zio-kafka) 
                               |and [fs2-pubsub](https://github.com/permutive-engineering/fs2-pubsub) to provide a similar experience.""".stripMargin,
-    // docusaurusPublishGhpages := docusaurusPublishGhpages.value,
+    mdocVariables ++= {
+      Map(
+        "VERSION" -> {
+          // to fix the default impl which returns the oldest tag
+          "git tag -l --sort=-v:refname".!!.split("\n").collectFirst {
+            case v if v.startsWith("v") => v.tail
+          }.getOrElse(version.value)
+        }
+      )
+    },
   )
   .enablePlugins(WebsitePlugin)
   .dependsOn(zioPubsub.jvm, zioPubsubGoogle)
