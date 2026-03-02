@@ -9,7 +9,7 @@ lazy val _scala3 = "3.3.7"
 
 lazy val defaultJavaVersion = "21"
 
-lazy val zioGcpVersion = "0.3.0"
+lazy val zioGcpVersion = "0.4.0"
 
 def withTestSetupUpdate(j: Job) = if (j.id == "test") {
   val startPubsub = Step.SingleStep(
@@ -166,9 +166,9 @@ lazy val ciGenerateGithubWorkflowV2 = Def.task {
 lazy val commonSettings = List(
   javacOptions ++= Seq("-source", defaultJavaVersion),
   Compile / scalacOptions ++= Seq("-source:future", s"-release:$defaultJavaVersion"),
-  Compile / scalacOptions --= sys.env.get("CI").fold(Seq("-Xfatal-warnings"))(_ => Nil),
+  Compile / scalacOptions --= sys.env.get("CI").fold(Seq("-Werror"))(_ => Nil),
   Test / scalafixConfig := Some(new File(".scalafix_test.conf")),
-  Test / scalacOptions --= Seq("-Xfatal-warnings"),
+  Test / scalacOptions --= Seq("-Werror"),
   semanticdbEnabled := true,
   semanticdbVersion := scalafixSemanticdb.revision, // use Scalafix compatible version
 )
@@ -294,7 +294,7 @@ lazy val docs = project
   .settings(
     moduleName := "zio-pubsub-docs",
     scalacOptions -= "-Yno-imports",
-    scalacOptions -= "-Xfatal-warnings",
+    scalacOptions -= "-Werror",
     projectName                                := "ZIO Google Cloud Pub/Sub",
     mainModuleName                             := (zioPubsub.jvm / moduleName).value,
     projectStage                               := ProjectStage.Development,

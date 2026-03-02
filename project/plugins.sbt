@@ -1,10 +1,10 @@
-val zioSbtVersion = "0.4.11"
+val zioSbtVersion = "0.5.0"
 
 addSbtPlugin("dev.zio" % "zio-sbt-website"   % zioSbtVersion)
 addSbtPlugin("dev.zio" % "zio-sbt-ci"        % zioSbtVersion)
 addSbtPlugin("dev.zio" % "zio-sbt-ecosystem" % zioSbtVersion)
 
-addSbtPlugin("org.scala-native" % "sbt-scala-native" % "0.5.9")
+addSbtPlugin("org.scala-native" % "sbt-scala-native" % "0.5.10")
 
 addSbtPlugin("org.typelevel" % "sbt-tpolecat" % "0.5.3")
 
