@@ -2,6 +2,8 @@
 [//]: # (So please do not edit it manually. Instead, change "docs/index.md" file or sbt setting keys)
 [//]: # (e.g. "readmeDocumentation" and "readmeSupport".)
 
+# ℹ️ Moved to be part of [AnyMindGroup/zio-gcp](https://github.com/AnyMindGroup/zio-gcp) ℹ️ 
+
 # ZIO Google Cloud Pub/Sub
 
 ![Maven Central Version](https://img.shields.io/maven-central/v/com.anymindgroup/zio-pubsub_3)
